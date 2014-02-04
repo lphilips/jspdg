@@ -1,0 +1,228 @@
+<html>
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+
+    <link rel='shortcut icon' type='image/x-icon' href='favicon.ico' />
+
+	<link rel="stylesheet" href="jipda.css" type="text/css" media="all"/>
+	<link rel="stylesheet" href="css/bootstrap.min.css"> 
+	<link rel="stylesheet" href="css/bootstrap-jumbotron.css">
+	<title>STiP.js</title>
+	<!--<script type="text/javascript" src="../../../lib/esprima.js"></script>!-->
+	<script src="../lib/esprima.js"></script>
+	<script src="../lib/estraverse.js"></script>
+	<script src="../lib/escope.js"></script>
+	<script src="../lib/esrefactor.js"></script>
+	<script src="../lib/json2.js"></script>
+	<script src="https://code.jquery.com/jquery.js"></script>
+	<script src="http://yui.yahooapis.com/3.9.0/build/yui/yui-min.js"></script>
+	<script src="js/bootstrap.min.js"></script>
+	<script src="js/tab.js"></script>
+	<script type="text/javascript" src="../edge.js"></script>
+    <script type="text/javascript" src="../node.js"></script>
+    <script type="text/javascript" src="../graph.js"></script>
+	<script type="text/javascript" src="../../common.js"></script>
+	<script type="text/javascript" src="../../agc.js"></script>
+	<script type="text/javascript" src="../../lattice.js"></script>
+	<script type="text/javascript" src="../../lattice1.js"></script>
+	<script type="text/javascript" src="../../setLattice.js"></script>
+	<script type="text/javascript" src="../../address.js"></script>
+	<script type="text/javascript" src="../../jsEsprima.js"></script>
+	<script type="text/javascript" src="../../store.js"></script>
+	<script type="text/javascript" src="../../graph.js"></script>
+	<script type="text/javascript" src="../../pushdown.js"></script>
+	<script type="text/javascript" src="../../jsCesk.js"></script>
+	<script type="text/javascript" src="../../tagAg.js"></script>
+	<script type="text/javascript" src="../../defaultBenv.js"></script>
+	<script type="text/javascript" src="../jipda.js"></script>
+	<script type="text/javascript" src="../../jipdatool.js"></script>
+	<script type="text/javascript" src="js/esprimatool.js"></script>
+	<script type="text/javascript" src="lib/jslint.js"></script>
+	<script type="text/javascript" src="js/jslinttool.js"></script>
+	<script type="text/javascript" src="../../lib/web/jquery-1.7.2.min.js"></script>
+	<script type="text/javascript" src="../../lib/web/ace/ace.js"></script>
+	<script type="text/javascript" src="../../lib/web/viz.js"></script>
+	<script type="text/javascript" src="../stip.js"></script>
+	<script type="text/javascript" src="../Meteor_parse.js"></script>
+	<script type="text/javascript" src="../JSify.js"></script>
+	<script type="text/javascript" src="../Meteorify.js"></script>
+	<script type="text/javascript" src="../slice.js"></script>
+	<script type="text/javascript" src="../annotations.js"></script>
+	<script src="../lib/escodegen.browser.js"></script>
+	<script src="PDGgraph.js"></script>
+	<script src="examples.js"></script>
+	<script type="text/javascript">
+
+	// define print method for JIPDA
+    var print = function () { console.log(Array.prototype.slice.call(arguments).join(" ")) }		
+    var editor;
+	var slicededitor;
+	var result;
+	var PDGg;
+    function doIt() {
+      	$("#graph").empty();
+      	var src = editor.getSession().getValue();
+      	var ast = Ast.createAst(src);
+      	var lat = new Lattice1();
+      	//var lat = new SetLattice(3);
+      	var cesk = jsCesk({a:tagAg, p:lat});
+      	result = new Pushdown().analyze(ast, cesk);
+      	var etgEdges = result.etg.edges();
+      	var emptySet = ArraySet.empty();
+      	var meta = result.ss.entries().reduce(function (acc, entry) {return acc.put(entry.key, {ss:entry.value})}, HashMap.empty());
+      	var element = $("#graph");
+      	var nodes = [];
+      	var frames = []
+      	graphs = new Graphs(result,ast,src);
+	  	graphs.start();
+      	drawLinks(graphs.PDG, element, window, slicededitor);
+        return graphs;
+     }
+    function split() {
+		var graphs = doIt();
+		var PDG = graphs.PDG;
+		PDGg = graphs;
+		slicededitor.setValue("");
+        var slicedc = PDG.sliceDistributedNode(PDG.dclient);
+		var sliceds = PDG.sliceDistributedNode(PDG.dserver);
+ 		var sortedc = slicedc.slice(0);
+		var sorteds = sliceds.slice(0);
+		var printCode = function(nodes) {
+			nodes.sort(function(n1,n2) {
+				return n1.cnt - n2.cnt;
+			});
+			var slicing;
+			while (nodes.length > 0) {
+				var n = nodes.shift();
+				if(n.parsenode) {
+					slicing = toCode("meteor",nodes,n);
+					if(slicing.parsednode) {
+						var parsed = escodegen.generate(slicing.parsednode);
+						slicededitor.setValue(slicededitor.getValue() + parsed + "\n");
+					}
+					nodes = slicing.nodes;	
+				}
+				if(slicing && slicing.nodes.length === 0 && slicing.methods && slicing.methods["expression"]["arguments"].length > 0) {
+						var methods = escodegen.generate(slicing.methods);
+						slicededitor.setValue(slicededitor.getValue() + methods + "\n");
+					}
+			};
+		};
+		slicededitor.setValue(slicededitor.getValue() + "/* CLIENT */ \n");
+		printCode(sortedc);
+
+		slicededitor.setValue(slicededitor.getValue() + "/* SERVER */ \n");
+		printCode(sorteds);
+	}
+    
+
+
+     $(function ()
+        {
+          editor = ace.edit("editor");
+          editor.getSession().setMode("ace/mode/javascript");
+		  slicededitor = ace.edit("slicededitor");
+		  slicededitor.getSession().setMode("ace/mode/javascript");
+		  
+		  editor.setValue(sliceTier1);
+        })
+                
+        </script>
+</head>
+
+<body>
+	<div class="container">
+		<div class="header">
+	    	<ul class="nav nav-pills pull-right">
+	        	<li class="active"><a href="stip.html">Home</a></li>
+	          	<li><a href="about.html">About</a></li>
+	        </ul>
+	        <h3 class="text-muted">STiP.js</h3>
+	   	</div>
+		<div class="jumbotron">
+			<img src="imgs/stip.png"> </img>
+			<p class="lead">Slicing Tierless Programs in JavaScript </p>
+			<p class="small"> This is a first prototype of the tier splitting tool Stip.js. 
+			    (tested on Chrome and Firefox)</p>
+		</div>
+		
+        <div id= "code" style="float:top; width: 1000px">
+			<div style="float:left"> 
+				<h4>Your JavaScript code:</h4>
+  				<div id="editor" style="width: 500px; height: 350px;"></div>
+			</div>
+			<div style="float:left; width: 500px">
+				<h4>Sliced code:</h4>
+				<div id="slicededitor" style="width: 500px; height: 350px;"></div>
+			</div>
+
+			<ul class="nav nav-tabs">
+			  <li class="active"><a href="#stip" data-toggle="tab">STiP</a></li>
+			  <li><a href="#jipda" data-toggle="tab">Jipda</a></li>
+			  <li><a href="#esprima" data-toggle="tab">Esprima</a></li>
+			  <li><a href="#jslint" data-toggle="tab">JSLint</a></li>
+ 			</ul>  
+
+			<div class="tab-content">
+			    <!-- Stip -->
+       			<div class="tab-pane active" id="stip">
+       				<div id="manip" style="float: left; margin-top: 1%;">
+       					<button id="eval" name="eval" onClick="doIt()" class="btn btn-lg btn-success" style="float: left; margin-right: 10px">Eval</button>
+						<button id="split" name="split" onClick="split()" class="btn btn-lg btn-success" style="float: left; margin-right: 10px">Tier split </button>
+						<div style="float:left">
+        					<select  id="tocode" class="form-control" style="float:left">
+        		 				<option>Meteor</option>
+        					</select> 
+        				</div>
+             		
+       					<div id="graph"></div>
+       				</div>
+       			</div>
+       			<!-- Jipda -->
+  			    <div class="tab-pane" id="jipda">
+  			    	<div style="float: left; margin-top: 1%;">
+  			    		<button id="jipdaeval" name="jipdaeval" onClick="jipdaIt()" class="btn btn-lg btn-success" style="float: left; margin-right: 10px">Eval</button>
+  			    		<span id="resultValue"></span>
+  			    		<div id="jipdagraph"></div>
+  			    	</div>
+  			    </div>
+				<!-- Esprima -->
+  			    <div class="tab-pane" id="esprima">
+  			   		 <div style="float: left; margin-top: 1%;">
+  			   			<button id="esprimaparse" name="esprimaparse" onClick="esprimaparse()" class="btn btn-lg btn-success" style="float: left; margin-right: 10px">Parse</button>
+  			   			<div style="float:left">
+  			   				<h4>Syntax</h4>
+		    				<textarea wrap="off" id="syntax" rows="30" cols="60" readonly></textarea> 
+		    			</div>
+		    			<div style="float:left;margin-top:1%">
+		    				<h4>Tree view </h4>
+		    				<div id="treeview"></div>
+		    			</div>
+		    		</div>
+		    	</div>
+  			   <!-- JSLint -->
+  			   	<div class="tab-pane" id="jslint">
+  			   		<div style="float: left; margin-top: 1%;">
+  			   			<button id="jslint" name="jslint" onClick="jslint()" class="btn btn-lg btn-success" style="float: left; margin-right: 10px">JSLint</button>
+  			   		</div>
+  			   		<ul class="nav nav-tabs" id="jslinttab">
+			  			<li class="active"><a href="#jslinterrors" data-toggle="tab">Error report</a></li>
+			  			<li><a href="#jslintfunction" data-toggle="tab">Function report</a></li>
+			 			<li><a href="#jslintproperties" data-toggle="tab">Properties report</a></li>
+ 					</ul>  
+  			   		<div class="tab-content" style="margin-top: 2%;">
+       					<div class="tab-pane active" id="jslinterrors"></div>
+       					<div class="tab-pane" id="jslintfunction"></div>
+       					<div class="tab-pane" id="jslintproperties"></div>
+       				</div>
+  			   	</div>
+  			</div>
+		</div>	
+
+        
+	</div>
+</body>
+
+</html>
+

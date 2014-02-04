@@ -455,7 +455,7 @@ var Ast = (function ()
     function (source, config)
   {
     
-    var ast = esprima.parse(source, {loc: (config ? config.loc : false)});
+    var ast = esprima.parse(source, {loc: (config ? config.loc : false), owningComments: true});
     if (config && config.resetTagCounter)
     {
       __nodeCounter__ = 0;
