@@ -194,7 +194,8 @@ function jsCesk(cc)
 
   // specific interpreter functions
 //  global = registerPrimitiveFunction(global, globala, "$meta", $meta);
-//  global = registerPrimitiveFunction(global, globala, "$join", $join);
+  global = registerPrimitiveFunction(global, globala, "$join", $join);
+  global = registerPrimitiveFunction(global, globala, "$read", $read);
 //  global = registerPrimitiveFunction(global, globala, "print", _print);
   // end specific interpreter functions
   
@@ -244,6 +245,18 @@ function jsCesk(cc)
     }
     return ToString(application, stack.addFirst(operands[0]), benva, store, time);
   }    
+  
+  function $join(node, operandValues, thisa, benva, store, kont)
+  {
+    var value = operandValues.reduce(Lattice.join, BOT);
+    return kont.pop(function (frame) {return new KontState(frame, value, store)});
+  }    
+    
+  function $read(node, operandValues, thisa, benva, store, kont)
+  {
+    return kont.pop(function (frame) {return new KontState(frame, l.product(P_DEFINED, []), store)});
+  }    
+    
       
   // END PRIMITIVES
   
