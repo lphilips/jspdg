@@ -1,0 +1,67 @@
+<html>
+
+<head>
+
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <link rel='shortcut icon' type='image/x-icon' href='favicon.ico' />
+  <link rel="stylesheet" href="jipda.css" type="text/css" media="all"/>
+  <link rel="stylesheet" href="css/bootstrap.min.css"> 
+  <link rel="stylesheet" href="css/bootstrap-jumbotron.css">
+  <title>About STiP.js</title>
+  <!--<script type="text/javascript" src="../../../lib/esprima.js"></script>!-->
+  <script src="../lib/esprima.js"></script>
+  <script src="https://code.jquery.com/jquery.js"></script>
+  <script src="js/bootstrap.min.js"></script>
+
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+        <ul class="nav nav-pills pull-right">
+            <li ><a href="stip.html">Home</a></li>
+            <li class="active"><a href="about.html">About</a></li>
+          </ul>
+          <h3 class="text-muted">STiP.js</h3>
+      </div>
+    <div class="jumbotron">
+      <img src="imgs/stip.png"> </img>
+      <p class="lead">Slicing Tierless Programs in JavaScript </p>
+      <p class="small"> This is a first prototype of the tier splitting tool Stip.js. 
+          (tested on Chrome and Firefox)</p>
+    </div>
+
+<div class="row marketing">
+        <div class="col-lg-6">
+          <h4>First prototype</h4>
+          <p>This page provides a way to test the STiP.js tool for splitting tierless JavaScript programs. At the moment this is a very early prototype, meaning that we only support a small subset of JavaScript. To show that the tierless code is pure JavaScript, we added tabs for other JavaScript tools to analyse the code.</p>
+
+          <h4>Jipda</h4>
+          <p>STiP.js makes use of <a href="https://github.com/jensnicolay/jipda">Jipda</a>, a JavaScript Introspective Pushdown Analysis. Based on this analysis, we construct a distributed program dependency graph. The output of this analysis can be inspected via the Jipda tab.</p>
+        
+          <h4>Tier Splitting</h4>
+          <p>At the moment we rewrite the splitted code to <a href="http://www.meteor.com/">Meteor</a> code. We use the framework for remote communication between clients and servers (<a href="http://docs.meteor.com/#methods_header">more info</a>). Client and server side code can be pasted in files in the appropriate directories (client or server) of a Meteor project.</p>
+
+        </div>
+        <div class="col-lg-6">
+          
+
+          <h4>Working on...</h4>
+          <p>We plan to 
+          <ul>
+            <li>Support a bigger subset of JavaScript</li>
+            <li>Add CPS transformations </li>
+            <li>Support UI code</li>
+            <li>Rewrite to other frameworks,...</li>
+            <li>Add data replication mechanisms </li>
+            <li> ... </li>
+          </ul>
+          </p>
+          <h4> Contact </h4>
+          <p> In case of questions, suggestions, etc. : lphilips at vub.ac.be
+
+        </div>
+      </div>
+
+</body>
+</html>
