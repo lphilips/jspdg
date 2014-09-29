@@ -195,7 +195,12 @@ function jsCesk(cc)
   // specific interpreter functions
 //  global = registerPrimitiveFunction(global, globala, "$meta", $meta);
   global = registerPrimitiveFunction(global, globala, "$join", $join);
-  global = registerPrimitiveFunction(global, globala, "$read", $read);
+  global = registerPrimitiveFunction(global, globala, "read", read);
+  global = registerPrimitiveFunction(global, globala, "print", print);
+  global = registerPrimitiveFunction(global, globala, "broadcast", broadcast);
+  global = registerPrimitiveFunction(global, globala, "subscribe", subscribe);
+  global = registerPrimitiveFunction(global, globala, "installL", installListener);
+
 //  global = registerPrimitiveFunction(global, globala, "print", _print);
   // end specific interpreter functions
   
@@ -252,12 +257,28 @@ function jsCesk(cc)
     return kont.pop(function (frame) {return new KontState(frame, value, store)});
   }    
     
-  function $read(node, operandValues, thisa, benva, store, kont)
+  function read(node, operandValues, thisa, benva, store, kont)
   {
     return kont.pop(function (frame) {return new KontState(frame, l.product(P_DEFINED, []), store)});
   }    
+   function print(node, operandValues, thisa, benva, store, kont)
+  {
+    return kont.pop(function (frame) {return new KontState(frame, l.product(P_DEFINED, []), store)});
+  }  
+    function broadcast(node, operandValues, thisa, benva, store, kont)
+  {
+    return kont.pop(function (frame) {return new KontState(frame, l.product(P_DEFINED, []), store)});
+  } 
+    function subscribe(node, operandValues, thisa, benva, store, kont)
+  {
+    return kont.pop(function (frame) {return new KontState(frame, l.product(P_DEFINED, []), store)});
+  } 
     
-      
+  function installListener(node, operandValues, thisa, benva, store, kont) 
+  {
+     return kont.pop(function (frame) {return new KontState(frame, l.product(P_DEFINED, []), store)});
+  }
+
   // END PRIMITIVES
   
   
@@ -1663,8 +1684,8 @@ function jsCesk(cc)
     }
     if (nodes.length === 1)
     {
-//      return kont.unch(new EvalState(nodes[0], benva, store));
-      return evalNode(nodes[0], benva, store, kont);
+     return kont.unch(new EvalState(nodes[0], benva, store));
+   //   return evalNode(nodes[0], benva, store, kont);
     }
     var frame = new BodyKont(node, 1, benva);
     return kont.push(frame, new EvalState(nodes[0], benva, store));

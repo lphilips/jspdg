@@ -5,8 +5,8 @@
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <link rel='shortcut icon' type='image/x-icon' href='favicon.ico' />
   <link rel="stylesheet" href="jipda.css" type="text/css" media="all"/>
-  <link rel="stylesheet" href="css/bootstrap.min.css"> 
-  <link rel="stylesheet" href="css/bootstrap-jumbotron.css">
+  <link rel="stylesheet" href="css/bootstrap.css"> 
+  <link rel="stylesheet" href="css/starter-template.css">
   <title>About STiP.js</title>
   <!--<script type="text/javascript" src="../../../lib/esprima.js"></script>!-->
   <script src="../lib/esprima.js"></script>
@@ -16,22 +16,35 @@
 </head>
 
 <body>
-  <div class="container">
-    <div class="header">
-        <ul class="nav nav-pills pull-right">
-            <li ><a href="stip.html">Home</a></li>
-            <li class="active"><a href="about.html">About</a></li>
-          </ul>
-          <h3 class="text-muted">STiP.js</h3>
+ <div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container">
+      <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">         
+              <span class="sr-only">Toggle navigation</span>          
+              <span class="icon-bar"></span>          
+              <span class="icon-bar"></span>          
+              <span class="icon-bar"></span>        
+            </button>
+            <a class="navbar-brand" href="stip.html">STiP.js</a>
+          </div>
+          <div class="collapse navbar-collapse">
+            <ul class="nav navbar-nav">
+                <li><a href="stip.html">Home</a></li>
+                <li><a href="howto.html">How to</a></li>
+                <li><a href="about.html">About</a></li>
+            </ul>
+          </div><!--/.nav-collapse -->
       </div>
-    <div class="jumbotron">
-      <img src="imgs/stip.png"> </img>
-      <p class="lead">Slicing Tierless Programs in JavaScript </p>
-      <p class="small"> This is a first prototype of the tier splitting tool Stip.js. 
-          (tested on Chrome and Firefox)</p>
     </div>
+    <div class="container theme-showcase" role="main">
+      <div class="jumbotron" >
+       <img src="imgs/stip.png"> </img>
+       <p class="lead">Slicing Tierless Programs in JavaScript </p>
+        <p class="small"> This is a first prototype of the tier splitting tool Stip.js. 
+                 (tested on Chrome and Firefox)</p>
+      </div> <!-- /.jumbotron -->
 
-<div class="row marketing">
+      <div class="row marketing">
         <div class="col-lg-6">
           <h4>First prototype</h4>
           <p>This page provides a way to test the STiP.js tool for splitting tierless JavaScript programs. At the moment this is a very early prototype, meaning that we only support a small subset of JavaScript. To show that the tierless code is pure JavaScript, we added tabs for other JavaScript tools to analyse the code.</p>

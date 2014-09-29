@@ -1,5 +1,6 @@
 var jslint = function() {
-	var code = editor.getSession().getValue();
+	var code = "/*global print, read, broadcast, publish, installL*/\n" +
+				editor.getSession().getValue();
 	JSLINT(code);
 	var data = JSLINT.data(),
 	    errtext = JSLINT.error_report(data),

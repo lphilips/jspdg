@@ -1,43 +1,60 @@
+/***************************************************************
+*   Distributed program dependency graph     					*
+*                                            					*
+*               GRAPH                        					*
+*                                            					*
+*  - entry    		  	(NODE)		         					*
+*  - dclient          	(distributed node - client) 			*
+*  - dserver		   	(distributed node - server)				*
+*  - current_index		(index of current entry node)			*
+*  - ent_index			(index for entry nodes)					*
+*  - stm_index			(index for statement nodes)				*
+*  - cal_index			(index for call nodes)					*
+*  - fun_index			(index for function arguments/params)	*
+*  - nodes				(list of entry nodes)					*
+****************************************************************/
+
+
 function PDG() {
   this.entry_node;
   this.curr_body_node;
-  this.nodes = [];
   this.initial;
-  this.current_index = 0; 
-  this.ent_index = 0;
-  this.stm_index = 0;
-  this.cal_index = 0;
-  this.fun_index = 0;
   // Distributed
   this.dclient;
   this.dserver;
+  this.current_index = 0; 
+  this.ent_index	 = 0;
+  this.stm_index 	 = 0;
+  this.cal_index 	 = 0;
+  this.fun_index 	 = 0;
+  this.nodes 		 = [];
 }
 
-PDG.prototype.reverse_entry = function(node) {
-  	this.entry_node = node
+PDG.prototype.reverse_entry = function (node) {
+  	this.entry_node = node;		
 }
 
-PDG.prototype.add_node = function(node) {
+PDG.prototype.add_node = function (node) {
   this.nodes.push(node);
 }
 
-PDG.prototype.make_stm = function(node) {
+PDG.prototype.make_stm = function (node) {
 	var stm = new StatementNode(this.stm_index, node);
 	this.stm_index++;
 	return stm;
 }
 
-PDG.prototype.decr_stm = function() {
+PDG.prototype.decr_stm = function () {
 	this.stm_index--;
 }
 
-PDG.prototype.make_cal = function(node) {
+PDG.prototype.make_cal = function (node) {
 	var cal = new CallNode(this.cal_index, node);
 	this.cal_index++;
 	return cal;
 }
 
-PDG.prototype.change_entry = function(node) {
+PDG.prototype.change_entry = function (node) {
   this.entry_node = node;
   this.curr_body_node = node;
   this.nodes.push(node);
@@ -45,24 +62,26 @@ PDG.prototype.change_entry = function(node) {
   this.ent_index++;
 }
 
-PDG.prototype.getEntryNode = function(name,node) {
-	var entries = this.nodes;
-	var filtered = entries.filter(function(n) {
+/* Look for the entry node,
+   given its name and the current callnode      */
+PDG.prototype.getEntryNode = function (name, node) {
+	var entries  = this.nodes,
+		filtered = entries.filter(function (n) {
 		if(n.parsenode && n.parsenode.declarations) 
 			return n.parsenode.declarations[0].id.name === name;
 		else if (n.parsenode && n.parsenode.id)
 			return n.parsenode.id.name === name;
 		else {
-			var incoming = n.edges_in.filter(function(e) {
+			var incoming = n.edges_in.filter(function (e) {
 				   return e.type === EDGES.DATA;
 			    }),
-			    innodes = incoming.filter(function(e) {
+			    innodes = incoming.filter(function (e) {
 				   return e.from.parsenode.type === "VariableDeclaration" &&
 				          e.from.parsenode.declarations[0].id.name === name;
 			   });
 		   if(innodes.length === 0 && node) {
 			    var pn = n.parsenode;
-				if(pn && pn.toString() === node.fun.toString())
+				if(pn && pn.tag === node.fun.tag)
 				  return true;
 			 	
 		   }
@@ -74,7 +93,10 @@ PDG.prototype.getEntryNode = function(name,node) {
 }
 
 /* Distributed components */
-PDG.prototype.addClientStm = function(node) {
+
+/* Add a client statement
+   checks first if corresponding distributed node exists */
+PDG.prototype.addClientStm = function (node) {
 	node.dtype = DNODES.CLIENT;
 	if (this.dclient)
 		this.dclient.add_edge_out(node, EDGES.CONTROL)
@@ -85,7 +107,9 @@ PDG.prototype.addClientStm = function(node) {
 	}
 }
 
-PDG.prototype.addServerStm = function(node) {
+/* Add a server statement
+   checks first if corresponding distributed node exists */
+PDG.prototype.addServerStm = function (node) {
 	node.dtype = DNODES.SERVER;
 	if (this.dserver)
 		this.dserver.add_edge_out(node, EDGES.CONTROL)
@@ -99,44 +123,46 @@ PDG.prototype.addServerStm = function(node) {
 
 /* Slice algorithm */
 
+/* Aux function for the union of an array 
+   (filters out doubles)*/
 var union = function (array) {
   var a = array.concat();
-  for(var i=0; i<a.length; ++i) {
-      for(var j=i+1; j<a.length; ++j) {
+  for (var i = 0; i < a.length; ++i) {
+      for(var j = i + 1; j < a.length; ++j) {
           if(a[i] === a[j])
               a.splice(j--, 1);
       }
   }
-  return a;
-};
+  return a
+}
 
 PDG.prototype.slice = function (node) { 
   
-  var contains = function(equal,set) {
-    for(var i = 0; i < set.length; i++) {
+  var contains = function (equal, set) {
+    for (var i = 0; i < set.length; i++) {
       if(equal(set[i]))
         return true;
     }
     return false;
   };
 
-  var traverse_backward = function(nodes, set, ignore) {
+  var traverse_backward = function (nodes, set, ignore) {
     for(var i = 0; i<nodes.length; i++) {  
-      var node = nodes[i],
- 		  tdtype = node.getdtype(),
-          edges_in = node.edges_in;
-      var equal = function(id) {return function(n) {return n.id === id}};
-      if(!(contains(equal(node.id),set))) {
+      var node 		= nodes[i],
+ 		  tdtype 	= node.getdtype(),
+          edges_in 	= node.edges_in,
+      	  equal 	= function (id) {return function (n) {return n.id === id}};
+      if(!(contains(equal(node.id), set))) {
         set.push(node);
         for(var j = 0; j < edges_in.length; j++) {
-          var edge = edges_in[j],
-              from = edge.from,
-              fdtype = from.getdtype(),
-              type_eq = function(t) {return edge.type.value === t.value};
+          var edge 		= edges_in[j],
+              from 		= edge.from,
+              fdtype 	= from.getdtype(),
+              type_eq 	= function (t) {return edge.type.value === t.value};
 		  /* While traversing backward, don't follow edges from a formal parameter
 		     to a node contained in another distributed component 
 			 Also don't follow a remote call edge from the current call node*/
-          if (!(contains(equal(from.id),set)) && 
+          if (!(contains(equal(from.id), set)) && 
               !(contains(type_eq, ignore)) &&
 			  !(node.isFormalNode &&  fdtype && tdtype && 
 				fdtype.value !== tdtype.value) &&
@@ -145,23 +171,24 @@ PDG.prototype.slice = function (node) {
           }  
         }
       }
-    };
+    }
     return set;
-  };
-  var first_pass = traverse_backward([node],[], [EDGES.PAROUT]);
-  var second_pass = traverse_backward(first_pass,[],[EDGES.PARIN, EDGES.CALL]);
+  }
+  /* two passes of the algorithm */
+  var first_pass 	= traverse_backward([node],[], [EDGES.PAROUT]),
+  	  second_pass 	= traverse_backward(first_pass,[],[EDGES.PARIN, EDGES.CALL]);
   return union(first_pass.concat(second_pass)); 
 };
 
-PDG.prototype.sliceDistributedNode = function(dnode) {
+PDG.prototype.sliceDistributedNode = function (dnode) {
 	if(!dnode)
 	  return [];
 	var toslice,
 	    slicedset = [],
-	    getLeaves = function(node) {
+	    getLeaves = function (node) {
 		  leaves = [];
 		  out = node.edges_out;
-		  while(out.length > 0) {
+		  while (out.length > 0) {
 				var edge = out.shift(),
 			     	target = edge.to,
 			    	control_out = target.edges_out.filter(function(e) {
@@ -176,7 +203,7 @@ PDG.prototype.sliceDistributedNode = function(dnode) {
 					    data_out[0].to.parsenode && 
 					    data_out[0].to.parsenode.type === "FunctionExpression") 
 					   out = out.concat(data_out);
-					else if(control_out.length === 0 && !target.isFormalNode && 
+					else if (control_out.length === 0 && !target.isFormalNode && 
 						    !(target.isActualPNode && target.direction === -1))
 						    leaves = leaves.concat([target]);
 					else 
@@ -184,19 +211,18 @@ PDG.prototype.sliceDistributedNode = function(dnode) {
 			}
 			return leaves;
 		};
-	if(dnode.type.value === DNODES.CLIENT.value)
+	if (dnode.type.value === DNODES.CLIENT.value)
 		toslice = this.dclient
 	else 
 		toslice = this.dserver
 	var outgoing = toslice.edges_out,
-	    leaves = getLeaves(toslice);
+	    leaves 	 = getLeaves(toslice);
 	while(leaves.length > 0) {
-		var target = leaves.shift(),
-		    set = this.slice(target);
+		var set = this.slice(leaves.shift());
 		slicedset = union(slicedset.concat(set))
 	}
 
-	return slicedset;
+	return slicedset
 }
 
 // Example graph from "Slicing Object-Oriented Software", Larsen and Harrold

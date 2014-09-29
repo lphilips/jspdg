@@ -1,0 +1,112 @@
+<html>
+
+<head>
+
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <link rel='shortcut icon' type='image/x-icon' href='favicon.ico' />
+  <link rel="stylesheet" href="css/bootstrap.css"> 
+  <link rel="stylesheet" href="css/starter-template.css">
+  <link rel="stylesheet" href="css/prettify.css">
+  <title>Stip.Js How To</title>
+  <!--<script type="text/javascript" src="../../../lib/esprima.js"></script>!-->
+  <script src="https://code.jquery.com/jquery.js"></script>
+  <script src="js/prettify.js"></script>
+  <script src="js/bootstrap.min.js"></script>
+  <script>
+    !function ($) {
+      $(function(){
+        window.prettyPrint && prettyPrint()   
+      })
+      }(window.jQuery);
+  </script>
+
+</head>
+
+<body>
+ <div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container">
+      <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">         
+              <span class="sr-only">Toggle navigation</span>          
+              <span class="icon-bar"></span>          
+              <span class="icon-bar"></span>          
+              <span class="icon-bar"></span>        
+            </button>
+            <a class="navbar-brand" href="stip.html">STiP.js</a>
+          </div>
+          <div class="collapse navbar-collapse">
+            <ul class="nav navbar-nav">
+                <li><a href="stip.html">Home</a></li>
+                <li><a href="howto.html">How to</a></li>
+                <li><a href="about.html">About</a></li>
+            </ul>
+          </div><!--/.nav-collapse -->
+      </div>
+    </div>
+    <div class="container theme-showcase" role="main">
+      <div class="jumbotron" >
+       <img src="imgs/stip.png"> </img>
+       <p class="lead">Slicing Tierless Programs in JavaScript </p>
+        <p class="small"> This is a first prototype of the tier splitting tool Stip.js. 
+                 (tested on Chrome and Firefox)</p>
+      </div> <!-- /.jumbotron -->
+
+      <div class="container">
+        <h1>STiP.js - How To </h1>
+        <p>At the moment we only support a small subset of JavaScript and the generated code for the example is for the <a href="https://www.meteor.com">Meteor framework</a>.</p>
+        <p>STiP.js uses program dependency graphs to tier split the JavaScript code. By clicking the eval-button, the program dependency graph will be calculated and is displayed beneath the code. By clicking the Tier split-button, STiP.js will try to tier split your code. Therefore you have to use the annotations @client and @server, followed by a block statement.</p>
+        <h2>Example</h2>
+        <p>The following example makes a function temperature that returns the current temperature (at the moment this is a constant 5). On the client side we invoke this function as an ordinary JavaScript function and convert the result to Celcius. We print the result to a DOM element with the id 'tmp' using the <code>print(id,text)</code> tierless primitive. We also use the <code>read(id)</code> tierless primitive to get the current value of a DOM element. </p>
+        <pre class="prettyprint linenums">
+var factor = 9/5;
+var add = 32;
+/* @server */
+{
+  var standard = 5;
+  var temperature = function() {
+    return standard;
+  }
+} 
+/* @client */
+{
+  var temp = temperature() * factor;
+  var celc = temp + add;
+  print('tmp', read('tmp') + celc);
+  if(celc > 20) {
+    print('txt', 'It is rather hot today!')
+  } else {
+    print('txt', 'It is rather cold today!')
+  }
+}</pre>
+<p>The tier splitted code is Meteor code, so the part following the <code>/* CLIENT */</code> comment should be pasted in a Meteor project under the client folder, the part following the <code>/* SERVER */</code> comment should be pasted in a Meteor project under the server folder.
+To test this code, you need a HTML file with the following code:</p>
+<pre class="prettyprint linenums lang-html">
+&lt;head&gt;
+  &lt;title&gt;Tier splitted temperature web app&lt;/title&gt;
+&lt;/head&gt;
+
+&lt;body&gt;
+  {{&gt; foo}}
+&lt;/body&gt;
+
+&lt;template name=&quot;foo&quot;&gt;
+    &lt;p id=&#039;tmp&#039;&gt;
+        Current temperature is
+    &lt;/p&gt;
+    &lt;p id=&quot;txt&quot;&gt;&lt;/p&gt;
+&lt;/template&gt;
+</pre>
+This will display the following page on the client side:
+<pre>
+Current temperature is 41
+It is rather hot today!
+</pre>
+
+
+
+      </div>
+
+
+
+</body>
+</html>
