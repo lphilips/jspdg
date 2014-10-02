@@ -2,6 +2,8 @@
  *				 TRANSFORMATIONS FOR NODE.JS					*
  *																*
  *		- wait.for library in combination with zerorpc			*
+ * 																*
+ *  Where possible, falafel.js is used for transformations 		*
  *																*
  ****************************************************************/
 

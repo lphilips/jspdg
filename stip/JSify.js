@@ -1,21 +1,33 @@
-var sliceVarDecl = function(slicednodes,node) {
-  	// Outgoing data dependency to entry node?
-  	var entry = node.edges_out.filter(function(e) {
+/****************************************************************
+ *				 TRANSFORMATIONS FOR JAVASCRIPT					*
+ *																*
+ *  has no transformations for distributed setting,				*
+ * 	but is meant to use for slicing only						*
+ *  															*
+ *																*
+ ****************************************************************/
+
+
+/* Variable declaration */
+var sliceVarDecl = function (slicednodes,node) {
+  	var entry = node.edges_out.filter(function (e) {
 			return e.equalsType(EDGES.DATA) &&
 	       	e.to.isEntryNode;
 		}),
-  		call = node.edges_out.filter(function(e) {
+  		call = node.edges_out.filter(function (e) {
   			return e.equalsType(EDGES.CONTROL) &&
   			e.to.isCallNode;
   		})
         slicedn = slicednodes;
+    /* Outgoing data dependency to entry node? */
 	if(entry.length > 0) {
      	var f = toJavaScript(slicednodes,entry[0].to);
 	 	node.parsenode.declarations.init = f.parsednode;
 	 	slicedn = f.nodes;
 	}
+	/* Has call nodes in value? */
 	if(call.length > 0) {
-		call.map(function(c) {
+		call.map(function (c) {
 			var cnode = toJavaScript(slicedn,c.to);
 			slicedn = removeNode(cnode.nodes,c.to);
 		})
@@ -23,7 +35,8 @@ var sliceVarDecl = function(slicednodes,node) {
 	return new Sliced(slicedn,node,node.parsenode);
 }
 
-var sliceFunExp = function(slicednodes,node) {
+/* Function Expression */
+var sliceFunExp = function (slicednodes,node) {
 	// Formal parameters
 	var form_ins  = node.getFormalIn(),
 		form_outs = node.getFormalOut(),
@@ -44,16 +57,16 @@ var sliceFunExp = function(slicednodes,node) {
 		parsenode.params = params;
 	};
 	// Formal out parameters
-	form_outs.map(function(f_out) {
+	form_outs.map(function (f_out) {
 		sliced = sliced.remove(f_out)
 	})
 	// Body
 	var body = [],
-	    bodynodes = node.edges_out.filter(function(e) {
+	    bodynodes = node.edges_out.filter(function (e) {
 			return e.equalsType(EDGES.CONTROL) &&
 			       e.to.isStatementNode || e.to.isCallNode;
-	    }).map(function(e) {return e.to});
-	bodynodes.map(function(n) {
+	    }).map(function (e) {return e.to});
+	bodynodes.map(function (n) {
 		var bodynode = toJavaScript(sliced,n);
 		if(slicedContains(sliced,n)) {
 			body = body.concat(bodynode.parsednode);
@@ -66,21 +79,21 @@ var sliceFunExp = function(slicednodes,node) {
 	return new Sliced(sliced,node,parsenode);
 }
 
-var sliceCallExp = function(slicednodes,node) {
+var sliceCallExp = function (slicednodes,node) {
 	var actual_ins  = node.getActualIn(),
 		actual_outs = node.getActualOut(),	
 		scopeInfo = Ast.scopeInfo(node.parsenode),
 	    parent = Ast.hoist(scopeInfo).parent(node.parsenode,graphs.AST);
-	actual_ins.map(function(a_in) {
+	actual_ins.map(function (a_in) {
 		slicednodes = slicednodes.remove(a_in)
 	})
-	actual_outs.map(function(a_out) {
+	actual_outs.map(function (a_out) {
 		slicednodes = slicednodes.remove(a_out)
 	})
 	return new Sliced(slicednodes, node,parent)
 }
 
-var sliceBlockStm = function(slicednodes,node) {
+var sliceBlockStm = function (slicednodes,node) {
 	var body = [],
 		sliced = slicednodes,
 		parsenode = node.parsenode,
@@ -99,10 +112,10 @@ var sliceBlockStm = function(slicednodes,node) {
 	return new Sliced(sliced, node, parsenode);
 }
 
-var removeNode = function(nodes,node) {
+var removeNode = function (nodes,node) {
 	nodes = nodes.remove(node);
 	var callnode = false;
-	nodes.map(function(n) {
+	nodes.map(function (n) {
 		if(n.parsenode) {
 		var scopeInfo = Ast.scopeInfo(n.parsenode),
 		    parent = Ast.hoist(scopeInfo).parent(n.parsenode,graphs.AST);
@@ -117,8 +130,8 @@ var removeNode = function(nodes,node) {
 		return nodes;
 }
 
-var slicedContains = function(nodes,node) {
- 	return nodes.filter(function(n) {
+var slicedContains = function (nodes,node) {
+ 	return nodes.filter(function (n) {
 		if(n.isCallNode) {
 			return n.parsenode === node.parsenode
 		} else
@@ -128,7 +141,7 @@ var slicedContains = function(nodes,node) {
 
 
 // Not distributed version.
-var toJavaScript = function(slicednodes,node) {
+var toJavaScript = function (slicednodes,node) {
 	var scopeInfo = Ast.scopeInfo(node.parsenode),
 	    parent = Ast.hoist(scopeInfo).parent(node.parsenode,graphs.AST);
 	if(parent && parent.type === "ReturnStatement") {
