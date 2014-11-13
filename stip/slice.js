@@ -62,11 +62,18 @@ var transformBody = function (option, slicing, body) {
 				return body;
 			}
 		case 'meteor':
-			if(option.tier === 'server' && slicing.methods) {
-				/* rpcs are added */
+			if (option.tier === 'server' && slicing.methods) {
+				/* remote procedure definitions are added */
 				var methods = meteor_methodsP();
 				methods.expression.arguments = slicing.methods;
 				body = body.concat(methods)
+				return body
+			}
+			if (option.tier === 'client' && slicing.methods) {
+				/* remote procedure definitions are added */
+				var methods = meteor_methodsCP();
+				methods.expression.arguments = slicing.methods;
+				body = body.concat(methods);
 				return body
 			}
 	}
@@ -112,11 +119,11 @@ var Sliced = function (nodes, node, parsednode) {
 	this.footer		 = [];
     
     this.method 	 = {};
-    this.methods 	 = []; //meteor_methodsP();
+    this.methods 	 = [];
     this.streams 	 = [];
 }
 
-var cloneSliced = function(sliced, nodes, node) {
+var cloneSliced = function (sliced, nodes, node) {
 	var clone = new Sliced(nodes, node);
 	clone.methods = sliced.methods;
 	clone.setup   = sliced.setup;

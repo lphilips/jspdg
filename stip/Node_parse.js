@@ -23,7 +23,7 @@ var nodeHeaderC = function () {
  *  this is done for readiblity of this snippet.)
  */
 var nodeClientFiber = function () {
-	var code  = uncomment(function () {/*
+	var code  = uncomment (function () {/*
 var clientfiber = function() {
   var client = new zerorpc.Client();
   client.connect('tcp://127.0.0.1:8080');

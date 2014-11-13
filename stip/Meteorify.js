@@ -29,6 +29,146 @@ var meteorify_VarDecl = function (sliced) {
 				sliced.parsednode = parsenode;
 			}
 			return sliced;
+		} else if (entry.isClientNode() && entry.serverCalls > 0) {
+			f.method.properties[0].key.value = name;
+			slicedn = f.nodes;
+			sliced.method = {},
+			sliced.methods = sliced.methods.concat([f.method]);
+			sliced.nodes = f.nodes;
+			if (entry.clientCalls > 0) {
+				var parsenode = node.getParsenode();
+				sliced.parsednode = parsenode;
+			}
+			return sliced;
+		}
+		else {
+			var parsenode = node.getParsenode();
+			parsenode.declarations[0].init = f.parsednode;
+			sliced.parsednode = parsenode;
+			sliced.nodes = f.nodes;
+			return sliced;
+		}
+	}
+	else if (call.length > 0) {
+		var csliced, exp, firstcallback,
+			originalexp = escodegen.generate(node.expression[0].parsenode),
+			cnt = 0;
+		call.map(function (c) {
+			var toSlice = cloneSliced(sliced, slicedn, c.to);
+			if(csliced && csliced.parsednode.type === "ExpressionStatement" &&
+				csliced.parsednode.expression.type === "CallExpression") {
+				toSlice.prevCallback = csliced.parsednode;
+				if(!firstcallback) 
+					firstcallback = csliced.parsednode;
+			} else if (csliced) {
+				toSlice.prevCallback = csliced.prevCallback;
+			}
+     		csliced = toMeteor(toSlice);
+     		slicedn = csliced.nodes;
+			slicedn = removeNode(slicedn, c.to);
+			sliced.methods = csliced.methods;
+
+			var entry = csliced.node.getEntryNode()[0];
+			/* Function defined and called by same tier, OR
+			   defined shared and called on a tier          */
+			if (entry.equalsdtype(csliced.node) || entry.isSharedNode()) {
+				csliced.nodes = slicedn;
+				csliced.parsednode = node.parsenode;
+			}
+			/* Call from client tier to server tier */
+			else if (c.to.isClientNode()) {
+				/* Nesting of callbacks */
+				var cslicedargs = csliced.parsednode.expression.arguments,
+					callback = cslicedargs[cslicedargs.length-1];
+				csliced.nodes = slicedn;
+				if (exp) node.expression[0].parsenode = exp;
+				/* Add cnt to result and error variable of callback 
+				   such that each nesting has its own variables (res0, res1, etc.) */
+				callback.params[0].name += cnt;
+				callback.params[1].name += cnt;
+				exp = meteor_callbackReturnP(callback, node.expression[0], csliced.node, originalexp, cnt);
+				cnt++;
+				if(csliced.prevCallback) {
+					var prevarg = csliced.prevCallback.expression.arguments,
+						prevcallback = prevarg[prevarg.length -1];
+					callback.body.body = [callback.body.body[0]].concat(prevcallback.body.body.slice(1));
+					prevcallback.body.body = [];
+					prevcallback.body.body[0] = csliced.parsednode;
+				}
+				
+			}
+			/* Call from server tier to client tier */
+			else if (c.to.isServerNode()) {
+				/* Nesting of callbacks */
+				var cslicedargs = csliced.parsednode.expression.arguments,
+					callback = cslicedargs[cslicedargs.length-1];
+				csliced.nodes = slicedn;
+				if (exp) node.expression[0].parsenode = exp;
+				/* Add cnt to result and error variable of callback 
+				   such that each nesting has its own variables (res0, res1, etc.) */
+				callback.params[0].name += cnt;
+				callback.params[1].name += cnt;
+				exp = meteor_callbackReturnP(callback, node.expression[0], csliced.node, originalexp, cnt);
+				cnt++;
+			}
+		});
+		/*var entry = csliced.node.getEntryNode()[0];
+		if (entry.equalsdtype(csliced.node)) {
+			csliced.nodes = slicedn;
+			csliced.parsednode = node.parsenode;
+			return csliced;
+		}
+		else {
+			var cslicedargs = csliced.parsednode.expression.arguments;
+			csliced.nodes = slicedn;
+			meteor_callbackReturnP(cslicedargs[cslicedargs.length-1],node.expression[0],csliced.node);
+			console.log(escodegen.generate(csliced.parsednode));
+			return csliced;
+		}*/
+		if(firstcallback ) csliced.parsednode = firstcallback;
+		if(csliced.cont) {
+			return csliced.cont(csliced);
+		}
+		return csliced;
+	}
+	sliced.nodes = slicedn;
+	sliced.parsednode = node.getParsenode();
+	return sliced;
+}
+
+
+var meteorify_AssignmentExp = function (sliced) {
+	var node  	  = sliced.node,
+  	    name  	  = node.parsenode.left.name,
+  	    scopeInfo = Ast.scopeInfo(node.parsenode),
+	    parent 	  = Ast.hoist(scopeInfo).parent(node.parsenode,graphs.AST),
+  	    entry 	  = node.edges_out.filter(function (e) {
+		  return e.equalsType(EDGES.DATA) &&
+	         e.to.isEntryNode;
+		}),
+		call  	  = node.edges_out.filter(function (e) {
+			return e.equalsType(EDGES.CONTROL) &&
+				   e.to.isCallNode;
+		}),
+        slicedn = sliced.nodes;
+	/* Function declaration */
+	if (entry.length > 0) {
+		var entry = entry[0].to,
+		    toSlice = cloneSliced(sliced, slicedn, entry);
+     	var f = toMeteor(toSlice);
+     	if (entry.isServerNode() && entry.clientCalls > 0) {
+     		f.method.properties[0].key.value = name;
+	 		slicedn = f.nodes;
+	 		sliced.method = {};
+			sliced.methods = sliced.methods.concat([f.method]);
+			sliced.nodes = f.nodes;
+			if(entry.serverCalls > 0) {
+				// TODO, niet gewoon node.parsenode, maar ook meteorify'en
+				var parsenode = node.getParsenode();
+				//parsenode.declarations[0].init = f.parsednode;
+				sliced.parsednode = parsenode;
+			}
+			return sliced;
 		} else {
 			var parsenode = node.getParsenode();
 			parsenode.declarations[0].init = f.parsednode;
@@ -57,19 +197,21 @@ var meteorify_VarDecl = function (sliced) {
 			sliced.methods = csliced.methods;
 
 			var entry = csliced.node.getEntryNode()[0];
-			if (entry.equalsdtype(csliced.node)) {
+			/* Function defined and called by same tier, OR
+			   defined shared and called on a tier          */
+			if (entry.equalsdtype(csliced.node) || entry.isSharedNode()) {
 				csliced.nodes = slicedn;
 				csliced.parsednode = node.parsenode;
 			}
-			else {
+			/* Call from client tier to server tier */
+			else if (c.to.isClientNode()) {
 				/* Nesting of callbacks */
 				var cslicedargs = csliced.parsednode.expression.arguments,
 					callback = cslicedargs[cslicedargs.length-1];
 				csliced.nodes = slicedn;
 				if (exp) node.expression[0].parsenode = exp;
 				/* Add cnt to result and error variable of callback 
-				   such that each nesting has its own variables (res0, res1, etc.)
-				*/
+				   such that each nesting has its own variables (res0, res1, etc.) */
 				callback.params[0].name += cnt;
 				callback.params[1].name += cnt;
 				exp = meteor_callbackReturnP(callback, node.expression[0], csliced.node, originalexp, cnt);
@@ -81,33 +223,34 @@ var meteorify_VarDecl = function (sliced) {
 					prevcallback.body.body = [];
 					prevcallback.body.body[0] = csliced.parsednode;
 				}
-				
+			}
+			/* Call from server tier to client tier */
+			else if (c.to.isServerNode()) {
+				/* Nesting of callbacks */
+				var cslicedargs = csliced.parsednode.expression.arguments,
+					callback = cslicedargs[cslicedargs.length-1];
+				csliced.nodes = slicedn;
+				if (exp) node.expression[0].parsenode = exp;
+				/* Add cnt to result and error variable of callback 
+				   such that each nesting has its own variables (res0, res1, etc.) */
+				callback.params[0].name += cnt;
+				callback.params[1].name += cnt;
+				exp = meteor_callbackReturnP(callback, node.expression[0], csliced.node, originalexp, cnt);
+				cnt++;
 			}
 		});
-		/*var entry = csliced.node.getEntryNode()[0];
-		if (entry.equalsdtype(csliced.node)) {
-			csliced.nodes = slicedn;
-			csliced.parsednode = node.parsenode;
-			return csliced;
-		}
-		else {
-			var cslicedargs = csliced.parsednode.expression.arguments;
-			csliced.nodes = slicedn;
-			meteor_callbackReturnP(cslicedargs[cslicedargs.length-1],node.expression[0],csliced.node);
-			console.log(escodegen.generate(csliced.parsednode));
-			return csliced;
-		}*/
 		if(firstcallback ) csliced.parsednode = firstcallback;
 		if(csliced.cont) {
 			return csliced.cont(csliced);
 		}
 		return csliced;
-	}
-	sliced.nodes = slicedn;
-	sliced.parsednode = node.getParsenode();
-	return sliced;
-}
+	}    
 
+    sliced.nodes = slicedn;
+    parent.expression = node.getParsenode();
+    sliced.parsednode = parent;
+    return sliced;
+}
 
 /*
  * FUNCTION EXPRESSION
@@ -117,9 +260,11 @@ var meteorify_VarDecl = function (sliced) {
  * 4: function defined on CLIENT, called on CLIENT -> no transformation
  * 5: function defined on CLIENT, called on SERVER -> transform to Meteor method definition (subhog package)
  * 6: function defined on CLIENT, called by BOTH   -> combination of previous cases
+ * 7: function defined SHARED,    called by SERVER -> copy to server, no transformation
+ * 8: function defined SHARED,    called by CLIENT -> copy to client, no transformation
+ * 9: function defined SHARED,    called by BOTH   -> copy to both.
  */
 var meteorify_FunExp = function (sliced) {
-	// Formal parameters
 	var node 	    = sliced.node,
 		form_ins    = node.getFormalIn(),
 		form_outs   = node.getFormalOut(),
@@ -130,7 +275,7 @@ var meteorify_FunExp = function (sliced) {
 	    	return e.equalsType(EDGES.REMOTEC) && e.to.isClientNode()
 	    }),
 		parsednode  = meteor_functionP();
-	// Formal in parameters
+	/* Formal in parameters */
 	if(form_ins.length > 0) {
 		// Remove parameters that are not in slicednodes
 		for(var i = 0; i < form_ins.length; i++) {
@@ -142,10 +287,11 @@ var meteorify_FunExp = function (sliced) {
 			slicednodes = slicednodes.remove(fp);
 		}
 	};
-	// Formal out parameters
+	/* Formal out parameters */
 	form_outs.map(function (f_out) {
 		slicednodes = slicednodes.remove(f_out)
 	})
+
 	var slicednodesc = slicednodes.slice(0);
 	/* Server function that is called by client side */
 	if(node.isServerNode() && node.clientCalls > 0) {
@@ -174,7 +320,7 @@ var meteorify_FunExp = function (sliced) {
 		sliced.parsednode = parsednode;
 		sliced.method     = parsednode;
 	}
-	if(node.isClientNode() || (node.isServerNode() && node.clientCalls === 0)) {
+	if (node.isClientNode() || (node.isServerNode() && node.clientCalls === 0) || node.isSharedNode) {
 		// TODO: distinguish cases
 		slicednodes = slicednodesc;
 		slicednodes = removeNode(slicednodes,node);
@@ -197,6 +343,32 @@ var meteorify_FunExp = function (sliced) {
 		sliced.nodes       = slicednodes;
 		sliced.parsednode  = node.getParsenode();
 		sliced.parsednode.body.body = body;
+	}
+	if (node.isClientNode && node.serverCalls > 0) {
+		/* Body */
+		slicednodes = slicednodesc;
+		var body = [],
+	    bodynodes = node.edges_out.filter(function (e) {
+			return e.equalsType(EDGES.CONTROL) &&
+			       e.to.isStatementNode || e.to.isCallNode;
+	    }).map(function (e) {return e.to});
+
+		bodynodes.map(function (n) {
+			var toSlice  = cloneSliced(sliced, slicednodes, n),
+				bodynode = toMeteor(toSlice);
+			if(slicedContains(slicednodes, n)) 
+				body = body.concat(bodynode.parsednode);
+			slicednodes    = removeNode(bodynode.nodes,n);
+			sliced.methods = bodynode.methods;
+			sliced.streams = bodynode.streams;
+			sliced.setup   = bodynode.setup;
+		});
+
+		slicednodes = slicednodes.remove(node);
+		parsednode.properties[0].value.body.body = body;
+		sliced.nodes      = slicednodes;
+		sliced.parsednode = parsednode;
+		sliced.method     = parsednode;		
 	}
 
 	return sliced;
@@ -247,7 +419,8 @@ var meteorify_CallExp = function (sliced) {
         	var upnodes = node.edges_in.filter(function (e) {
         					return  e.equalsType(EDGES.CONTROL) &&
         	    	    			e.from.parsenode &&
-        	       	    			e.from.parsenode.type === "VariableDeclaration" 
+        	       	    			(e.from.parsenode.type === "VariableDeclaration" ||
+        	       	    			 e.from.parsenode.type === "AssignmentExpression")
         				}),
         		asArg   = node.edges_in.filter(function (e) {
         					return e.equalsType(EDGES.CONTROL) &&
@@ -255,17 +428,20 @@ var meteorify_CallExp = function (sliced) {
         				});
         	if(upnodes.length > 0) {
         		/* Put it in callback, together with all statements dependent on the variable */
-        		var vardecl  = upnodes[0].from,
-        		 	datadeps = vardecl.dataDependentNodes(),
+        		var upnode  = upnodes[0].from,
+        		 	datadeps = upnode.dataDependentNodes(),
         			callback =  meteor_callbackP();
         		invardecl = true;
-        		callback.body.body[0].declarations[0].id.name = vardecl.parsenode.declarations[0].id.name;
-        		datadeps.map(function(node) {
+        		if (upnode.parsenode.type === 'VariableDeclaration')
+        			callback = meteor_callbackVarDeclP(callback, upnode.parsenode.declarations[0].id.name);
+        		else if (upnode.parsenode.type === 'AssignmentExpression')
+        			callback = meteor_callbackAssignP(callback, upnode.parsenode.left.name);
+        		datadeps.map(function (node) {
         			if(!(node.isActualPNode)) {
         				/* Has the node other outgoing dependencies on call nodes? 
         				   If so, meteorify the call and add it to the current callback body */
         				var calldeps = node.edges_in.filter(function (e) {
-        					return  e.equalsType(EDGES.DATA) && e.from.cnt !== vardecl.cnt &&
+        					return  e.equalsType(EDGES.DATA) && e.from.cnt !== upnode.cnt &&
         							slicedContains(slicednodes, e.from)
         				}),/*.flatMap(function (e) { return e.from.edges_out}).filter(function (e) {
         					return e.to.isCallNode && !(slicedContains(slicednodes, e.to))
@@ -278,14 +454,14 @@ var meteorify_CallExp = function (sliced) {
         					var call = calldeps[0].from;
         					if(slicedContains(slicednodes, call)) {
         						// Remove this node 
-		    					slicednodes = removeNode(slicednodes, vardecl);
+		    					slicednodes = removeNode(slicednodes, upnode);
 	        					var toSlice  = cloneSliced(sliced, slicednodes, call),
 									bodynode = toMeteor(toSlice);
 								slicednodes = removeNode(bodynode.nodes, call);
 								callback.body.body = callback.body.body.concat(bodynode.parsednode);
 							}
         				} else if (vardecls.length > 0) {
-        					vardecl = vardecls[0].from;
+        					var vardecl = vardecls[0].from;
         					if(slicedContains(slicednodes, vardecl)) {
 	        					var toSlice = cloneSliced(sliced, slicednodes, vardecl),
 									bodynode = toMeteor(toSlice);
@@ -293,12 +469,12 @@ var meteorify_CallExp = function (sliced) {
 								callback.body.body = callback.body.body.concat(bodynode.parsednode);
 							}
         				} 
-        				else {
+        				//else {
 	        				var toSlice = cloneSliced(sliced, slicednodes, node),
 								bodynode = toMeteor(toSlice);
 							slicednodes = removeNode(bodynode.nodes, node);
 							callback.body.body = callback.body.body.concat(bodynode.parsednode);
-						}
+						//}
         			}
         		})
         		args = args.concat(callback);
@@ -332,13 +508,15 @@ var meteorify_CallExp = function (sliced) {
         return sliced;
     }		
 	else if (entryNode.isClientNode()) {
-		// Case 4
+		/* CASE  4 : defined on client, called by client */
 		if(node.isClientNode()) {
 			//sliced.parsednode = parent;
 			var upnodes = node.edges_in.filter(function (e) {
         					return  e.equalsType(EDGES.CONTROL) &&
         	    	    			e.from.parsenode &&
-        	       	    			e.from.parsenode.type === "VariableDeclaration" 
+        	       	    			e.from.parsenode &&
+        	       	    			(e.from.parsenode.type === "VariableDeclaration" ||
+        	       	    			 e.from.parsenode.type === "AssignmentExpression")
         				});
 			if (upnodes.length > 0) // || asArg.length > 0) 
         		sliced.parsednode = node.parsenode;
@@ -354,6 +532,103 @@ var meteorify_CallExp = function (sliced) {
 			//sliced.nodes = slicednodes;
 			return sliced;
 		}
+		else {
+			/* CASE 5 : defined on client, called by server */
+			var upnodes = node.edges_in.filter(function (e) {
+        					return  e.equalsType(EDGES.CONTROL) &&
+        	    	    			e.from.parsenode &&
+        	       	    			e.from.parsenode &&
+        	       	    			(e.from.parsenode.type === "VariableDeclaration" ||
+        	       	    			 e.from.parsenode.type === "AssignmentExpression") 
+        				}),
+				rpc 	= meteor_callbackCP();
+				
+        	rpc.expression.arguments[1].value = node.parsenode.callee.name;
+        	if (upnodes.length > 0) {
+        		var upnode   = upnodes[0].from,
+        			datadeps = upnode.dataDependentNodes(),
+        			callback = rpc.expression.arguments[3],
+        			args 	 = rpc.expression.arguments[2].elements;
+
+        		actual_ins.map(function (a_in) {
+        			args = args.concat(a_in.parsenode);
+        		});
+
+        		if (upnode.parsenode.type === 'VariableDeclaration')
+        			callback = meteor_callbackVarDeclP(callback, upnode.parsenode.declarations[0].id.name);
+        		else if (upnode.parsenode.type === 'AssignmentExpression')
+        			callback = meteor_callbackAssignP(callback, upnode.parsenode.left.name);
+
+        		datadeps.map(function (node) {
+        			if(!(node.isActualPNode)) {
+        				/* Has the node other outgoing dependencies on call nodes? 
+        				   If so, meteorify the call and add it to the current callback body */
+        				var calldeps = node.edges_in.filter(function (e) {
+        						return  e.equalsType(EDGES.DATA) && e.from.cnt !== upnode.cnt &&
+        							slicedContains(slicednodes, e.from)
+        					}),
+        					vardecls  = node.edges_in.filter(function (e) {
+        						return  e.equalsType(EDGES.CONTROL) &&
+        								e.from.parsenode.type === "VariableDeclaration"
+        					});
+        				if(calldeps.length > 0) {
+        					var call = calldeps[0].from;
+        					if(slicedContains(slicednodes, call)) {
+        						// Remove this node 
+		    					slicednodes = removeNode(slicednodes, upnode);
+	        					var toSlice  = cloneSliced(sliced, slicednodes, call),
+									bodynode = toMeteor(toSlice);
+								slicednodes = removeNode(bodynode.nodes, call);
+								callback.body.body = callback.body.body.concat(bodynode.parsednode);
+							}
+        				} else if (vardecls.length > 0) {
+        					vardecl = vardecls[0].from;
+        					if(slicedContains(slicednodes, vardecl)) {
+	        					var toSlice = cloneSliced(sliced, slicednodes, vardecl),
+									bodynode = toMeteor(toSlice);
+								slicednodes = removeNode(bodynode.nodes, vardecl);
+								callback.body.body = callback.body.body.concat(bodynode.parsednode);
+							}
+        				} 
+        				//else {
+	        				var toSlice = cloneSliced(sliced, slicednodes, node),
+								bodynode = toMeteor(toSlice);
+							slicednodes = removeNode(bodynode.nodes, node);
+							callback.body.body = callback.body.body.concat(bodynode.parsednode);
+						//}
+        			}
+        		})
+			}
+        	rpc.expression.arguments[3] = callback;
+        	rpc.expression.arguments[2].elements = args;
+        	sliced.parsednode = rpc;
+			sliced.nodes = slicednodes;
+        	
+        	actual_ins.map( function (a_in) {
+				sliced = meteorify_argument(sliced, node, a_in)
+			})
+
+        	return sliced;
+
+		}
+
+	}
+	/* Shared function */
+	else if (entryNode.isSharedNode()) {
+		/* Called by client */
+		if(node.isClientNode()) {
+			sliced.nodes = slicednodes;
+			sliced.parsednode = parent;
+
+		}
+		/* Called by server */
+		else if (node.isServerNode()) {
+			sliced.nodes = slicednodes;
+			sliced.parsednode = parent;
+		}
+		return sliced;
+
+
 
 	}
 }
@@ -622,7 +897,9 @@ var toMeteor = function (sliced) {
 	if(parent && parent.type === "ReturnStatement") {
 		node.parsenode = parent
 	}
-	if(parent && parent.type === "ExpressionStatement" && node.parsenode.type != "CallExpression") {
+	if(parent && parent.type === "ExpressionStatement" && 
+		node.parsenode.type != "CallExpression" &&
+		node.parsenode.type != "AssignmentExpression") {
 		node.parsenode = parent
 	}
 	if(node.isActualPNode || node.isFormalNode) {
@@ -643,6 +920,8 @@ var toMeteor = function (sliced) {
 	  	return meteorify_CallExp(sliced);
 	  case "IfStatement":
 	   	return meteorify_IfStm(sliced);
+	  case "AssignmentExpression":
+	    return meteorify_AssignmentExp(sliced);
 	  default: 
 	    sliced.parsednode = node.parsenode;
 	    return sliced;

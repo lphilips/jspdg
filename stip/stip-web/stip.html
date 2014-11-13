@@ -12,6 +12,7 @@
 
 	<title>STiP.js</title>
 	<!-- Le javascript-->
+	<script type="text/javascript" src="../../common.js"></script>
 	<script type="text/javascript" src="examples.js"></script>
 	<script src="../lib/esprima.js"></script>
 	<script src="../lib/falafel_esprima.js"></script>
@@ -30,7 +31,6 @@
 	<script type="text/javascript" src="../node.js"></script>
 	<script type="text/javascript" src="../graph.js"></script>
 	<script type="text/javascript" src="../pre-analysis.js"></script>
-	<script type="text/javascript" src="../../common.js"></script>
 	<script type="text/javascript" src="../../agc.js"></script>
 	<script type="text/javascript" src="../../lattice.js"></script>
 	<script type="text/javascript" src="../../lattice1.js"></script>
@@ -53,9 +53,9 @@
 	<script type="text/javascript" src="../../lib/web/viz.js"></script>
 	<script type="text/javascript" src="../stip.js"></script>
 	
+
 	<script type="text/javascript" src="../Meteor_parse.js"></script>
 	<script type="text/javascript" src="../Node_parse.js"></script>
-
 	<script type="text/javascript" src="../JSify.js"></script>
 	<script type="text/javascript" src="../Meteorify.js"></script>
 	<script type="text/javascript" src="../Nodeify.js"></script>
@@ -65,7 +65,6 @@
 	<script type="text/javascript" src="PDGgraph.js"></script>
 
 	<script type="text/javascript" src="js/jquery.panzoom.js"></script>
-
 
 	<script type="text/javascript">
 
@@ -130,7 +129,7 @@
       				})
       				var target 	= $('#tocode').val(),
       					program = constructProgram(nodes, {target: target, tier: option}),
-      					parsed 	= js_beautify(escodegen.generate(program));
+      					parsed 	= escodegen.generate(program);
       				slicededitor.setValue(slicededitor.getValue() + parsed + "\n");
       			};
       		slicededitor.setValue(slicededitor.getValue() + "/* CLIENT */ \n");

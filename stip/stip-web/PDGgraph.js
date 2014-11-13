@@ -39,19 +39,27 @@ function drawLinks (PDG, element, ww,slicededitor) {
     function (node, i) {
       var label   = node.id,
           parsed  = node.parsenode,
+          dtype   = node.getdtype && node.getdtype() ? node.getdtype().name : false,
           tooltip = parsed ? parsed.toString() : " ";
-      if(node.isActualPNode) 
+     if(node.isActualPNode) 
         node.value ? label += " " + node.value : label;
-      if(node.isFormalNode)
+     if(node.isFormalNode)
        label += " " + node.name
+     if(dtype === "server")
+        label += "[S]"
+      if(dtype === "client")
+        label += "[C]"
+      if(dtype === "shared")
+        label += "[Sh]"
+
      if(node.parsenode) 
        		label += " " + ((parsed && parsed.toString().length > 10) ? parsed.toString().slice(0,10)+"..." : parsed) ;//+ " " + node.parsenode.type;
 
-        if (node.isEntryNode)
+      if (node.isEntryNode)
           dot += node.id + "[ label=\"" + label +"\", tooltip=\"" + tooltip + "\", penwidth=\"2.5\",color=\"#72777A\"];\n";  
-        if (node.isDistributedNode)
+      if (node.isDistributedNode)
           dot += node.id + "[ label=\"" + label +"\", tooltip=\"" + tooltip + "\", style=\"filled\",fillcolor=\"#F56105\"];\n";
-        else
+      else
           dot += node.id + " [label=\"" + label +  "\", tooltip=\"" + tooltip + "\",];\n";
       });
    edges.forEach(
@@ -61,19 +69,21 @@ function drawLinks (PDG, element, ww,slicededitor) {
       if (edge.equalsType(EDGES.DATA) )
         dot +=  " [style=\"dotted\"]; \n";
       else if (edge.equalsType(EDGES.REMOTED) || edge.equalsType(EDGES.REMOTEC))
-       dot += " [style=\"dashed\", color=\"#F56105\"];\n";
-     else if (edge.equalsType(EDGES.SUMMARY))
-      dot += " [style=\"dashed\", color=\"#0E62CF\"];\n";
-    else if (edge.equalsType(EDGES.CONTROL)) {
-      if(!edge.label)
-        dot += " [label=\"" + edge.label.toString() + "\"];\n";
-      else
-        dot += " [label=\" \"];\n";
-    }
-    else 
-      dot += " [label=\"" + label + "\"];\n";        
-  });
-   dot += "}";
+        dot += " [style=\"dashed\", color=\"#F56105\"];\n";
+      else if (edge.equalsType(EDGES.REMOTEPARIN) || edge.equalsType(EDGES.REMOTEPAROUT))
+        dot += " [color=\"#F56105\"];\n";
+      else if (edge.equalsType(EDGES.SUMMARY))
+        dot += " [style=\"dashed\", color=\"#0E62CF\"];\n";
+      else if (edge.equalsType(EDGES.CONTROL)) {
+        if(!edge.label)
+          dot += " [label=\"" + edge.label.toString() + "\"];\n";
+        else
+          dot += " [label=\" \"];\n";
+      }
+      else 
+        dot += " [label=\"" + label.toString() + "\"];\n";        
+    });
+    dot += "}";
 
 
   var svg = Viz(dot, 'svg');

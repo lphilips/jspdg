@@ -35,7 +35,11 @@ PDG.prototype.reverse_entry = function (node) {
 }
 
 PDG.prototype.add_node = function (node) {
-  this.nodes.push(node);
+	var find = this.nodes.filter(function (n) {
+		return n.id === node.id
+	})
+	if(find.length === 0)
+  		this.nodes.push(node);
 }
 
 PDG.prototype.make_stm = function (node) {
@@ -57,7 +61,7 @@ PDG.prototype.make_cal = function (node) {
 PDG.prototype.change_entry = function (node) {
   this.entry_node = node;
   this.curr_body_node = node;
-  this.nodes.push(node);
+  this.add_node(node);
   this.current_index = this.nodes.length - 1;
   this.ent_index++;
 }
@@ -76,7 +80,8 @@ PDG.prototype.getEntryNode = function (name, node) {
 				   return e.type === EDGES.DATA;
 			    }),
 			    innodes = incoming.filter(function (e) {
-				   return e.from.parsenode.type === "VariableDeclaration" &&
+				   return e.from.parsenode &&
+				   		  e.from.parsenode.type === "VariableDeclaration" &&
 				          e.from.parsenode.declarations[0].id.name === name;
 			   });
 		   if(innodes.length === 0 && node) {
@@ -175,8 +180,8 @@ PDG.prototype.slice = function (node) {
     return set;
   }
   /* two passes of the algorithm */
-  var first_pass 	= traverse_backward([node],[], [EDGES.PAROUT]),
-  	  second_pass 	= traverse_backward(first_pass,[],[EDGES.PARIN, EDGES.CALL]);
+  var first_pass 	= traverse_backward([node],[], [EDGES.PAROUT, EDGES.REMOTEPAROUT]),
+  	  second_pass 	= traverse_backward(first_pass,[],[EDGES.PARIN, EDGES.REMOTEPAROUT, EDGES.CALL]);
   return union(first_pass.concat(second_pass)); 
 };
 
@@ -211,7 +216,7 @@ PDG.prototype.sliceDistributedNode = function (dnode) {
 			}
 			return leaves;
 		};
-	if (dnode.type.value === DNODES.CLIENT.value)
+	if (dnode.dtype.value === DNODES.CLIENT.value)
 		toslice = this.dclient
 	else 
 		toslice = this.dserver

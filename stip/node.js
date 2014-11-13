@@ -172,7 +172,7 @@ var EntryNode = function (id,parsenode) {
 
 EntryNode.prototype = new PDG_Node();
 
-EntryNode.prototype.getFormalIn = function() {
+EntryNode.prototype.getFormalIn = function () {
     var edges = this.edges_out.filter(function(e) {
 		return e.to.isFormalNode &&
 		       e.to.direction === 1
@@ -182,7 +182,7 @@ EntryNode.prototype.getFormalIn = function() {
 	})
 }
 
-EntryNode.prototype.getFormalOut = function() {
+EntryNode.prototype.getFormalOut = function () {
 	var edges = this.edges_out.filter(function(e) {
 		return e.to.isFormalNode &&
 		       e.to.direction === -1
@@ -192,14 +192,14 @@ EntryNode.prototype.getFormalOut = function() {
 	})
 }
 
-EntryNode.prototype.hasBody = function() {
+EntryNode.prototype.hasBody = function () {
 	var edges = this.edges_out.filter(function(e) {
 		return e.to.isStatementNode
 	});
 	return edges.length > 0
 }
 
-EntryNode.prototype.addCall = function(callnode) {
+EntryNode.prototype.addCall = function (callnode) {
 	this.isCalled = true;
 	if(callnode.isServerNode())
 		this.serverCalls += 1;
@@ -208,7 +208,7 @@ EntryNode.prototype.addCall = function(callnode) {
 }
 
 /* Call nodes, denoted by "c+index". (Call) */
-var CallNode = function (id,parsenode) {
+var CallNode = function (id, parsenode) {
   PDG_Node.call(this, 'c'+id);
   this.parsenode = parsenode;
   this.isCallNode = true;
@@ -216,7 +216,7 @@ var CallNode = function (id,parsenode) {
 
 CallNode.prototype = new PDG_Node();
 
-CallNode.prototype.getActualIn = function() {
+CallNode.prototype.getActualIn = function () {
 	var edges = this.edges_out.filter(function(e) {
 		return e.to.isActualPNode &&
 			    e.to.direction === 1
@@ -226,7 +226,7 @@ CallNode.prototype.getActualIn = function() {
 	})
 }
 
-CallNode.prototype.getActualOut = function() {
+CallNode.prototype.getActualOut = function () {
 	var edges = this.edges_out.filter(function(e) {
 		return e.to.isActualPNode &&
 			    e.to.direction === -1
@@ -311,22 +311,35 @@ var DNODES = {
 
 DistributedNode = function (type) {
 	PDG_Node.call(this, 'D'+type.name);
-	this.type = type;
+	this.dtype = type;
 	this.isDistributedNode = true;
 }
 
 PDG_Node.prototype.isClientNode = function () {
 	this.dtype = this.getdtype();
-	return !dtype || dtype.value === DNODES.CLIENT.value
+	return !this.dtype || this.dtype.value === DNODES.CLIENT.value
 }
 
 PDG_Node.prototype.isServerNode = function () {
 	this.dtype = this.getdtype();
-	return !dtype || dtype.value === DNODES.SERVER.value
+	return !this.dtype || this.dtype.value === DNODES.SERVER.value
+}
+
+PDG_Node.prototype.isSharedNode = function () {
+	this.dtype = this.getdtype();
+	return !this.dtype || this.dtype.value === DNODES.SHARED.value
 }
 
 PDG_Node.prototype.equalsdtype = function (node) {
-	return this.dtype.value === node.dtype.value;
+	this.dtype = this.getdtype();
+	node.dtype = node.getdtype();
+	if (!this.dtype)
+		this.dtype = DNODES.SHARED;
+	if (!node.getdtype)
+		node.dtype = DNODES.SHARED;
+	if(this.dtype && node.dtype)
+		return this.dtype.value === node.dtype.value;
+
 }
 
 /* Returns the distributed type of the node.
@@ -368,7 +381,13 @@ PDG_Node.prototype.getdtype = function () {
 			incoming = incoming.concat(proceed);
 		}
 		if(node) 
-			return node.dtype;
+			if(node.dtype) {
+				this.dtype = node.dtype;
+				return node.dtype;
+			}
+			else {
+				return DNODES.SHARED;
+			}
 		else
 		    return false;
 	}

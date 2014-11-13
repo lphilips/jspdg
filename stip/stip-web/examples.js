@@ -1,5 +1,5 @@
 var uncomment = function (fn){
-  var multiline = fn.toString().split(/\/\*\n|\n\*\//g).slice(1,-1).join();
+  var multiline = fn.toStringOrig().split(/\/\*\n|\n\*\//g).slice(1,-1).join();
   return multiline.replace("@client", "/* @client */").replace("@server", "/* @server */")
 };
 
@@ -49,7 +49,7 @@ bar()
 */});
 
 var example3 = uncomment (function (){/*
-var factor = 9 / 5;
+var factor = function () { return 9/5 };
 var add = 32;
 @server
 {
@@ -60,7 +60,7 @@ var add = 32;
 }
 @client
 {
-  var celcius = temperature() * 9 / 5 + 32;
+  var celcius = temperature() * factor() + add;
   // Update UI
   print('tmp', read('tmp') + celcius);
   if (celcius > 20) 
@@ -68,7 +68,7 @@ var add = 32;
   else
     print('txt', 'It is rather cold today');
 }
-*/})
+*/});
 
 var example4 = uncomment( function (){/*
 @server
@@ -84,8 +84,7 @@ var example4 = uncomment( function (){/*
 	var d = clientf(serverf(clientf(serverf(c))));
 	var e = 42;
 }
-*/
-})
+*/});
 
 var tiersplittxt = ['Basic', 'Temperature', 'Callback Hell'];
 var tiersplitexs = [example1, example3, example4];

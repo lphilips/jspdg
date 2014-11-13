@@ -1,3 +1,4 @@
+
 /* Aux function */
 var contains = function (els,el) {
 	return els.filter(function (e) {
@@ -185,7 +186,9 @@ var handleBinExp = function (graphs, node, stm_node, upnode) {
 }
 
 /* ASSIGNMENT */
-var handleAssignmentExp = function (graphs, node, stm_node) {
+var handleAssignmentExp = function (graphs, node, stm_node, upnode) {
+	if(upnode) 
+		stm_node.dtype = upnode.getdtype();
 	var etg 	 = graphs.etg(),
 		jtc 	 = graphs.JTC,
 		incoming = etg.incoming(node),
@@ -198,6 +201,7 @@ var handleAssignmentExp = function (graphs, node, stm_node) {
 		ident    = node.node.left,
 		nr_entry = graphs.PDG.nodes.length,
 		cont 	 = handleStm(graphs,asids,node,stm_node);
+
 	node.node = ident;
 	var declarations = graphs.DSG.declarations(node);
 	handleIdentifier(graphs, node, stm_node);
@@ -209,6 +213,13 @@ var handleAssignmentExp = function (graphs, node, stm_node) {
 			addDataDep(decl_node[0], latest_entry);
 		}
 	}
+	/* Recheck dependent call nodes for dtype (could be wrong because assign. exp had
+	   no dtype at that moment ) */
+	var calls = stm_node.edges_out.map(function (e) {
+		if (e.to.isCallNode && e.equalsType(EDGES.CONTROL))
+			e.to.dtype = stm_node.getdtype()
+	})
+
 	return [cont,node];
 }
 
@@ -349,7 +360,7 @@ var handleActualParameter = function (graphs, node, stm_node) {
 			return e.g.frame;
 		}),
 		cont 	 = node,
-		a_in 	 = new ActualPNode(PDG.fun_index, 1, stm_node);
+		a_in 	 = new ActualPNode(graphs.PDG.fun_index, 1, stm_node);
 
 	graphs.PDG.fun_index++;
 	while(outgoing.length > 0) {
@@ -651,7 +662,7 @@ var makePDGNode = function (graphs, node, toadd, upnode) {
 					// Create the call node
 					// When this is the first time the function is called,
 					// it will result in evaluating the body 
-					callnode   = makePDGNode(graphs,contnode,false, upnode);
+					callnode   = makePDGNode(graphs, contnode, false, upnode);
 					var entry  = callnode[2],
 						formal = entry.getFormalIn();
 					callnode[1].cnt = callcnt;
@@ -679,17 +690,23 @@ var makePDGNode = function (graphs, node, toadd, upnode) {
 						var actual_out = new ActualPNode(PDG.fun_index,-1);
 						actual_out.value = cont.node.toString();
 						PDG.fun_index++;
+						actual_out.add_edge_out(upnode, EDGES.DATA);
 						// Formal-out parameter -> actual-out parameter
 						var formal_out = entry.getFormalOut();
 						if(formal_out.length > 0 && !contnode.node.callee.name.startsWith('anonf')) 
-							formal_out[0].add_edge_out(actual_out, EDGES.PAROUT); 
+							if (!actual_out.equalsdtype(formal_out[0]) || 
+								!actual_out.isSharedNode() ||
+								!formal_out[0].isSharedNode () )
+								formal_out[0].add_edge_out(actual_out, EDGES.REMOTEPAROUT); 
+							else
+								formal_out[0].add_edge_out(actual_out, EDGES.PAROUT);
 						callnode[1].add_edge_out(actual_out, EDGES.CONTROL);  
 					}
 					// Add summary edges between a_in and a_out
 					handleSummaryEdges(callnode[1],entry);
+					postRemoteDep(params[1]);
 					if(!contnode.node.callee.name.startsWith('anonf'))
 						entry.addCall(callnode[1]);
-					postRemoteDep(params[1]);
 				}
 
 				return callnode;
@@ -731,7 +748,7 @@ var makePDGNode = function (graphs, node, toadd, upnode) {
 					cont = handleBinExp(graphs,node,stm_node,upnode)[0]
 				// Assignment expression
 				else if (isAssignmentExp(graphs, node))
-					cont = handleAssignmentExp(graphs, node, stm_node)[0];
+					cont = handleAssignmentExp(graphs, node, stm_node, upnode)[0];
 				// If statement
 				else if (isIfStm(graphs, node))
 					cont = handleIfStatement(graphs, node, stm_node, upnode)[0];
@@ -746,11 +763,11 @@ var makePDGNode = function (graphs, node, toadd, upnode) {
 		}
 	}
 	
-	// Apply state
+	/* Apply state */
 	else if( node.type === 'apply') {
 		var call_node  = PDG.make_cal(node.node),
 		    name 	   = node.node.callee.name,
-			entry 	   = PDG.getEntryNode(call_node.name, node),
+			entry 	   = PDG.getEntryNode(name, node),
 			prev_entry = PDG.entry_node;
 
 		call_node.name = name;
