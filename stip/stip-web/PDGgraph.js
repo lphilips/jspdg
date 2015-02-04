@@ -117,7 +117,7 @@ function drawLinks (PDG, element, ww,slicededitor) {
         while(sorted.length > 0) {
           var n = sorted.shift();
           if(n.parsenode) {
-            var slicing = toCode("normal",sorted,n);
+            var slicing = toCode({target: 'normal'},sorted,n);
             if(slicing.parsednode) {
               var parsed = escodegen.generate(slicing.parsednode);
               slicededitor.setValue(slicededitor.getValue() + parsed + "\n");

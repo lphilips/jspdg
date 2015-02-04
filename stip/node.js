@@ -1,14 +1,14 @@
-/******************************************** 
-*   Distributed program dependency graph    *
-*                                           *
-*               NODE                        *
-*                                           *
-*  - id   			  (e.g. s1)	            *
-*  - cnt              (count, e.g. 1)       *
-*  - incoming edges   [EDGE]                *
-*  - outgoing edges   [EDGE]                *
-*  - expression       (original expr)       *
-*********************************************/
+/****************************************************************
+*   Distributed program dependency graph    					*
+*                                           					*
+*               NODE                        					*
+*                                           					*
+*  - id   			  (e.g. s1)	           						*
+*  - cnt              (count, e.g. 1)       					*
+*  - incoming edges   [EDGE]              						*
+*  - outgoing edges   [EDGE]               						*
+*  - expression       (original expr of an esprima exp. node)	*
+*****************************************************************/
 
 /* global counter for nodes */
 var cnt = 0;
@@ -122,9 +122,10 @@ PDG_Node.prototype.dataDependentNodes= function() {
 		    	return e.equalsType(EDGES.DATA)
 		    });
 		    if(to.isActualPNode) {
-		    	var callnode = to.edges_in.filter(function (e) {
+		    	var calledges = to.edges_in.filter(function (e) {
 		    					return e.equalsType(EDGES.CONTROL)
-		    				})[0].from,
+		    				}),
+		    		callnode = calledges[0].from,
 		    		isarg	 = callnode.edges_in.filter(function (e) {
 		    					return  e.equalsType(EDGES.CONTROL) &&
 		    							e.from.isActualPNode
@@ -134,21 +135,35 @@ PDG_Node.prototype.dataDependentNodes= function() {
 		    	if(isarg.length > 0) {
 		    		var upcall = callnode;
 		    		while (isarg.length > 0) {
-		    			var uparg  = isarg.shift().from;
-		    			upcall = uparg.edges_in.filter( function (e) {
+		    			var uparg  		= isarg.shift().from,
+		    				upcalledges = uparg.edges_in.filter( function (e) {
 		    					return  e.equalsType(EDGES.CONTROL) &&
 		    							e.from.isCallNode
-		    				})[0].from;
+		    				}),
+		    				upcall 		= upcalledges[0].from;
 		    			isarg = upcall.edges_in.filter(function (e) {
-		    					return  e.equalsType(EDGES.CONTROL) &&
+		    				return  e.equalsType(EDGES.CONTROL) &&
 		    							e.from.isActualPNode
-		    		});
+		    			});
 
 		    		}
-		    		set = set.concat(upcall);
+		    		data_out = data_out.concat(upcall.edges_out.filter(function (e) {return e.equalsType(EDGES.DATA)}));
 		    	}
-		    	else 
-		    		set = set.concat(callnode);
+		    	else {
+		    		var upedges = callnode.edges_in.filter(function (e) {return e.equalsType(EDGES.CONTROL)});
+		    		if (upedges.length > 0)
+		    			data_out = data_out.concat(upedges)
+		    		else
+		    			set = set.concat(callnode)
+		    	}
+		    }
+		    else if (to.isCallNode) {
+		    	var upnode    = to.edges_in.filter(function (e) {
+		    						return e.equalsType(EDGES.CONTROL)
+		    				   })[0].from,
+		    		parsenode = upnode.parsenode;
+		    		set = set.concat(upnode);
+		    		data_out = data_out.concat(upnode.edges_out.filter(function (e) { return e.equalsType(EDGES.DATA)})) 
 		    }
 		    else 
 		    	if(!(contains(set, to))) {
@@ -331,8 +346,8 @@ PDG_Node.prototype.isSharedNode = function () {
 }
 
 PDG_Node.prototype.equalsdtype = function (node) {
-	this.dtype = this.getdtype();
-	node.dtype = node.getdtype();
+	this.dtype = this.getdtype(false);
+	node.dtype = node.getdtype(false);
 	if (!this.dtype)
 		this.dtype = DNODES.SHARED;
 	if (!node.getdtype)
@@ -344,7 +359,7 @@ PDG_Node.prototype.equalsdtype = function (node) {
 
 /* Returns the distributed type of the node.
    If not known, it must be calculated */
-PDG_Node.prototype.getdtype = function () {
+PDG_Node.prototype.getdtype = function (recheck) {
 	/* Aux function that filter incoming edges */
 	var filterIncoming = function (e) {
 		// Ignore cycles
@@ -365,7 +380,7 @@ PDG_Node.prototype.getdtype = function () {
 		    return e.equalsType(EDGES.CONTROL)
 	};
 	/* If distributed type is already calculated, return it */
-	if(this.dtype) 
+	if(recheck && this.dtype) 
 	  return this.dtype
 	else {
 		/* recursively traverse up the graph until a node with a 

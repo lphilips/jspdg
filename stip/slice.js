@@ -1,11 +1,11 @@
 var toCode = function (option, slicednodes, node) {
-	switch (option) {
+	switch (option.target) {
 		case 'normal':
-			return toJavaScript(slicednodes,node)
+			return JSify.transpile(slicednodes, node, option.cps)
 		case 'meteor':
-			return meteorify(slicednodes,node)
+			return Meteorify.transpile(slicednodes, node)
 		case 'node.js':
-			return nodeify(slicednodes,node)
+			return nodeify(slicednodes, node)
 	}
 }
 
@@ -44,7 +44,7 @@ var addHeader = function (option, sliced) {
 /*
  * Transformation needed on the body code
  */
-var transformBody = function (option, slicing, body) {
+var transformBody = function (option, slicing, body, methods) {
 	switch (option.target) {
 		case 'node.js':
 			if (option.tier === 'client') {
@@ -62,18 +62,18 @@ var transformBody = function (option, slicing, body) {
 				return body;
 			}
 		case 'meteor':
-			if (option.tier === 'server' && slicing.methods) {
+			if (option.tier === 'server') {
 				/* remote procedure definitions are added */
-				var methods = meteor_methodsP();
-				methods.expression.arguments = slicing.methods;
-				body = body.concat(methods)
+				var methodsDecl = MeteorParse.methodsServer();
+				methodsDecl.expression.arguments = methods;
+				body = body.concat(methodsDecl)
 				return body
 			}
-			if (option.tier === 'client' && slicing.methods) {
+			if (option.tier === 'client') {
 				/* remote procedure definitions are added */
-				var methods = meteor_methodsCP();
-				methods.expression.arguments = slicing.methods;
-				body = body.concat(methods);
+				var methodsDecl = MeteorParse.methodsClient();
+				methodsDecl.expression.arguments = methods;
+				body = body.concat(methodsDecl);
 				return body
 			}
 	}
@@ -88,22 +88,24 @@ var constructProgram = function (nodes, option) {
 	var program = { 'type' : 'Program',
 					'body' : [] 
 				  },
-		slicing;
+		slicing, 
+		methods = [];
 	//program.body = addPrimitives(option);
 	while (nodes.length > 0) {
 		var n = nodes.shift();
 		if(n.parsenode) {
-			slicing = toCode(option.target,nodes,n);
+			slicing = toCode(option, nodes, n);
 			if(slicing.parsednode) {
 				program.body = program.body.concat(slicing.parsednode);
 			}
 			nodes = slicing.nodes;	
+			methods = methods.concat(slicing.methods);
 		}
 	};
 
 	addHeader(option, slicing);
 	addFooter(option, slicing);
-	program.body = transformBody(option, slicing, program.body);
+	program.body = transformBody(option, slicing, program.body, methods);
 	program.body = slicing.setup.concat(program.body).concat(slicing.footer);
 	console.log(program);
 

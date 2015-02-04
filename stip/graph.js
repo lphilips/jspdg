@@ -15,7 +15,7 @@
 ****************************************************************/
 
 
-function PDG() {
+function PDG () {
   this.entry_node;
   this.curr_body_node;
   this.initial;
@@ -97,6 +97,29 @@ PDG.prototype.getEntryNode = function (name, node) {
 	return filtered[0];
 }
 
+PDG.prototype.getAllNodes = function () {
+	var nodes     = [],
+		contains  = function (set, id) {
+    					for (var i = 0; i < set.length; i++) {
+      						if(set[i].id === id)
+        						return true;
+    					}
+    					return false;
+  					};
+		selectAll = function (node) {
+			if (!contains(nodes, node.id )) {
+				nodes = nodes.concat(node);
+				var out = node.edges_out.map(function (e) { return e.to});
+				out.map(function (n) {selectAll(n)})
+			}
+		};
+	this.nodes.map(function (n) {selectAll(n)});
+	nodes.sort(function (n1, n2) {
+    	return n1.cnt - n2.cnt;
+    })
+	return nodes;
+}
+
 /* Distributed components */
 
 /* Add a client statement
@@ -125,8 +148,9 @@ PDG.prototype.addServerStm = function (node) {
 	}
 }
 
-
-/* Slice algorithm */
+/************************/
+/* 	Slice algorithm		*/
+/************************/
 
 /* Aux function for the union of an array 
    (filters out doubles)*/
@@ -154,7 +178,7 @@ PDG.prototype.slice = function (node) {
   var traverse_backward = function (nodes, set, ignore) {
     for(var i = 0; i<nodes.length; i++) {  
       var node 		= nodes[i],
- 		  tdtype 	= node.getdtype(),
+ 		  tdtype 	= node.getdtype(true),
           edges_in 	= node.edges_in,
       	  equal 	= function (id) {return function (n) {return n.id === id}};
       if(!(contains(equal(node.id), set))) {
@@ -162,15 +186,16 @@ PDG.prototype.slice = function (node) {
         for(var j = 0; j < edges_in.length; j++) {
           var edge 		= edges_in[j],
               from 		= edge.from,
-              fdtype 	= from.getdtype(),
+              fdtype 	= from.getdtype(true),
               type_eq 	= function (t) {return edge.type.value === t.value};
 		  /* While traversing backward, don't follow edges from a formal parameter
 		     to a node contained in another distributed component 
 			 Also don't follow a remote call edge from the current call node*/
           if (!(contains(equal(from.id), set)) && 
               !(contains(type_eq, ignore)) &&
-			  !(node.isFormalNode &&  fdtype && tdtype && 
-				fdtype.value !== tdtype.value) &&
+			  //!(node.isFormalNode) &&  
+			  (fdtype && tdtype && 
+				(fdtype.value === DNODES.SHARED.value || tdtype.value === DNODES.SHARED.value || fdtype.value === tdtype.value)) &&
 			  !(from.isCallNode && edge.equalsType(EDGES.REMOTEC))) {
  	    			traverse_backward([from],set,ignore);
           }  
@@ -180,8 +205,8 @@ PDG.prototype.slice = function (node) {
     return set;
   }
   /* two passes of the algorithm */
-  var first_pass 	= traverse_backward([node],[], [EDGES.PAROUT, EDGES.REMOTEPAROUT]),
-  	  second_pass 	= traverse_backward(first_pass,[],[EDGES.PARIN, EDGES.REMOTEPAROUT, EDGES.CALL]);
+  var first_pass 	= traverse_backward([node],[], [EDGES.PAROUT, EDGES.REMOTEPAROUT, EDGES.REMOTEPARIN]),
+  	  second_pass 	= traverse_backward(first_pass,[],[EDGES.PARIN, EDGES.REMOTEPARIN, EDGES.REMOTEPAROUT, EDGES.CALL]);
   return union(first_pass.concat(second_pass)); 
 };
 

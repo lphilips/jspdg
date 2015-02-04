@@ -1,96 +1,4 @@
 
-/* Aux function */
-var contains = function (els,el) {
-	return els.filter(function (e) {
-		return e.equals(el)			
-	}).length >= 1;
-}
-
-/*  Predicates on type of eval node */
-var isEval = function (node) {
-	return node.type === 'eval'
-}
-
-var isFunExp = function (graphs, node) {
-	return 	isEval(node) &&
-			node.node.type === 'FunctionExpression'
-}
-var isVarDecl = function (graphs, node) {
-	return 	isEval(node) &&
-			node.node.type === 'VariableDeclaration'
-}
-
-var isFunDecl = function (graphs, node) {
-	return 	isEval(node) &&
-			node.node.type === 'FunctionDeclaration'
-}
-
-var isIdentifier = function (graphs, node) {
-	return 	isEval(node) &&
-			node.node.type === 'Identifier'
-}
-
-var isRetStm = function (graphs, node) {
-	return node.node.type === 'ReturnStatement'
-}
-
-var isBinExp = function (graphs, node) {
-	return 	isEval(node) &&
-			node.node.type === 'BinaryExpression'
-}
-
-var isLiteral = function (graphs, node) {
-	return 	isEval(node) &&
-			node.node.type === 'Literal'
-}
-
-var isCallExp = function (graphs, node) {
-	return 	isEval(node) &&
-			node.node.type === 'CallExpression'
-}
-
-var isExpStm = function (graphs, node) {
-	return 	isEval(node) &&
-			node.node.type === 'ExpressionStatement'
-}
-
-var isAssignmentExp = function (graphs, node) {
-	return 	isEval(node) &&
-			node.node.type === 'AssignmentExpression'
-}
-
-var isApply = function (graphs, node) {
-	return node.type === 'apply'
-}
-
-var isBlockStm = function (graphs, node) {
-	return 	isEval(node) &&
-			node.node.type === 'BlockStatement'
-}
-
-var isIfStm = function (graphs, node) {
-	return 	isEval(node) &&
-			node.node.type === 'IfStatement'
-}
-
-
-var isOperandKont = function (edge) {
-	return 	edge.g && edge.g.frame && edge.g.frame.node && 
-			edge.g.frame.node.type === 'CallExpression' &&
-			edge.g.frame.operandValues;
-}
-
-
-/*  Tierless primitives */
-var primitives = ['read', 'print', 'broadcast', 'subscribe', 'installL'];
-var isPrimitiveCall = function (node) {
-	var checkName = function (name) {
-		return 	contains(primitives, name)
-	}
-	return 	(node.isCallNode &&  checkName(node.name)) || 
-			(node.node && node.node.type === "CallExpression" && checkName(node.node.callee.name)) 
-}
-
 /* General pattern for handling a statement:
  * Given a set of frames of push edges, we continue until
  * the corresponding pop edge is found.
@@ -102,14 +10,14 @@ var handleStm = function (graphs, incoming, node, stm_node, addJtc, toadd) {
 	var cont = node,
 		etg  = graphs.etg(),
 		jtc  = graphs.JTC,
-		out  = etg.outgoing(node);
+		out  = etg.outgoing(node),
+		edge, target, PDG_node;
 	while(out.length > 0) {
-		var edge   = out.shift(),
-			target = edge.target;
+		edge   = out.shift();
+		target = edge.target;
 		if(edge.g && edge.g.isPop && contains(incoming, edge.g.frame))
 			break;
 		else {
-			var PDG_node;
 			if(addJtc)
 				PDG_node = makePDGNode(graphs, target, toadd, addJtc);
 			else
@@ -136,16 +44,22 @@ var handleStm = function (graphs, incoming, node, stm_node, addJtc, toadd) {
 
 /* VARIABLE DECLARATION is followed by one/more variable declarator(s)
  * Edges are marked (+) (-) vrator */
-var handleVarDecl = function (graphs, node, stm_node,upnode) {
-	var jtc = graphs.JTC,
-		out = graphs.etg().outgoing(node);
+var handleVarDecl = function (graphs, node, stm_node, upnode) {
+	var jtc  = graphs.JTC,
+		out  = graphs.etg().outgoing(node),
+		/* Follow epsilon edge to corresponding kont-node to obtain type info */
+		epsk = graphs.DSG.ecg.successors(node).filter(function (n) {
+			return n !== node
+		}),
+		vrators, cont;
 	jtc.addNodes(node, stm_node);
+	stm_node.konts = epsk;
 	if(upnode) 
 		stm_node.dtype = upnode.getdtype();
-	var vrators = out.map( function (e) {
+	vrators = out.map( function (e) {
 		return e.g.frame;
 	});
-	var cont = handleStm(graphs, vrators, node, stm_node, stm_node, false);	
+	cont = handleStm(graphs, vrators, node, stm_node, stm_node, false);	
 	return [cont, node];     
 }
 
@@ -179,8 +93,11 @@ var handleBinExp = function (graphs, node, stm_node, upnode) {
 			return e.g && e.g.frame
 		}).map( function (e) {
 			return e.g.frame;
-		}),
-		cont 	 = handleStm(graphs, bodys, node, stm_node, upnode);
+		});
+	if (upnode.isEntryNode)
+		cont 	 = handleStm(graphs, bodys, node, stm_node, stm_node);
+	else 
+		var cont = handleStm(graphs, bodys, node, stm_node, upnode);
 	jtc.addNodes(node, stm_node);
 	return [cont, node];
 }
@@ -189,22 +106,28 @@ var handleBinExp = function (graphs, node, stm_node, upnode) {
 var handleAssignmentExp = function (graphs, node, stm_node, upnode) {
 	if(upnode) 
 		stm_node.dtype = upnode.getdtype();
-	var etg 	 = graphs.etg(),
-		jtc 	 = graphs.JTC,
-		incoming = etg.incoming(node),
-		outgoing = etg.outgoing(node),
-		asids 	 = outgoing.filter( function (e) {
+	var etg 	  = graphs.etg(),
+		jtc 	  = graphs.JTC,
+		incoming  = etg.incoming(node),
+		outgoing  = etg.outgoing(node),
+		asids 	  = outgoing.filter( function (e) {
 			return e.g && e.g.frame
 		}).map( function (e) {
 			return e.g.frame
 		}),
-		ident    = node.node.left,
-		nr_entry = graphs.PDG.nodes.length,
-		cont 	 = handleStm(graphs,asids,node,stm_node);
+		parsenode = node.node,
+		ident     = node.node.left,
+		nr_entry  = graphs.PDG.nodes.length,
+		cont 	  = handleStm(graphs,asids,node,stm_node),
+		epsk = graphs.DSG.ecg.successors(node).filter(function (n) {
+			return n !== node
+		}),
+		declarations;
 
 	node.node = ident;
-	var declarations = graphs.DSG.declarations(node);
+	declarations = graphs.DSG.declarations(node);
 	handleIdentifier(graphs, node, stm_node);
+	stm_node.konts = epsk;
 	if (declarations) {
 		jtc.addNodes(declarations[0], stm_node);
 		if (graphs.PDG.nodes.length > nr_entry) {
@@ -219,7 +142,7 @@ var handleAssignmentExp = function (graphs, node, stm_node, upnode) {
 		if (e.to.isCallNode && e.equalsType(EDGES.CONTROL))
 			e.to.dtype = stm_node.getdtype()
 	})
-
+	node.node = parsenode;
 	return [cont,node];
 }
 
@@ -529,9 +452,14 @@ var addToPDG = function (node) {
 var addCallDep = function (from, to) {
 	var dtypef = from.getdtype(),
 		dtypet = to.getdtype();
-	if(dtypef && dtypet && 
-		dtypef.value != dtypet.value) 
-		from.add_edge_out(to, EDGES.REMOTEC)
+	if(dtypef && dtypet)
+		if(dtypef.value === DNODES.SHARED.value ||
+			dtypet.value === DNODES.SHARED.value) 
+			from.add_edge_out(to, EDGES.CALL)
+		else if (dtypef.value !== dtypet.value) 
+			from.add_edge_out(to, EDGES.REMOTEC)
+		else 
+			from.add_edge_out(to, EDGES.CALL)
 	else
 		from.add_edge_out(to, EDGES.CALL)
 }
@@ -568,8 +496,8 @@ var postRemoteDep = function (params) {
 			}).map( function (e) { return e.to});
 
 		datadeps.map(function (e) {
-			var dtypef = e.from.getdtype(),
-				dtypet = e.to.getdtype();
+			var dtypef = e.from.getdtype(true),
+				dtypet = e.to.getdtype(true);
 			if(dtypef && dtypet && dtypef.value !== dtypet.value)
 				e.type = EDGES.REMOTED
 		})
@@ -578,8 +506,8 @@ var postRemoteDep = function (params) {
 			 n.edges_out.filter( function (e) {
 					return e.equalsType(EDGES.CALL);
 				}).map( function (e) {
-						var dtypet = e.to.getdtype(),
-							dtypef = e.from.getdtype();
+						var dtypet = e.to.getdtype(true),
+							dtypef = e.from.getdtype(true);
 						if(dtypef && dtypet && dtypef.value !== dtypet.value) 
 							e.type = EDGES.REMOTEC;	
 				});
@@ -618,7 +546,7 @@ var makePDGNode = function (graphs, node, toadd, upnode) {
 		else if (isFunExp(graphs, node)) {
 			return handleAnonFuncDeclaration(graphs,node,upnode, toadd, successors);
 		}	
-			// block
+			// Block
 			else if (isBlockStm(graphs,node)) {
 				return handleBlockStatement(graphs, node, upnode, toadd)
 			}
@@ -673,10 +601,15 @@ var makePDGNode = function (graphs, node, toadd, upnode) {
 						// Call node -> actual-in parameter
 						callnode[1].add_edge_out(a, EDGES.CONTROL);
 						// actual-in parameter -> formal-in parameter
-						a.add_edge_out(f,EDGES.PARIN);
+						if (!a.equalsdtype(f) ||
+							!a.isSharedNode() ||
+							!f.isSharedNode())
+							a.add_edge_out(f, EDGES.REMOTEPARIN)
+						else
+						    a.add_edge_out(f,EDGES.PARIN);
 					}
 					var cont = callnode[0];
-					while(cont.type != "return") {
+					while(cont.type !== "return") {
 						out = etg.outgoing(cont);
 						if(out.length > 0)
 							cont = etg.outgoing(cont)[0].target;
@@ -687,13 +620,13 @@ var makePDGNode = function (graphs, node, toadd, upnode) {
 					}
 					if (cont) {
 						callnode[0] = cont;
-						var actual_out = new ActualPNode(PDG.fun_index,-1);
+						var actual_out = new ActualPNode(PDG.fun_index, -1);
 						actual_out.value = cont.node.toString();
 						PDG.fun_index++;
 						actual_out.add_edge_out(upnode, EDGES.DATA);
 						// Formal-out parameter -> actual-out parameter
 						var formal_out = entry.getFormalOut();
-						if(formal_out.length > 0 && !contnode.node.callee.name.startsWith('anonf')) 
+						if (formal_out.length > 0 && !contnode.node.callee.name.startsWith('anonf')) 
 							if (!actual_out.equalsdtype(formal_out[0]) || 
 								!actual_out.isSharedNode() ||
 								!formal_out[0].isSharedNode () )
@@ -708,7 +641,6 @@ var makePDGNode = function (graphs, node, toadd, upnode) {
 					if(!contnode.node.callee.name.startsWith('anonf'))
 						entry.addCall(callnode[1]);
 				}
-
 				return callnode;
 			}
 			// Other types of nodes (Statement Nodes)
@@ -747,8 +679,9 @@ var makePDGNode = function (graphs, node, toadd, upnode) {
 				else if (isBinExp(graphs, node)) 
 					cont = handleBinExp(graphs,node,stm_node,upnode)[0]
 				// Assignment expression
-				else if (isAssignmentExp(graphs, node))
-					cont = handleAssignmentExp(graphs, node, stm_node, upnode)[0];
+				else if (isAssignmentExp(graphs, node)) {
+					cont = handleAssignmentExp(graphs, node, stm_node, upnode)[0]
+				}
 				// If statement
 				else if (isIfStm(graphs, node))
 					cont = handleIfStatement(graphs, node, stm_node, upnode)[0];
@@ -851,8 +784,8 @@ JipdaToPDGMap.prototype.putNodes = function (JipdaNode, PDGNode) {
 }
 
 JipdaToPDGMap.prototype.addNodes = function (JipdaNode, PDGNode) {
-	var prev = this._nodes.get(JipdaNode,ArraySet.empty()),
-		add  =  prev.length>0 ?  prev.concat(PDGNode) : [PDGNode];
+	var prev = this._nodes.get(JipdaNode, ArraySet.empty()),
+		add  = prev.length>0 ?  prev.concat(PDGNode) : [PDGNode];
 	this._nodes = this._nodes.put(JipdaNode,add);
 }
 

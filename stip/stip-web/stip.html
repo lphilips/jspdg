@@ -27,6 +27,7 @@
 	<script src="js/bootstrap.min.js"></script>
 	<script src="js/prettify.js"></script>
 	<script src="js/tab.js"></script>
+	<script type="text/javascript" src="../aux.js"></script>
 	<script type="text/javascript" src="../edge.js"></script>
 	<script type="text/javascript" src="../node.js"></script>
 	<script type="text/javascript" src="../graph.js"></script>
@@ -39,6 +40,7 @@
 	<script type="text/javascript" src="../../jsEsprima.js"></script>
 	<script type="text/javascript" src="../../store.js"></script>
 	<script type="text/javascript" src="../../graph.js"></script>
+	<script type="text/javascript" src="../../Analysis.js"></script>
 	<script type="text/javascript" src="../../pushdown.js"></script>
 	<script type="text/javascript" src="../../jsCesk.js"></script>
 	<script type="text/javascript" src="../../tagAg.js"></script>
@@ -52,8 +54,8 @@
 	<script type="text/javascript" src="../../lib/web/ace/ace.js"></script>
 	<script type="text/javascript" src="../../lib/web/viz.js"></script>
 	<script type="text/javascript" src="../stip.js"></script>
-	
-
+	<script type="text/javascript" src="../CPS_transform.js"></script>
+	<script type="text/javascript" src="../JS_parse.js"></script>
 	<script type="text/javascript" src="../Meteor_parse.js"></script>
 	<script type="text/javascript" src="../Node_parse.js"></script>
 	<script type="text/javascript" src="../JSify.js"></script>
@@ -63,7 +65,7 @@
 	<script type="text/javascript" src="../annotations.js"></script>
 	<script type="text/javascript" src="../lib/escodegen.browser.js"></script>
 	<script type="text/javascript" src="PDGgraph.js"></script>
-
+	<script type="text/javascript" src="../CT_parse.js"></script>
 	<script type="text/javascript" src="js/jquery.panzoom.js"></script>
 
 	<script type="text/javascript">
@@ -143,6 +145,19 @@
       	}
       }
 
+
+      function cpstransform () {
+      	try {
+      		slicededitor.setValue("");
+      		var graphs  = doIt(),
+      		 	PDG     = graphs.PDG,
+      		 	program = constructProgram(PDG.getAllNodes(), {target: 'normal', cps : true});
+      		slicededitor.setValue(escodegen.generate(program));
+      	} catch (err) {
+      		console.log(err.stack);
+      		$("#error").append(err.message);
+      	}
+      }
 
 
       $(function ()
@@ -257,8 +272,11 @@
 									<button id="eval" name="eval" onClick="doIt()" class="btn btn-lg btn-success" 
 											style="float: left;	margin-right: 10px">Eval</button> 
 									<p style="float: left; margin-right: 10px; padding-top:1%"> or </p>
+									<button id="cpstransform" name="cpstransform" onClick="cpstransform()" class="btn btn-lg btn-success" 
+											style="float: left; margin-right: 10px">Transform CPS</button> 
+									<p style="float: left; margin-right: 10px; padding-top:1%"> or </p>
 									<button id="split" name="split" onClick="split()" class="btn btn-lg btn-success" 
-											style="float: left; margin-right: 10px">Tier split </button> 
+											style="float: left; margin-right: 10px">Tier split</button> 
 									<p style="float: left; margin-right: 10px; padding-top:1%"> to </p>
 									<div style="float:left">
 										<select  id="tocode" class="form-control" style="float:left">

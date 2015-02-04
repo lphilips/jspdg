@@ -1,182 +1,212 @@
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * **
+ *          Parse Utilities for target Meteor                                                                  *
+ *                                                                                                              *   
+ *     Based on JavaScript implementation : https://github.com/ticup/CloudTypes                                 *
+ *                                                                                                              *
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * **/
 
-/* METEOR REMOTE PROCEDURE CALL */
-var meteor_methodsP = function () {
-	return {
-            "type": "ExpressionStatement",
-            "expression": {
-                "type": "CallExpression",
-                "callee": {
-                    "type": "MemberExpression",
-                    "computed": false,
-                    "object": {
-                        "type": "Identifier",
-                        "name": "Meteor"
+var MeteorParse = (function () {
+
+    var module = {};
+
+
+    /*  Representation of a callback function :
+     *    callback(errx, resx) {}
+     */
+    var callback = function (cnt) {
+        return {  parsenode : {
+                    "type": "FunctionExpression",
+                    "id": null,
+                    "params": [
+                        {
+                            "type": "Identifier",
+                            "name": "err"+cnt
+                        },
+                        {
+                            "type": "Identifier",
+                            "name": "res"+cnt
+                        }
+                    ],
+                    "defaults": [],
+                    "body": {
+                        "type": "BlockStatement",
+                        "body": []
                     },
-                    "property": {
-                        "type": "Identifier",
-                        "name": "methods"
+                    "rest": null,
+                    "generator": false,
+                    "expression": false
+                  },
+                  addBodyStm : function (stm) {
+                    this.parsenode.body.body = this.parsenode.body.body.concat(stm)
+                  },
+                  setBody    : function (body) {
+                    this.parsenode.body.body = body
+                  },
+                  getBody    : function () {
+                    return this.parsenode.body.body;
+                  },
+                  getResPar  : function () {
+                    return this.parsenode.params[1];
+                  }
+                }
+    }
+
+    /* Representation of a remote procedurecall from client -> server:
+     *   Meteor.call(fname, args, callback(err, res) {})
+     */
+
+    var RPC = function (fname, args) {
+        return { parsenode  : 
+                        {
+                            "type": "ExpressionStatement",
+                            "expression": {
+                                "type": "CallExpression",
+                                "callee": {
+                                    "type": "MemberExpression",
+                                    "computed": false,
+                                    "object": {
+                                        "type": "Identifier",
+                                        "name": "Meteor"
+                                    },
+                                    "property": {
+                                        "type": "Identifier",
+                                        "name": "call"
+                                    }
+                                },
+                                "arguments": [
+                                    {
+                                        "type": "Literal",
+                                        "value": fname
+                                    }].concat( args ? args : [])
+                            }
+                        },
+                  addArg    : function (arg) {
+                    this.parsenode.expression.arguments = this.parsenode.expression.arguments.concat(arg)
+                  },
+                  replaceArg : function (prev, arg) {
+                    if (this.parsenode.expression)
+                        for (var i = 0; i < this.parsenode.expression.arguments.length; i++) {
+                            var current = this.parsenode.expression.arguments[i];
+                            if (current === prev) 
+                                this.parsenode.expression.arguments[i] = arg;
+                        }
+                  },
+                  setCallback : function (cb) {
+                    this.callback = cb;
+                  },
+                  updateCallback : function (cb) {
+                    if(this.parsenode.expression && this.parsenode.expression.arguments) {
+                        var argsp = this.parsenode.expression.arguments;
+                        argsp[argsp.length-1] = cb.parsenode;
+                        this.callback = cb;
                     }
-                },
-                "arguments": []
-            }
-         }
-}
+                  },
+                  setName : function (name) {
+                    this.parsenode.expression.arguments[0].value = name
+                  },
+                  getCallback : function () {
+                    if (this.callback) 
+                        return this.callback
+                    else if (this.parsenode.expression) {
+                        var argsp = this.parsenode.expression.arguments,
+                            newcb = callback(0); /*  count does not matter at this point */
+                        newcb.parsenode = argsp[argsp.length-1]
+                        return newcb
+                    }
+                  }
+                }
+    }
 
-var meteor_methodsCP = function () {
-    return esprima.parse('Meteor.ClientCall.methods({})').body[0];
-}
+    var RPCC = function (fname, args) {
+        return {
+            parsenode : esprima.parse("Meteor.ClientCall.apply(clientId, 'method', [], function (err,res) { var f = res; })")
+        }
+    }
 
-var meteor_functionP = function () {
-	return  {
+    /* 
+     * Representation of an async function (takes an extra argument callback)
+     *   
+     */
+
+    var asyncFun = function () {
+        return {
+            parsenode :  {
                 "type": "ObjectExpression",
                 "properties": [
                     {
                         "type": "Property",
                         "key": {
-                        	"type": "Literal",
-                        	// Name must be set by vardecl
-                        	"value": "",
-                    	},
-                		"value": {
-                     		"type": "FunctionExpression",
-                     		"id": null,
-                     		"params": [],
-                     		"defaults": [],
-                     		"body": {
-                     		"type": "BlockStatement",
-                     		"body": []
-                		},
-                		"rest": null,
-                		"generator": false,
-                		"expression": false
-                	},
-                	"kind": "init"
-                 }
-            ]
-          };
-}
-
-var meteor_callP = function () {
-	return  {
-            "type": "ExpressionStatement",
-            "expression": {
-                "type": "CallExpression",
-                "callee": {
-                    "type": "MemberExpression",
-                    "computed": false,
-                    "object": {
-                        "type": "Identifier",
-                        "name": "Meteor"
-                    },
-                    "property": {
-                        "type": "Identifier",
-                        "name": "call"
+                            "type": "Literal",
+                            // Name must be set by vardecl
+                            "value": "",
+                        },
+                        "value": {
+                            "type": "FunctionExpression",
+                            "id": null,
+                            "params": [],
+                            "defaults": [],
+                            "body": {
+                                "type": "BlockStatement",
+                                "body": []
+                            },
+                            "rest": null,
+                            "generator": false,
+                            "expression": false
+                        },
+                        "kind": "init"
                     }
-                },
-                "arguments": [
-                    {
-                        "type": "Literal",
-                        "value": ""
-                    }]
-            }
-        };
-}
+                ]
+          }, 
 
-var meteor_callbackP = function() {
-	return {
-            "type": "FunctionExpression",
-             "id": null,
-             "params": [
-                {
-                    "type": "Identifier",
-                     "name": "err"
-                },
-                {
-                    "type": "Identifier",
-                     "name": "res"
-                }
-            ],
-            "defaults": [],
-            "body": {
-            	"type": "BlockStatement",
-            	"body": []
+            setBody : function (body) {
+                this.parsenode.properties[0].value.body.body = body 
+            }, 
+
+            addParams : function (params) {
+                this.parsenode.properties[0].value.params = params;
+            },
+
+            setName : function (name) {
+                this.parsenode.properties[0].key.value = name;
             }
         }
-}
-
-var meteor_callbackVarDeclP = function (callback, name) {
-    callback.body.body = [{
-                    "type": "VariableDeclaration",
-                    "declarations": [
-                        {
-                            "type": "VariableDeclarator",
-                            "id": {
-                                "type": "Identifier",
-                                "name": name
-                            },
-                            "init": {
-                                "type": "Identifier",
-                                "name": "res"
-                            }
-                        }],
-                        "kind" : "var"
-                    }]
-    return callback;
-}
-
-
-var meteor_callbackAssignP = function (callback, name) {
-        callback.body.body = [{
-                    "type": "ExpressionStatement",
-                    "expression" : {
-                            "type": "AssignmentExpression",
-                            "operator" : "=",
-                            "left": {
-                                "type": "Identifier",
-                                "name": name
-                            },
-                            "right": {
-                                "type": "Identifier",
-                                "name": "res"
-                            }
-                        }
-                    }]                      
-    return callback;
-}
-
-
-var meteor_callbackReturnP = function (callback, expression, toreplace, originalexp, cnt) {
-	// Change expression
-	var r_idxs = toreplace.parsenode.range[0],
-		r_idxe = toreplace.parsenode.range[1],
-		e_idxs = expression.parsenode.range[0],
-		e_idxe = expression.parsenode.range[1],
-		e_str  = escodegen.generate(expression.parsenode);
-
-    if(originalexp.length !== e_str.length) {
-        var diff = originalexp.length - e_str.length;
-        r_idxs = r_idxs - diff;
-        r_idxe = r_idxe - diff;
     }
-	var	newexp = e_str.slice(0,r_idxs-e_idxs) + "res" + cnt + e_str.slice(r_idxe + 1 - e_idxs),
-		parsed = esprima.parse(newexp)["body"][0]["expression"];
-    parsed.range = [e_idxs, e_idxs + newexp.length];
-	// Put the new expression as first statement in body of callback
-    if (callback.body.body[0].type === "VariableDeclaration")
-	   callback.body.body[0].declarations[0].init = parsed;
-    else if (callback.body.body[0].type === "ExpressionStatement" && 
-            callback.body.body[0].expression.type === "AssignmentExpression")
-        callback.body.body[0].expression.right = parsed;
-    return parsed;
-}
+
+
+    var jsRPCAddCb = function (rpc, cb) {
+        rpc.expression.arguments = rpc.expression.arguments.concat(cb)
+    } 
+
+    var methodsClient = function () {
+        return esprima.parse('Meteor.ClientCall.methods({})').body[0];
+    }
+
+    var methodsServer = function () {
+        return esprima.parse('Meteor.methods({})').body[0];
+    }
+
+    module.callback      = callback;
+    module.RPC           = RPC;
+    module.asyncFun      = asyncFun;
+    module.methodsClient = methodsClient;
+    module.methodsServer = methodsServer; 
+
+    return module;
+
+})();
+
+
+
+/*
 
 
 /* RPC from server to client */
+/*
 var meteor_callbackCP = function () {
     var parsed = esprima.parse("Meteor.ClientCall.apply(clientId, 'method', [], function (err,res) { var f = res; })");
     return parsed.body[0];
 }
-
+*/
 
 /* PRIMITIVES TRANSFORMATION    */
 
