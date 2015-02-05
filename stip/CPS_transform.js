@@ -95,9 +95,16 @@ var CPSTransform = (function () {
 		transformargs = transformArguments(callargs, parsednode, slicednodes, transform, upnode, esp_exp, call);
 		parsednode = transformargs[1];
 		slicednodes = transformargs[0];
+		/* transformation of arguments changed esp_exp? */
 		if (transformargs[2] && esp_exp === orig_esp_exp) 
 			esp_exp = transformargs[2];
+		/* if argument is call that should not be transformed (but it has transformed arguments itself) 
+		    replace it at the current callback */
+		if (parsednode.upcall && parsednode.parsenode.orig) {
+			asyncCall.replaceArg(parsednode.parsenode.orig.expression[0], parsednode.parsenode.orig.parsenode)
+		}
 
+		/* Add data and call dependencies in returned callback body */
 		if (parsednode.getCallback && bodynode) {
 			callbackstms.map(function (node) {
 				/* Prevent data dependencies to be included double in nested callbacks.
@@ -139,34 +146,33 @@ var CPSTransform = (function () {
 						esp_exp = cnode[2];
 						CPSsetExpStm(upnode.parsenode, cnode[2]);
 					}
+
+					if (!transform.shouldTransform(call) && cnode[1].getCallback) {
+						/* Respar is {type : 'identifier', name : 'resx'} */
+						var respar = transformcall.respar ? transformcall.respar : cnode[1].getCallback().getResPar();
+						var	transf = transformVar(call.parsenode, callarg, escodegen.generate(call.expression[0]), respar.name.slice(-1));
+						transformrpc.upcall = transf;
+						call.parsenode = transf;
+					} else if (cnode[1].upcall) {
+						transformrpc.upcall = cnode[1].upcall;
+					}
 					/* Has transformed call arguments itself? */
 					if (hasCallArg.length > 0) {
-						if(transformcall.cont) 
+						if(transformcall.cont && latestcall.getCallback) 
 							transformcall.cont(latestcall.parsenode);
 
 						transformrpc.parsenode = transformcall;
-						/* Replace original call argument with the result parameter of its rpc callback */
-						if (latestcall.replaceArg) {
+						transformrpc.parsenode.cont = transformcall.cont;
+
+						if (transform.shouldTransform(callarg)) {
+							/* Replace original call argument with the result parameter of its rpc callback */
+							if (latestcall.replaceArg) {
 								latestcall.replaceArg(callarg.parsenode, cnode[1].parsenode.respar);
-							/* Next arguments should have access to first latestcall, such that they
-						 	  can replace their original argument in the original expression.
-					   	 	  We keep passing the replaceArg of the first latestcall to next ones.
-							*/
-							transformrpc.replaceArg = (function (lc) {
-								return function (prev, arg) {
-									lc.replaceArg(prev, arg)
-								}
-							})(latestcall);
+							}
+						} else {
+							call.parsenode = transformSubExp(call.parsenode, callarg.expression[0], callarg.parsenode, call.expression[0])
 						}
 
-						(function (lc) {
-							var cont = function(stm) {
-								lc.getCallback().setBody([stm]);
-							}
-							transformcall.cont = cont;
-						})(latestcall)
-						
-					
 						latestcall = transformrpc;
 
 					} else {
@@ -199,25 +205,18 @@ var CPSTransform = (function () {
 								/* Replace original call argument with the result parameter of its rpc callback */
 								if (latestcall.replaceArg) {
 									latestcall.replaceArg(callarg.parsenode, transformcallb.getResPar());
-									/* Next arguments should have access to first latestcall, such that they
-									   can replace their original argument in the original expression.
-								   	   We keep passing the replaceArg of the first latestcall to next ones.
-									*/
-									transformrpc.replaceArg = (function (lc) {
-										return function (prev, arg) {
-											lc.replaceArg(prev, arg)
-										}
-									})(latestcall);
 								}
 							}
-							else {
+							//else {
 								/* If not transformed, we must replace the current call with the res+x parameter in the 
 								   original call expression (parameter call) */
-								var transf = transformVar(call.parsenode, callarg, escodegen.generate(call.parsenode), cps_count)
-								transformrpc.parsenode.respar = transf;
-							}
+							//	var transf = transformVar(call.parsenode, callarg.expression[0], escodegen.generate(call.parsenode), cps_count)
+							//	transformrpc.parsenode.respar = transf;
+							//}
 
 							latestcall = transformrpc;
+
+							latestcall.parsenode.orig = call;
 						}
 					}
 					slicednodes = removeNode(cnode[0], callarg);
@@ -332,7 +331,7 @@ var CPSTransform = (function () {
 	/* Aux function : replaces occurence of expression with "resx" paremeter */
 	var transformVar = function (expression, toreplace, originalexp, cnt) {
 		// Change expression
-		var r_idxs = toreplace.parsenode.range[0],
+		/*var r_idxs = toreplace.parsenode.range[0],
 			r_idxe = toreplace.parsenode.range[1],
 			e_idxs = expression.range[0],
 			e_idxe = expression.range[1],
@@ -344,9 +343,39 @@ var CPSTransform = (function () {
 	        r_idxe = r_idxe - diff;
 	    }
 		var	newexp = e_str.slice(0,r_idxs-e_idxs) + 'res' + cnt + e_str.slice(r_idxe + 1 - e_idxs),
-			parsed = esprima.parse(newexp).body[0].expression;
-	    parsed.range = [e_idxs, e_idxs + newexp.length];
-	    expression = parsed;
+			parsed = esprima.parse(newexp).body[0].expression;*/
+	    //parsed.range = [e_idxs, e_idxs + newexp.length];
+	    //parsed.range = toreplace.parsenode.range;
+	    var e_str = escodegen.generate(expression),
+	        r_str = escodegen.generate(toreplace.parsenode),
+	        idx   = e_str.indexOf(r_str),
+	        newexp, parsed;
+	    if (idx > 0) {
+	    	newexp = e_str.slice(0,idx) + 'res' + cnt + e_str.slice(idx + r_str.length);
+	    	parsed = esprima.parse(newexp).body[0].expression;
+	 	   return parsed;
+		}
+		else {
+			return expression;
+		}
+	}
+
+
+	var transformSubExp = function (expression, toreplace, newsubexp, originalexp) {
+		var r_idxs = toreplace.range[0],
+			r_idxe = toreplace.range[1],
+			e_idxs = expression.range[0],
+			e_idxe = expression.range[1],
+			e_str  = escodegen.generate(expression),
+			orig   = escodegen.generate(originalexp);
+		if(orig.length !== e_str.length) {
+	        var diff = orig.length - e_str.length;
+	        r_idxs = r_idxs - diff;
+	        r_idxe = r_idxe - diff;
+	    }
+	    var newexp = e_str.slice(0, r_idxs-e_idxs) + escodegen.generate(newsubexp) + e_str.slice(r_idxe + 1 - e_idxs),
+	    	parsed = esprima.parse(newexp).body[0].expression;
+	    parsed.range = toreplace.range;
 	    return parsed;
 	}
 

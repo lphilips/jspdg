@@ -594,6 +594,7 @@ var makePDGNode = function (graphs, node, toadd, upnode) {
 					var entry  = callnode[2],
 						formal = entry.getFormalIn();
 					callnode[1].cnt = callcnt;
+					callnode[1].expression = callnode[1].expression.concat(node.node);
 					// Bind the actual and formal parameters
 					for(var i = 0; i < params[1].length; i++) {
 						var a = params[1][i],

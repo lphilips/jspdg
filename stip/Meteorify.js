@@ -239,30 +239,6 @@ var Meteorify = (function () {
 	}
 
 
-	/*
-	 * This function Meteorifies arguments of a call.
-	 * These arguments can be a (remote) call itself.
-	 */
-	var meteorify_arguments = function (sliced, callnode, args) {
-		var transformer = makeTransformer(),
-			callargs    = args.flatMap(function (a_in) {
-							return a_in.callArgument()		
-						}),
-			upnodes = callnode.edges_in.filter(function (e) {
-	        				return  e.equalsType(EDGES.CONTROL) &&
-	        	    	    		e.from.parsenode &&
-	        	       	    		e.from.parsenode &&
-	        	       	    		(e.from.parsenode.type === 'VariableDeclaration' ||
-	        	       	    		 e.from.parsenode.type === 'AssignmentExpression')
-	        			}),
-			cpstransform, nodes;
-			transformer.shouldTransform = shouldTransform;
-			if (upnodes[0])
-				cpstransform = CPSTransform.transformExp(upnodes[0].from,sliced.nodes, transformer);
-			/* TODO what if no upnode */
-			return cpstransform;
-	}
-
 	var meteorify_Primitive = function (sliced, actual_ins) {
 		var node 	  	= sliced.node,
 			name 	  	= node.name,
