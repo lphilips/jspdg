@@ -145,16 +145,14 @@ PDG_Node.prototype.dataDependentNodes= function() {
 		    				return  e.equalsType(EDGES.CONTROL) &&
 		    							e.from.isActualPNode
 		    			});
-
 		    		}
 		    		data_out = data_out.concat(upcall.edges_out.filter(function (e) {return e.equalsType(EDGES.DATA)}));
-		    	}
-		    	else {
-		    		var upedges = callnode.edges_in.filter(function (e) {return e.equalsType(EDGES.CONTROL)});
-		    		if (upedges.length > 0)
-		    			data_out = data_out.concat(upedges)
-		    		else
-		    			set = set.concat(callnode)
+	    			var upedges = callnode.edges_in.filter(function (e) {return e.equalsType(EDGES.CONTROL)});
+	    			if (upedges.length > 0)
+	    				data_out = data_out.concat(upedges)
+	    			else
+	    				set = set.concat(callnode)
+		    		
 		    	}
 		    }
 		    else if (to.isCallNode) {
@@ -262,6 +260,15 @@ CallNode.prototype.getEntryNode = function () {
 	})
 }
 
+CallNode.prototype.getStmNode = function () {
+	return this.edges_in.filter(function (e) {
+		return e.from.isStatementNode &&
+		e.equalsType(EDGES.CONTROL)
+	}).map(function (e) {
+		return e.from
+	})
+}
+
 /* Statement nodes, denoted by "s+index". (Statement) */
 var StatementNode = function (id, parsenode) {
   PDG_Node.call(this, 's'+id);
@@ -313,6 +320,14 @@ ActualPNode.prototype.callArgument = function () {
 	})
 }
 
+ActualPNode.prototype.getCall = function () {
+	return this.edges_in.filter(function (e) {
+		return e.from.isCallNode && e.equalsType(EDGES.CONTROL)
+	}).map(function (e) {
+		return e.from
+	})
+}
+
 
 //////////////////////////////////////////
 //			Distributed nodes			//
@@ -346,8 +361,8 @@ PDG_Node.prototype.isSharedNode = function () {
 }
 
 PDG_Node.prototype.equalsdtype = function (node) {
-	this.dtype = this.getdtype(false);
-	node.dtype = node.getdtype(false);
+	this.dtype = this.getdtype(true);
+	node.dtype = node.getdtype(true);
 	if (!this.dtype)
 		this.dtype = DNODES.SHARED;
 	if (!node.getdtype)
@@ -380,7 +395,7 @@ PDG_Node.prototype.getdtype = function (recheck) {
 		    return e.equalsType(EDGES.CONTROL)
 	};
 	/* If distributed type is already calculated, return it */
-	if(recheck && this.dtype) 
+	if(!recheck && this.dtype) 
 	  return this.dtype
 	else {
 		/* recursively traverse up the graph until a node with a 

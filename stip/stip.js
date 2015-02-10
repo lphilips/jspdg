@@ -489,27 +489,32 @@ var addDataDep = function (from, to) {
 var postRemoteDep = function (params) {
 	params.map( function (param) {
 		var datadeps = param.edges_in.filter( function (e) {
-				return e.equalsType(EDGES.DATA)
+				return e.equalsType(EDGES.DATA) || e.equalsType(EDGES.REMOTED)
 			}),
 			calldeps = param.edges_out.filter( function (e) {
 				return e.to.isCallNode  
 			}).map( function (e) { return e.to});
 
+		var paramtype = param.getdtype(true);	
+
 		datadeps.map(function (e) {
-			var dtypef = e.from.getdtype(true),
-				dtypet = e.to.getdtype(true);
-			if(dtypef && dtypet && dtypef.value !== dtypet.value)
+			var dtypef = e.from.getdtype(true);
+			if(dtypef && paramtype && dtypef.value !== paramtype.value)
 				e.type = EDGES.REMOTED
+			else
+				e.type = EDGES.DATA
 		})
 
 		calldeps.map(function (n) {
 			 n.edges_out.filter( function (e) {
-					return e.equalsType(EDGES.CALL);
+					return e.equalsType(EDGES.CALL) || e.equalsType(EDGES.REMOTEC);
 				}).map( function (e) {
 						var dtypet = e.to.getdtype(true),
 							dtypef = e.from.getdtype(true);
 						if(dtypef && dtypet && dtypef.value !== dtypet.value) 
 							e.type = EDGES.REMOTEC;	
+						else
+							e.type = EDGES.CALL
 				});
 			/* perform post check recursively! */
 			var a_ins = n.getActualIn();

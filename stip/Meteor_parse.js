@@ -55,31 +55,32 @@ var MeteorParse = (function () {
      *   Meteor.call(fname, args, callback(err, res) {})
      */
 
-    var RPC = function (fname, args) {
+    var RPC = function (call, fname, args) {
         return { parsenode  : 
-                        {
-                            "type": "ExpressionStatement",
+                        {   "callnode"  : call,
+                            "type"      : "ExpressionStatement",
                             "expression": {
-                                "type": "CallExpression",
-                                "callee": {
-                                    "type": "MemberExpression",
-                                    "computed": false,
-                                    "object": {
-                                        "type": "Identifier",
-                                        "name": "Meteor"
-                                    },
-                                    "property": {
-                                        "type": "Identifier",
-                                        "name": "call"
+                                "type"      : "CallExpression",
+                                "callee"    : {
+                                    "type"      : "MemberExpression",
+                                    "computed"  : false,
+                                    "object"    : {
+                                        "type"  : "Identifier",
+                                        "name"  : "Meteor"
+                                            },
+                                    "property"  : {
+                                        "type"  : "Identifier",
+                                        "name"  : "call"
                                     }
                                 },
-                                "arguments": [
+                                "arguments" : [
                                     {
-                                        "type": "Literal",
-                                        "value": fname
+                                        "type"  : "Literal",
+                                        "value" : fname
                                     }].concat( args ? args : [])
                             }
                         },
+                  isRPC     : true,
                   addArg    : function (arg) {
                     this.parsenode.expression.arguments = this.parsenode.expression.arguments.concat(arg)
                   },

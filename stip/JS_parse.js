@@ -54,9 +54,10 @@ var JSParse = (function () {
 	 *   fname(args, callback(err, res) {})
 	 */
 
-	var RPC = function (fname, args) {
+	var RPC = function (call, fname, args) {
 		return { parsenode 	: {
-			            "type": "ExpressionStatement",
+						"callnode" 	: call,
+			            "type"	   	: "ExpressionStatement",
 			            "expression": {
 			                "type": "CallExpression",
 			                "callee": {
@@ -76,6 +77,7 @@ var JSParse = (function () {
 			      			this.parsenode.expression.arguments[i] = arg;
 			      	}
 			      },
+			      isRPC 	: true,
 			      setCallback : function (cb) {
 			      	this.callback = cb;
 			      },
