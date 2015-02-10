@@ -92,13 +92,7 @@ var CPSTransform = (function () {
 					var respar = callback.getResPar(),
 						arg    = this.callnode,
 						transf = transformVar(arg.parsenode, call, respar.name.slice(-1));
-					//if (transformargs[2]) 
-						node.replaceArg(arg.expression[0], transf);
-					//else {
-					//	call.parsenode = transformVar(asyncCall.callnode.parsenode, call, escodegen.generate(asyncCall.callnode.expression[0]) , cps_count);
-					//	node.replaceArg(parsednode.callnode.expression[0], call.parsenode); 
-				//	}
-					//
+					node.replaceArg(arg.expression[0], transf);
 					callback.setBody([node.parsenode].concat(callback.getBody().slice(1)))
 				}
 			})(callback)
