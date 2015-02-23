@@ -66,6 +66,7 @@
 	<script type="text/javascript" src="../lib/escodegen.browser.js"></script>
 	<script type="text/javascript" src="PDGgraph.js"></script>
 	<script type="text/javascript" src="../CT_parse.js"></script>
+	<script type="text/javascript" src="../CT_transform.js"></script>
 	<script type="text/javascript" src="js/jquery.panzoom.js"></script>
 
 	<script type="text/javascript">
@@ -100,7 +101,8 @@
       			meta = result.ss.entries().reduce(function (acc, entry) {return acc.put(entry.key, {ss:entry.value})}, HashMap.empty()),
       			element = $("#graph"),
       			nodes = [],
-      			frames = [];
+      			frames = [],
+      			graphs;
       		$("#graph").empty();
       		graphs = new Graphs(result,ast,src);
       		graphs.start();
@@ -125,14 +127,17 @@
       		    sliceds = PDG.sliceDistributedNode(PDG.dserver),
       			sortedc = slicedc.slice(0),
       			sorteds = sliceds.slice(0),
+      			program,
       			printCode = function (nodes, option) {
       				nodes.sort(function (n1, n2) {
       					return n1.cnt - n2.cnt;
       				})
-      				var target 	= $('#tocode').val(),
-      					program = constructProgram(nodes, {target: target, tier: option}),
-      					parsed 	= escodegen.generate(program);
-      				slicededitor.setValue(slicededitor.getValue() + parsed + "\n");
+      				var target 	= $('#tocode').val();
+      				if (program && program.cloudtypes)
+      					program = constructProgram(nodes, {target: target, tier: option, cloudtypes: program.cloudtypes});
+      				else
+      					program = constructProgram(nodes, {target: target, tier: option});
+       				slicededitor.setValue(slicededitor.getValue() + escodegen.generate(program) + "\n");
       			};
       		slicededitor.setValue(slicededitor.getValue() + "/* CLIENT */ \n");
       		printCode(sortedc, "client");
