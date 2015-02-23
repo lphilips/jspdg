@@ -110,10 +110,13 @@ PDG_Node.prototype.pathExistsTo = function (to) {
 }
 
 
-PDG_Node.prototype.dataDependentNodes= function() {
+PDG_Node.prototype.dataDependentNodes = function(crossTier, includeActualP) {
 	var set = [],
 	    data_out = this.edges_out.slice().filter(function (e) {
-	    	return e.equalsType(EDGES.DATA)
+	    	if (crossTier)
+	    		return e.equalsType(EDGES.DATA) || e.equalsType(EDGES.REMOTED)	
+	    	else	
+	    		return e.equalsType(EDGES.DATA)
 	    })
 	while(data_out.length > 0) {
 		var e    = data_out.shift(),
@@ -121,38 +124,41 @@ PDG_Node.prototype.dataDependentNodes= function() {
 		    tout = to.edges_out.filter(function (e) {
 		    	return e.equalsType(EDGES.DATA)
 		    });
-		    if(to.isActualPNode) {
-		    	var calledges = to.edges_in.filter(function (e) {
-		    					return e.equalsType(EDGES.CONTROL)
-		    				}),
-		    		callnode = calledges[0].from,
-		    		isarg	 = callnode.edges_in.filter(function (e) {
-		    					return  e.equalsType(EDGES.CONTROL) &&
-		    							e.from.isActualPNode
-		    		});
-		    	/* If call node is an argument itself, keep going upwards until
-		    	   the "upper most call node" is found */
-		    	if(isarg.length > 0) {
-		    		var upcall = callnode;
-		    		while (isarg.length > 0) {
-		    			var uparg  		= isarg.shift().from,
-		    				upcalledges = uparg.edges_in.filter( function (e) {
-		    					return  e.equalsType(EDGES.CONTROL) &&
-		    							e.from.isCallNode
-		    				}),
-		    				upcall 		= upcalledges[0].from;
-		    			isarg = upcall.edges_in.filter(function (e) {
-		    				return  e.equalsType(EDGES.CONTROL) &&
-		    							e.from.isActualPNode
-		    			});
-		    		}
-		    		data_out = data_out.concat(upcall.edges_out.filter(function (e) {return e.equalsType(EDGES.DATA)}));
-	    			var upedges = callnode.edges_in.filter(function (e) {return e.equalsType(EDGES.CONTROL)});
-	    			if (upedges.length > 0)
-	    				data_out = data_out.concat(upedges)
-	    			else
-	    				set = set.concat(callnode)
-		    		
+		    if (to.isActualPNode) {
+		    	if (includeActualP) {
+		    		set = set.concat(to)
+		    	} else {
+			    	var calledges = to.edges_in.filter(function (e) {
+			    					return e.equalsType(EDGES.CONTROL)
+			    				}),
+			    		callnode = calledges[0].from,
+			    		isarg	 = callnode.edges_in.filter(function (e) {
+			    					return  e.equalsType(EDGES.CONTROL) &&
+			    							e.from.isActualPNode
+			    		});
+			    	/* If call node is an argument itself, keep going upwards until
+			    	   the "upper most call node" is found */
+			    	if(isarg.length > 0) {
+			    		var upcall = callnode;
+			    		while (isarg.length > 0) {
+			    			var uparg  		= isarg.shift().from,
+			    				upcalledges = uparg.edges_in.filter( function (e) {
+			    					return  e.equalsType(EDGES.CONTROL) &&
+			    							e.from.isCallNode
+			    				}),
+			    				upcall 		= upcalledges[0].from;
+			    			isarg = upcall.edges_in.filter(function (e) {
+			    				return  e.equalsType(EDGES.CONTROL) &&
+			    							e.from.isActualPNode
+			    			});
+			    		}
+			    		data_out = data_out.concat(upcall.edges_out.filter(function (e) {return e.equalsType(EDGES.DATA)}));
+		    			var upedges = callnode.edges_in.filter(function (e) {return e.equalsType(EDGES.CONTROL)});
+		    			if (upedges.length > 0)
+		    				data_out = data_out.concat(upedges)
+		    			else
+		    				set = set.concat(callnode)
+			    		}
 		    	}
 		    }
 		    else if (to.isCallNode) {
@@ -164,8 +170,8 @@ PDG_Node.prototype.dataDependentNodes= function() {
 		    		data_out = data_out.concat(upnode.edges_out.filter(function (e) { return e.equalsType(EDGES.DATA)})) 
 		    }
 		    else 
-		    	if(!(contains(set, to))) {
-		    		set = set.concat([to]);
+		    	if(!(contains(set, to)) && !to.isFormalNode) {
+		    		set = set.concat(to);
 		    		data_out = data_out.concat(tout);
 		    }
 	}
@@ -337,6 +343,10 @@ var DNODES = {
 	CLIENT : {value: 0, name: "client"},
 	SERVER : {value: 1, name: "server"},
 	SHARED : {value: 2, name: "shared"}
+}
+
+var dtypeEquals = function (type1, type2) {
+	return type1.value === type2.value
 }
 
 DistributedNode = function (type) {

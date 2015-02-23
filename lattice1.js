@@ -230,7 +230,7 @@ function Lattice1()
         }
 		    if (this.Num)
 		    {
-		      if (x === Num)
+		      if (x === Num) //|| x.Num)
 		      {
 		        return -1;
 		      }
@@ -250,9 +250,46 @@ function Lattice1()
             return undefined;
           }
 		    }
-		    return Eq.equals(this.cvalue, x.cvalue) ? 0 : undefined;		      
+		    return  Eq.equals(this.cvalue, x.cvalue) ? 0 : undefined;		      
 		  };
 		  
+    /* TODO ! difference with compareTo -> otherwise much slower */  
+    Some.prototype.compareToDo =
+      function (x)
+      {
+        if (x === Top)
+        {
+          return -1;
+        }
+        if (x === BOT)
+        {
+          return 1;
+        }
+        if (this.Num)
+        {
+          if (x === Num || x.Num)
+          {
+            return -1;
+          }
+          if (x === StrNum || x.StrNum)
+          {
+            return undefined;
+          }
+        }
+        else if (this.StrNum)
+        {
+          if (x === StrNum)
+          {
+            return -1;
+          }
+          if (x === Num || x.Num)
+          {
+            return undefined;
+          }
+        }
+        return this.cvalue && x.cvalue && Eq.equals(this.cvalue, x.cvalue) ? 0 : undefined;          
+      };
+
     Some.prototype.hashCode =
       function ()
       {

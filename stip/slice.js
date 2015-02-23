@@ -5,7 +5,7 @@ var toCode = function (option, slicednodes, node) {
 		case 'meteor':
 			return Meteorify.transpile(slicednodes, node)
 		case 'node.js':
-			return nodeify(slicednodes, node)
+			return Nodeify.transpile(slicednodes, node, option.cloudtypes, option.tier)
 	}
 }
 
@@ -31,13 +31,13 @@ var addFooter = function (option, sliced) {
 }
 
 var addHeader = function (option, sliced) {
-	switch (option.target) {
+	/*switch (option.target) {
 		case 'node.js':
 			if(option.tier === 'client')
 				sliced.setup = sliced.setup.concat(nodeHeaderC());
 			else
 				sliced.setup = sliced.setup.concat(nodeHeaderS());
-	}
+	}*/
 	return sliced;
 }
 
@@ -48,17 +48,38 @@ var transformBody = function (option, slicing, body, methods) {
 	switch (option.target) {
 		case 'node.js':
 			if (option.tier === 'client') {
-				/* client code for node.js runs inside a fiber */
+				/* client code for node.js runs inside a fiber 
+				   + cloudtypes are added */
 				var fiberf = nodeClientFiber(),
 					fiberb = fiberf.declarations[0].init.body.body;
+
+				/* Add cloud types declarations */
+				for(var name in slicing.cloudtypes) {
+    				if(slicing.cloudtypes.hasOwnProperty(name)) {
+    					var cloudtype = slicing.cloudtypes[name];
+        				body = [cloudtype.declarationC].concat(body);
+    				}
+				}
+
+
 				fiberf.declarations[0].init.body.body = fiberb.concat(body); 
-				return fiberf
+				//return fiberf
+				return body;
 			}
 			else {
-				/* server rpcs are added */
+				/* server rpcs + cloudtypes are added */
 				var server = nodeCreateServer();
 				server.declarations[0].init.arguments[0].properties = slicing.methods;
-				body = body.addFirst(server);
+
+				/* Declare cloud types + add their declarations as well (for use on server side as well) */
+				for(var name in slicing.cloudtypes) {
+    				if(slicing.cloudtypes.hasOwnProperty(name)) {
+    					var cloudtype = slicing.cloudtypes[name];
+        				body = [cloudtype.declarationS].concat(cloudtype.declarationC).concat(body);
+    				}
+				}
+
+				//body = body.addFirst(server);
 				return body;
 			}
 		case 'meteor':
@@ -99,6 +120,7 @@ var constructProgram = function (nodes, option) {
 				program.body = program.body.concat(slicing.parsednode);
 			}
 			nodes = slicing.nodes;	
+			option.cloudtypes = slicing.cloudtypes;
 			methods = methods.concat(slicing.methods);
 		}
 	};
@@ -108,6 +130,10 @@ var constructProgram = function (nodes, option) {
 	program.body = transformBody(option, slicing, program.body, methods);
 	program.body = slicing.setup.concat(program.body).concat(slicing.footer);
 	console.log(program);
+
+	if (option.tier === 'client') {
+		program.cloudtypes = slicing.cloudtypes;
+	}
 
 	return program;
 }
@@ -123,13 +149,17 @@ var Sliced = function (nodes, node, parsednode) {
     this.method 	 = {};
     this.methods 	 = [];
     this.streams 	 = [];
+
+    this.cloudtypes  = {};
 }
 
 var cloneSliced = function (sliced, nodes, node) {
 	var clone = new Sliced(nodes, node);
-	clone.methods = sliced.methods;
-	clone.setup   = sliced.setup;
-	clone.streams = sliced.streams;
+	clone.methods    = sliced.methods;
+	clone.setup      = sliced.setup;
+	clone.streams    = sliced.streams;
+	clone.cloudtypes = sliced.cloudtypes;
+	clone.tier       = sliced.tier;
 	return clone;
 }
 

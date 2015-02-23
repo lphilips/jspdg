@@ -61,6 +61,14 @@ var isEval = function (node) {
 	return node.type === 'eval'
 }
 
+var isKont = function (node) {
+	return node.type === 'kont'
+}
+
+var isApply = function (node) {
+	return node.type === 'apply'
+}
+
 var isFunExp = function (graphs, node) {
 	return 	isEval(node) && esp_isFunExp(node.node)
 }

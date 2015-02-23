@@ -54,12 +54,13 @@ var handleVarDecl = function (graphs, node, stm_node, upnode) {
 		vrators, cont;
 	jtc.addNodes(node, stm_node);
 	stm_node.konts = epsk;
-	if(upnode) 
+	if (upnode) 
 		stm_node.dtype = upnode.getdtype();
 	vrators = out.map( function (e) {
 		return e.g.frame;
 	});
 	cont = handleStm(graphs, vrators, node, stm_node, stm_node, false);	
+	stm_node.name = node.node.declarations[0].id.name;
 	return [cont, node];     
 }
 
@@ -71,7 +72,7 @@ var handleReturnStm = function (graphs, node, stm_node, upnode) {
 		incoming = etg.incoming(node),
 		outgoing = etg.outgoing(node);
 	jtc.addNodes(node,stm_node);
-	if(node.node.type === "ReturnStatement")
+	if (esp_isRetStm(node.node))
 		incoming = etg.outgoing(node);
 	var returns = incoming.filter( function (e) {
 		return e.g && e.g.frame;
@@ -128,6 +129,7 @@ var handleAssignmentExp = function (graphs, node, stm_node, upnode) {
 	declarations = graphs.DSG.declarations(node);
 	handleIdentifier(graphs, node, stm_node);
 	stm_node.konts = epsk;
+	stm_node.name = parsenode.left.name;
 	if (declarations) {
 		jtc.addNodes(declarations[0], stm_node);
 		if (graphs.PDG.nodes.length > nr_entry) {
@@ -177,30 +179,30 @@ var handleIfStatement = function (graphs, node, stm_node, entry) {
 		entryHasIf = entry.edges_out.filter(function (e) {
 			return e.to.isStatementNode && e.to.parsenode === stm_node.parsenode
 		}),
-		hasbranch = function (node,branchnode) {
+		hasbranch = function (node, branchnode) {
 			return stm_node.edges_out.filter(function (e) {
 				return e.to.parsenode && e.toparsenode === branchnode;
 			}).length > 0;
 		},
 		next = nextEval(cont, cont);
-	if(entryHasIf.length > 0) {
+	if (entryHasIf.length > 0) {
 			// Remove all incoming (data) edges to newly created if stm
 			var froms = stm_node.edges_in.map(function (e) {return e.from});
 			froms.map(function (n) {n.remove_edge_out(stm_node)});
 			stm_node.edges_in = [];
 			stm_node = entryHasIf[0].to;
 		}
-		if(next) {
+		if (next) {
 			var contnode = makePDGNode(graphs, next, false, entry); 
 			// Add consequent if not already added
-			if(next.node === consequent && !(hasbranch(stm_node, consequent))) {
+			if (next.node === consequent && !(hasbranch(stm_node, consequent))) {
 				stm_node.add_edge_out(contnode[1], EDGES.CONTROL, true)
 			}
 			// Add alternate if not already added
 			else if (next.node === alternate && !(hasbranch(stm_node, alternate))) {
 				stm_node.add_edge_out(contnode[1], EDGES.CONTROL, false)	
 			}
-			if(entryHasIf.length > 0) 
+			if (entryHasIf.length > 0) 
 				// TODO
 			node = false;
 			return [contnode[0], stm_node];
@@ -224,7 +226,7 @@ var handleBlockStatement = function (graphs, node, entry, toadd) {
 			return e.g.frame
 		}),
 		addUnder   = function (n) {
-			if (n.isEntryNode | n.isCallNode)
+			if (n.isEntryNode) //| n.isCallNode)
 				new_entry.add_edge_out(n, EDGES.CONTROL);
 		},
 		nextEval   = function (start,n) {
@@ -255,7 +257,7 @@ var handleBlockStatement = function (graphs, node, entry, toadd) {
 			if(next) {
 				var scopeInfo = Ast.scopeInfo(next.node),
 				parent = Ast.hoist(scopeInfo).parent(next.node,graphs.AST);
-				if (!(parent.type === 'BlockStatement' && 
+				if (!(esp_isBlockStm(parent) && 
 					parsenode.body.toString() === parent.body.toString()))
 					break;
 				out = out.concat(etg.outgoing(cont));
@@ -422,7 +424,7 @@ var handleAnonFuncDeclaration = function (graphs, node, entry, toadd, successors
 		jtc 	   = graphs.JTC,
 	    // Statement node of the variable declaration
 	    stm_node   = PDG.make_stm(node.node),
-	    next_node  = node.node.type === 'FunctionExpression' ? node : successors[0],
+	    next_node  = esp_isFunExp(node.node) ? node : successors[0],
         // Entry node for the function
         entry_node = new EntryNode(PDG.ent_index, next_node.node),
         prev_entry = PDG.entry_node;
@@ -585,7 +587,7 @@ var makePDGNode = function (graphs, node, toadd, upnode) {
 				}
 				else {
 				// Move to Jipda node with type apply
-				while(contnode.type !== "apply") {
+				while(!isApply(contnode)) {
 					var out = etg.outgoing(contnode);
 					if(out.length === 0) {
 						break;
@@ -663,8 +665,8 @@ var makePDGNode = function (graphs, node, toadd, upnode) {
 					// TODO: special case
 					var scopeInfo = Ast.scopeInfo(node.node),
 					parent = Ast.hoist(scopeInfo).parent(node.node,graphs.AST);
-					if(parent && parent.type === 'ReturnStatement' && 
-						upnode.parsenode && upnode.parsenode.type !== 'ReturnStatement') {
+					if(parent && esp_isRetStm(parent) && 
+						upnode.parsenode && !esp_isRetStm(upnode.parsenode)) {
 						cont = handleReturnStm(graphs, node, stm_node)[0]	
 				}
 				else {
@@ -703,7 +705,7 @@ var makePDGNode = function (graphs, node, toadd, upnode) {
 	}
 	
 	/* Apply state */
-	else if( node.type === 'apply') {
+	else if( isApply(node)) {
 		var call_node  = PDG.make_cal(node.node),
 		    name 	   = node.node.callee.name,
 			entry 	   = PDG.getEntryNode(name, node),
@@ -756,12 +758,12 @@ var makePDGNode = function (graphs, node, toadd, upnode) {
 						var n = makePDGNode(graphs, t, false, entry);
 					    // Nested entry nodes don't have a control edge to current entry node
 					    if (n && (!n[1].isEntryNode || 
-					    	n[1].parsenode.type === 'BlockStatement'))  {
+					    	esp_isBlockStm(n[1].parsenode))  {
 					    	target = n[0];
 						    // Call expressions already have control edge to their entry node (except primitives)
 						    if(	n[1] && (isPrimitiveCall(n[1]) || 
 						      	!(n[1].isCallNode || 
-						      	n[1].parsenode.type === 'BlockStatement')))
+						      	esp_isBlockStm(n[1].parsenode))))
 						    	entry.add_edge_out(n[1], EDGES.CONTROL)
 						}
 					}

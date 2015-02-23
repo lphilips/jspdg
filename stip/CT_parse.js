@@ -22,7 +22,7 @@ var CTParse = (function () {
 
 	var CInt = function (name) {
 		var declstrS = "server.declare('" + name + "', CloudTypes.CInt)",
-			declstrC = "state.get('" + name + "')";
+			declstrC = "var " + name + " = state.get('" + name + "')";
 			var cint = 
 		{
 			varname 	  : name,
@@ -40,8 +40,11 @@ var CTParse = (function () {
 			add			  : function (nr) {
 							  return esprima.parse(name + ".add(" + nr + ")").body[0]
 						  },
-			set 		  : function (nr) {
-	                    	  return esprima.parse(name + ".set(" + nr + ")").body[0]        
+			set 		  : function (exp) {
+	                    	  return esprima.parse(name + ".set(" + exp + ")").body[0]        
+						  },
+			setIfEmpty    : function (exp) {
+								return esprima.parse(name + ".setIfEmpty(" + exp + ")").body[0];
 						  }
 		};
 		return cint;
