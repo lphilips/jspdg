@@ -29,7 +29,7 @@ var Meteorify = (function () {
 	}
 
 
-	var meteorify_VarDecl = function (sliced) {
+	var meteorifyVarDecl = function (sliced) {
 	  	// Outgoing data dependency to entry or call node?
 	  	var node  = sliced.node,
 	  	    name  = node.parsenode.declarations[0].id.name,
@@ -101,7 +101,7 @@ var Meteorify = (function () {
 	 * 8: function defined SHARED,    called by CLIENT -> copy to client, no transformation
 	 * 9: function defined SHARED,    called by BOTH   -> copy to both.
 	 */
-	var meteorify_FunExp = function (sliced) {
+	var meteorifyFunExp = function (sliced) {
 		var node 	    = sliced.node,
 			form_ins    = node.getFormalIn(),
 			form_outs   = node.getFormalOut(),
@@ -173,7 +173,7 @@ var Meteorify = (function () {
 	 * 5: function defined on CLIENT, called on SERVER -> transform to Meteor method call (subhog package)
 	 * 6: function defined on CLIENT, called by BOTH   -> combination of previous cases
 	 */
-	var meteorify_CallExp = function (sliced) {
+	var meteorifyCallExp = function (sliced) {
 		var node 		= sliced.node,
 			actual_ins  = node.getActualIn(),
 			actual_outs = node.getActualOut(),	
@@ -239,7 +239,7 @@ var Meteorify = (function () {
 	}
 
 
-	var meteorify_Primitive = function (sliced, actual_ins) {
+	var meteorifyPrimitive = function (sliced, actual_ins) {
 		var node 	  	= sliced.node,
 			name 	  	= node.name,
 			parsenode  	= node.getParsenode(),
@@ -298,7 +298,7 @@ var Meteorify = (function () {
 		return sliced;
 	}
 
-	var meteorify_BlockStm = function (sliced) {
+	var meteorifyBlockStm = function (sliced) {
 		var body 		= [],
 			node 		= sliced.node,
 			parsenode 	= node.getParsenode(),
@@ -328,7 +328,7 @@ var Meteorify = (function () {
 		return sliced;
 	}
 
-	var meteorify_IfStm = function (sliced) {
+	var meteorifyIfStm = function (sliced) {
 		var node 	= sliced.node,
 		    conseq  = node.edges_out.filter( function (e) {
 		    	return e.label && e.equalsType(EDGES.CONTROL)
@@ -396,19 +396,19 @@ var Meteorify = (function () {
 		console.log('METEOR('+node.parsenode.type+') ' + node.parsenode);
 		switch (node.parsenode.type) {
 	      case 'VariableDeclaration': 
-			return meteorify_VarDecl(sliced);
+			return meteorifyVarDecl(sliced);
 		  case 'FunctionExpression':
-		  	return meteorify_FunExp(sliced);
+		  	return meteorifyFunExp(sliced);
 		  case 'FunctionDeclaration':
-		    return meteorify_FunExp(sliced);
+		    return meteorifyFunExp(sliced);
 		  case 'BlockStatement':
-			return meteorify_BlockStm(sliced);
+			return meteorifyBlockStm(sliced);
 		  case 'CallExpression':
-		  	return meteorify_CallExp(sliced);
+		  	return meteorifyCallExp(sliced);
 		  case 'IfStatement':
-		   	return meteorify_IfStm(sliced);
+		   	return meteorifyIfStm(sliced);
 		  case 'AssignmentExpression':
-		    return meteorify_AssignmentExp(sliced);
+		    return meteorifyAssignmentExp(sliced);
 		  default: 
 		    sliced.parsednode = node.parsenode;
 		    return sliced;
