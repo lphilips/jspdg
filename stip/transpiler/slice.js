@@ -20,24 +20,24 @@ var addPrimitives = function (option) {
 }
 
 var addFooter = function (option, sliced) {
-	switch (option.target) {
+	/*switch (option.target) {
 		case 'node.js':
 			if(option.tier === 'client')
 				sliced.footer = nodeFooterC();
 			else 
 				sliced.footer = nodeFooterS();
-	}
+	}*/
 	return sliced;
 }
 
 var addHeader = function (option, sliced) {
-	/*switch (option.target) {
+	switch (option.target) {
 		case 'node.js':
 			if(option.tier === 'client')
 				sliced.setup = sliced.setup.concat(nodeHeaderC());
-			else
-				sliced.setup = sliced.setup.concat(nodeHeaderS());
-	}*/
+			//else
+			//	sliced.setup = sliced.setup.concat(nodeHeaderS());
+	}
 	return sliced;
 }
 
@@ -48,11 +48,6 @@ var transformBody = function (option, slicing, body, methods) {
 	switch (option.target) {
 		case 'node.js':
 			if (option.tier === 'client') {
-				/* client code for node.js runs inside a fiber 
-				   + cloudtypes are added */
-				var fiberf = nodeClientFiber(),
-					fiberb = fiberf.declarations[0].init.body.body;
-
 				/* Add cloud types declarations */
 				for(var name in slicing.cloudtypes) {
     				if(slicing.cloudtypes.hasOwnProperty(name)) {
@@ -60,10 +55,6 @@ var transformBody = function (option, slicing, body, methods) {
         				body = [cloudtype.declarationC].concat(body);
     				}
 				}
-
-
-				fiberf.declarations[0].init.body.body = fiberb.concat(body); 
-				//return fiberf
 				return body;
 			}
 			else {
