@@ -15,6 +15,10 @@ var esp_isVarDecl = function (node) {
 	return node.type === 'VariableDeclaration'
 }
 
+var esp_isVarDeclarator = function (node) {
+	return node.type === 'VariableDeclarator'
+}
+
 var esp_isFunDecl = function (node) {
 	return node.type === 'FunctionDeclaration'
 }
@@ -108,10 +112,6 @@ var isAssignmentExp = function (graphs, node) {
 	return 	isEval(node) && esp_isAssignmentExp(node.node)
 }
 
-var isApply = function (graphs, node) {
-	return node.type === 'apply'
-}
-
 var isBlockStm = function (graphs, node) {
 	return 	isEval(node) && esp_isBlockStm(node.node)
 }
@@ -127,6 +127,42 @@ var isOperandKont = function (edge) {
 			edge.g.frame.operandValues;
 }
 
+var isReturnKont = function (kont) {
+	return kont.completion &&
+	       kont.completion === "return"
+}
+
+var declarations = function (graph, s, name) {
+  var targets = HashSet.empty();
+  var visited = HashSet.empty();
+  var todo = [s];
+  while (todo.length > 0)
+  {
+    var q = todo.shift();
+    if (visited.contains(q))
+    {
+      continue;
+    }
+    visited = visited.add(q);
+    if (q.node && q.node.type === "VariableDeclaration" && q.node.declarations[0].id.name === name)
+    {
+      targets = targets.add(q);
+      continue;
+    }
+    var incoming = graph.incoming(q);
+    todo = incoming.reduce(
+      function (todo, e)
+      {
+        if (e.g && e.g.isPop && e.g.frame.isMarker)
+        {
+          return todo.concat(Pushdown.framePredecessors(q, e.g.frame, ecg));
+        }
+        return todo.addLast(e.source);
+      }, todo);
+  }
+  return targets.values();
+
+}
 
 /*  Tierless primitives */
 var primitives = ['read', 'print', 'broadcast', 'subscribe', 'installL'];
@@ -137,3 +173,28 @@ var isPrimitiveCall = function (node) {
 	return 	(node.isCallNode &&  checkName(node.name)) || 
 			(node.node && node.node.type === "CallExpression" && checkName(node.node.callee.name)) 
 }
+
+Array.prototype.memberAt =
+	function (x)
+	{
+		for (var i = 0; i < this.length; i++)
+		{
+			var el = this[i];
+			if (x.equals(el))
+			{
+				return i;
+			}
+		}
+		return -1;
+	};
+
+Array.prototype.remove =
+  function (x)
+  {
+    var i = this.memberAt(x);
+    if (i === -1)
+    {
+      return this.slice(0);
+    }
+    return this.slice(0, i).concat(this.slice(i+1));
+  }

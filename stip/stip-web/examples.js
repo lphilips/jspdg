@@ -1,5 +1,5 @@
 var uncomment = function (fn){
-  var multiline = fn.toStringOrig().split(/\/\*\n|\n\*\//g).slice(1,-1).join();
+  var multiline = fn.toString().split(/\/\*\n|\n\*\//g).slice(1,-1).join();
   return multiline.replace("@client", "/* @client */").replace("@server", "/* @server */")
 };
 

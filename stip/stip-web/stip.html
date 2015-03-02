@@ -6,13 +6,41 @@
 
 	<link rel='shortcut icon' type='image/x-icon' href='favicon.ico' />
 
-	<link rel="stylesheet" href="jipda.css" type="text/css" media="all"/>
 	<link rel="stylesheet" href="css/bootstrap.css"> 
 	<link rel="stylesheet" href="css/starter-template.css">
+	<link rel="stylesheet" href="protopurity.css" type="text/css" media="all"/> 
 
 	<title>STiP.js</title>
 	<!-- Le javascript-->
-	<script type="text/javascript" src="../../common.js"></script>
+	<!-- Jipda -->
+	<script type="text/javascript" src="../lib/esprima.js"></script>
+	<script type="text/javascript" src="../../Jipda/common.js"></script>
+	<script type="text/javascript" src="../../Jipda/ast.js"></script>
+	<script type="text/javascript" src="../../Jipda/agc.js"></script>
+	<script type="text/javascript" src="../../Jipda/lattice.js"></script>
+	<script type="text/javascript" src="../../Jipda/abstLattice1-2.js"></script>
+	<script type="text/javascript" src="../../Jipda/concLattice.js"></script>
+	<script type="text/javascript" src="../../Jipda/countingStore.js"></script>
+	<script type="text/javascript" src="../../Jipda/graph.js"></script>
+	<script type="text/javascript" src="../../Jipda/jsCesk.js"></script>
+	<script type="text/javascript" src="../../Jipda/concreteAg.js"></script>
+	<script type="text/javascript" src="../../Jipda/tagAg.js"></script>
+	<script type="text/javascript" src="../../Jipda/benv.js"></script>
+	<script type="text/javascript" src="../../Jipda/object.js"></script>
+	<script type="text/javascript" src="../../Jipda/purityAnalysis.js"></script>
+	<script type="text/javascript" src="../../Jipda/protopurity.js"></script>
+	<script type="text/javascript" src="../../Jipda/lib/web/jquery-2.1.1.min.js"></script>
+	<script type="text/javascript" src="../../Jipda/lib/web/jquery-ui-1.11.1/jquery-ui.min.js"></script>
+	<script type="text/javascript" src="../../Jipda/lib/web/codemirror/codemirror.js"></script>
+	<script type="text/javascript" src="../../Jipda/lib/web/codemirror/hint/show-hint.js"></script>
+	<script type="text/javascript" src="../../Jipda/lib/web/codemirror/hint/anyword-hint.js"></script>
+	<script type="text/javascript" src="../../Jipda/lib/web/codemirror/mode/javascript/javascript.js"></script>
+	<script type="text/javascript" src="../../Jipda/lib/web/d3.min.js"></script>
+	<script type="text/javascript" src="../../Jipda/lib/web/dagre-d3.min.js"></script>
+	<script type="text/javascript" src="../../Jipda/lib/web/dagregraphs.js"></script>
+
+	<!--/end Jipda -->
+
 	<script type="text/javascript" src="examples.js"></script>
 	<script src="../lib/esprima.js"></script>
 	<script src="../lib/falafel_esprima.js"></script>
@@ -21,6 +49,7 @@
 	<script src="../lib/esrefactor.js"></script>
 	<script src="../lib/json2.js"></script>
 	<script src="../lib/beautifier.js"></script>
+	<script src="lib/ace/ace.js"></script>
 	<script type="text/javascript" src="../lib/falafel.js"></script>
 	<script src="https://code.jquery.com/jquery.js"></script>
 	<script src="http://yui.yahooapis.com/3.9.0/build/yui/yui-min.js"></script>
@@ -28,44 +57,29 @@
 	<script src="js/prettify.js"></script>
 	<script src="js/tab.js"></script>
 	<script type="text/javascript" src="../aux.js"></script>
-	<script type="text/javascript" src="../edge.js"></script>
-	<script type="text/javascript" src="../node.js"></script>
-	<script type="text/javascript" src="../graph.js"></script>
+	<script type="text/javascript" src="../PDG/edge.js"></script>
+	<script type="text/javascript" src="../PDG/node.js"></script>
+	<script type="text/javascript" src="../PDG/graph.js"></script>
 	<script type="text/javascript" src="../pre-analysis.js"></script>
-	<script type="text/javascript" src="../../agc.js"></script>
-	<script type="text/javascript" src="../../lattice.js"></script>
-	<script type="text/javascript" src="../../lattice1.js"></script>
-	<script type="text/javascript" src="../../setLattice.js"></script>
-	<script type="text/javascript" src="../../address.js"></script>
-	<script type="text/javascript" src="../../jsEsprima.js"></script>
-	<script type="text/javascript" src="../../store.js"></script>
-	<script type="text/javascript" src="../../graph.js"></script>
-	<script type="text/javascript" src="../../Analysis.js"></script>
-	<script type="text/javascript" src="../../pushdown.js"></script>
-	<script type="text/javascript" src="../../jsCesk.js"></script>
-	<script type="text/javascript" src="../../tagAg.js"></script>
-	<script type="text/javascript" src="../../defaultBenv.js"></script>
-	<script type="text/javascript" src="../jipda.js"></script>
-	<script type="text/javascript" src="../../jipdatool.js"></script>
+	<script type="text/javascript" src="../jipdatool.js"></script>
 	<script type="text/javascript" src="js/esprimatool.js"></script>
 	<script type="text/javascript" src="lib/jslint.js"></script>
 	<script type="text/javascript" src="js/jslinttool.js"></script>
-	<script type="text/javascript" src="../../lib/web/jquery-1.7.2.min.js"></script>
-	<script type="text/javascript" src="../../lib/web/ace/ace.js"></script>
-	<script type="text/javascript" src="../../lib/web/viz.js"></script>
 	<script type="text/javascript" src="../stip.js"></script>
-	<script type="text/javascript" src="../CPS_transform.js"></script>
-	<script type="text/javascript" src="../JS_parse.js"></script>
-	<script type="text/javascript" src="../Meteor_parse.js"></script>
-	<script type="text/javascript" src="../Node_parse.js"></script>
-	<script type="text/javascript" src="../JSify.js"></script>
-	<script type="text/javascript" src="../Meteorify.js"></script>
-	<script type="text/javascript" src="../Nodeify.js"></script>
-	<script type="text/javascript" src="../slice.js"></script>
+	<script type="text/javascript" src="../transpiler/CPS_transform.js"></script>
+	<script type="text/javascript" src="../transpiler/JS_parse.js"></script>
+	<script type="text/javascript" src="../transpiler/Meteor_parse.js"></script>
+	<script type="text/javascript" src="../transpiler/Node_parse.js"></script>
+	<script type="text/javascript" src="../transpiler/JSify.js"></script>
+	<script type="text/javascript" src="../transpiler/Meteorify.js"></script>
+	<script type="text/javascript" src="../transpiler/Nodeify.js"></script>
+	<script type="text/javascript" src="../transpiler/CT_parse.js"></script>
+	<script type="text/javascript" src="../transpiler/slice.js"></script>
 	<script type="text/javascript" src="../annotations.js"></script>
 	<script type="text/javascript" src="../lib/escodegen.browser.js"></script>
 	<script type="text/javascript" src="PDGgraph.js"></script>
-	<script type="text/javascript" src="../CT_parse.js"></script>
+
+	<script type="text/javascript" src="lib/viz.js"></script>
 	<script type="text/javascript" src="js/jquery.panzoom.js"></script>
 
 	<script type="text/javascript">
@@ -76,34 +90,35 @@
 
 	function doIt () {
 		try {
+
 			$("#graph").empty();
 			$("#error").empty();
 			var src = editor.getSession().getValue(),
 			// First parse and create again via escodegen
 				ast = esprima.parse(src, {range: true, tokens: true, comment: true});
 			src = escodegen.generate(escodegen.attachComments(ast, ast.comments, ast.tokens), {comment: true});
-		
+
 			/* Pre analysis step */
       		var preanalysis = pre_analyse(src),
       			src2 = preanalysis[0].ast;
       		src2.body = preanalysis[2].concat(src2.body).concat(preanalysis[1]).concat(preanalysis[3]);
       		console.log(escodegen.generate(src2));
-      		
-      		var ast  = Ast.createAst(src), //escodegen.generate(src),{loc:true});
-				lat  = new Lattice1(),
-      			//var lat = new SetLattice(3);
-      			cesk = jsCesk({a:tagAg, p:lat});
-      		result = new Pushdown().analyze(ast, cesk);
 
-      		var etgEdges = result.etg.edges(),
-      			emptySet = ArraySet.empty(),
-      			meta = result.ss.entries().reduce(function (acc, entry) {return acc.put(entry.key, {ss:entry.value})}, HashMap.empty()),
-      			element = $("#graph"),
-      			nodes = [],
-      			frames = [];
+			var src = editor.getSession().getValue(),
+		    	ast = Ast.createAst(src, {loc:true, attachComment: true});
+		    var gc = true;
+		    cesk = jsCesk({a:createConcAg(), l: new ConcLattice(), gc: gc})
+		    var system = cesk.explore(ast);
+      		var states      = system.states,
+      			transitions = system.graph.edges(),
+      			emptySet    = ArraySet.empty(),
+      			//meta = result.ss.entries().reduce(function (acc, entry) {return acc.put(entry.key, {ss:entry.value})}, HashMap.empty()),
+      			element     = $("#graph"),
+      			nodes       = [],
+      			frames      = [];
       		$("#graph").empty();
-      		graphs = new Graphs(result,ast,src);
-      		graphs.start();
+      		graphs = new Graphs(system.graph, ast, src);
+      		graphs.start(system.initial);
       		drawLinks(graphs.PDG, element, window, slicededitor);
       		return graphs; 
       	} catch (err) {
@@ -301,7 +316,23 @@
 								<button id="jipdaeval" name="jipdaeval" onClick="jipdaIt()" class="btn btn-lg btn-success" 
 										style="float: left; margin-right: 10px; margin-top: 1%;">Eval</button>
 								<span id="resultValue"></span>
-								<div id="jipdagraph"></div>
+									<div id="meta">
+										<div id="output"></div>
+										<div id="input"></div>
+									</div>
+									<div id="right" class="container">
+										<div id="graphjipda" class="container">
+											<svg>
+												<defs>
+													<marker id="highlightarrowhead" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="strokeWidth" markerWidth="8" markerHeight="5" orient="auto">
+														<path d="M 0 0 L 10 5 L 0 10 z"></path>
+													</marker>
+												</defs>	
+									    	<g transform="translate(20,20)"/>
+											</svg>
+										</div>
+									</div>
+									<!-- /.right -->
 							</div>
 						</div> <!-- ./jipda -->
 
