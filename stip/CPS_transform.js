@@ -44,7 +44,8 @@ var CPSTransform = (function () {
 			if (!esp_exp) {
 				esp_exp = CPSgetExpStm(upnode.parsenode)
 			}
-			esp_exp = transformVar(esp_exp, call , cps_count);
+			if (transform.shouldTransform(call))
+				esp_exp = transformVar(esp_exp, call, cps_count);
 			callback.addBodyStm(upnode.parsenode);
 			slicednodes = removeNode(slicednodes, upnode);
 			/* Data depentent nodes */
@@ -63,20 +64,20 @@ var CPSTransform = (function () {
 	        							esp_isVarDecl(e.from.parsenode) //TODO : assignment?
 	        				}).map(function (e) { return e.from });
 
-						datadep = datadep.concat(calldeps);
-						datadep = datadep.concat(vardecls);
-						datadep = datadep.concat(node); 			
+					datadep = datadep.concat(calldeps);
+					datadep = datadep.concat(vardecls);
+					datadep = datadep.concat(node); 			
 				}
 				else {
-					var call = node.getCall()[0],
-					 	stm  = call.getStmNode();
+					var callnode = node.getCall()[0],
+					 	stm  = callnode.getStmNode();
 					if (stm.length > 0)
 						datadep = datadep.concat(stm)
 					else 
-						datadep = datadep.concat(call)
+						datadep = datadep.concat(callnode)
 				}
 				datadep.map( function (n) {
-					if (slicedContains(slicednodes, n)) {
+					if (slicedContains(slicednodes, n) && transform.shouldTransform(call)) {
 	    				bodynode = transform.transformF(slicednodes, n, upnode); 
 						slicednodes = bodynode.nodes;
 						callbackstms = callbackstms.concat(bodynode);}
@@ -88,14 +89,14 @@ var CPSTransform = (function () {
 		asyncCall.addArg(callback.parsenode)
 		asyncCall.setCallback(callback);
 		(function (callback) {
-				asyncCall.parsenode.cont = function (node) {
-					var respar = callback.getResPar(),
-						arg    = this.callnode,
-						transf = transformVar(arg.parsenode, call, respar.name.slice(-1));
-					node.replaceArg(arg.expression[0], transf);
-					callback.setBody([node.parsenode].concat(callback.getBody().slice(1)))
-				}
-			})(callback)
+			asyncCall.parsenode.cont = function (node) {
+				var respar = callback.getResPar(),
+					arg    = this.callnode,
+					transf = transformVar(arg.parsenode, call, respar.name.slice(-1));
+				node.replaceArg(arg.expression[0], transf);
+				callback.setBody([node.parsenode].concat(callback.getBody().slice(1)))
+			}
+		})(callback)
 		parsednode = asyncCall;
 		transformargs = transformArguments(callargs, parsednode, slicednodes, transform, upnode, esp_exp, call);
 		parsednode = transformargs[1];
@@ -105,11 +106,13 @@ var CPSTransform = (function () {
 			esp_exp = transformargs[2];
 
 
-		if (callargs.length < 1 && !transform.shouldTransform(call))
+		if (callargs.length < 1 && !transform.shouldTransform(call)) {
 			return [slicednodes, call, false]
+		}
 
-		if (!transform.shouldTransform(call) && !parsednode) 
+		if (!transform.shouldTransform(call) && !parsednode) {
 			return [slicednodes, call, false]
+		}
 
 		if (!transform.shouldTransform(call) && parsednode) {
 			if (bodynode) {
@@ -184,7 +187,7 @@ var CPSTransform = (function () {
 					    transformcallp;
 					if (cnode[2]) {
 						transformcallp  = transformcall.parsenode;
-
+						esp_exp = cnode[2];
 						/* Has transformed call arguments itself? */
 						if (hasCallArg.length > 0) {
 							if (!latestcall) 
@@ -289,20 +292,20 @@ var CPSTransform = (function () {
 				var exp = CPSgetExpStm(parsenode),
 					cps = transformCall(call, nodes, transform, node, exp);
 					if (cps[2]) CPSsetExpStm(parsenode, cps[2]);
-	  				nodes = removeNode(cps[0], call);
+					nodes = removeNode(cps[0], call);
 	  				if (outercps) {
 	  					var callback = outercps.callback;
-	  						if (outercps.parsenode.cont) {
-	  							if( cps[1].getCallback) {
-	  								cps[1].parsenode.cont(outercps)
-	  								outercps = cps[1] 
-	  							}
-	  							
-	  						}	  					
-	  					}
+	  					if (outercps.parsenode.cont) {
+	  						if( cps[1].getCallback) {
+	  							cps[1].parsenode.cont(outercps)
+	  							outercps = cps[1] 
+	  						}			
+	  					}	  					
+	  				}
 	  				/* If transformed, change the outercps */
-	  				else if (cps[1].getCallback)
+	  				else if (cps[1].getCallback) {
 	  					outercps =  cps[1];
+	  				}
 	  			}
 	  		})
 	  	cps_count = local_count;

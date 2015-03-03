@@ -6,16 +6,14 @@
  * from where that DPG node ended.
  * We return the last state this function looked at.*/
 
-var handleStm = function (graphs, incoming, node, stm_node, addJtc, toadd) {
-	var cont = node,
-		etg  = graphs.etg(),
-		jtc  = graphs.JTC,
-		out  = etg.outgoing(node),
-		edge, target, PDG_node;
-	while(out.length > 0) {
-		edge   = out.shift();
-		target = edge.target;
-		if(edge.g && edge.g.isPop && contains(incoming, edge.g.frame))
+var handleStm = function (graphs, kontnode, node, stm_node, addJtc, toadd) {
+	var cont        = node,
+		jtc         = graphs.JTC,
+		successors  = graphs.JG.successors(node),
+		successor, PDG_node, cont;
+	while(successors.length > 0) {
+		successor   = successors.shift();
+		if(successor.equals(kontnode))
 			break;
 		else {
 			if(addJtc)
@@ -192,11 +190,65 @@ var handleIfStatement = function (graphs, node, stm_node, entry) {
 			stm_node.edges_in = [];
 			stm_node = entryHasIf[0].to;
 		}
-		if (next) {
-			var contnode = makePDGNode(graphs, next, false, entry); 
-			// Add consequent if not already added
-			if (next.node === consequent && !(hasbranch(stm_node, consequent))) {
-				stm_node.add_edge_out(contnode[1], EDGES.CONTROL, true)
+		// Add alternate if not already added
+		else if (next.node === alternate && !(hasbranch(stm_node, alternate))) {
+			stm_node.addEdgeOut(contnode[1], EDGES.CONTROL, false)	
+		}
+		if (entryHasIf.length > 0) 
+			// TODO
+		node = false;
+		return [contnode[0], stm_node];
+	}
+	return [cont,node];
+}
+
+
+var handleExpressionStatement = function (graphs, node, upnode, toadd) {
+	var expressiontype = node.node.expression ? node.node.expression.type : node.node.type,
+	    handled;
+	switch (expressiontype) {
+      	case 'CallExpression':
+      		handled = handleCallExpression(graphs, node, upnode, toadd);
+      		break;
+      	case 'BinaryExpression' :
+      		handled = handleBinExp(graphs, node, upnode, toadd);
+      		break;
+
+     }
+    if (handled && toadd) {
+    	addToPDG(handled[1], upnode)
+    } 
+    return handled;
+}
+
+var handleDeclarator = function (graphs, node, upnode, toadd) {
+	var declaratortype = node.node.type,
+		scopeInfo      = Ast.scopeInfo(node.node),
+		parent         = Ast.hoist(scopeInfo).parent(node.node,graphs.AST),
+	    handled;
+	switch (declaratortype) {
+		case 'VariableDeclaration':
+			var successor = graphs.JG.successors(node)[0];
+			if (successor && isFunExp(graphs, successor)) 
+				handled = handleAnonFuncDeclaration(graphs, node, upnode, toadd);
+			else 
+				handled = handleVarDecl(graphs, node, upnode);
+			break;
+		case 'FunctionDeclaration':
+			handled = handleFuncDeclaration(graphs, node, upnode);
+			break;
+		case 'FunctionExpression':
+			if (upnode.parsenode === parent)
+				handled = handleAnonFuncDeclaration(graphs, node, upnode, toadd)
+			/* TODO JIPDA : case where 1 function defined in block */
+			else if (esp_isVarDeclarator(parent)) {
+				/* Get the variable declaration node (parent of parent) */
+				scopeInfo = Ast.scopeInfo(parent);
+				parent = Ast.hoist(scopeInfo).parent(parent, graphs.AST);
+				var stm_node = graphs.PDG.make_stm(parent);
+				handled = handleAnonFuncDeclaration(graphs, node, parent, toadd);
+				stm_node.addEdgeOut(handled[1], EDGES.DATA);
+				handled[1] = stm_node
 			}
 			// Add alternate if not already added
 			else if (next.node === alternate && !(hasbranch(stm_node, alternate))) {

@@ -385,12 +385,12 @@ var Meteorify = (function () {
 		var node = sliced.node,
 		    scopeInfo = Ast.scopeInfo(node.parsenode),
 		    parent = Ast.hoist(scopeInfo).parent(node.parsenode,graphs.AST);
-		if(parent && parent.type === 'ReturnStatement') {
+		if(parent && esp_isRetStm(parent)) {
 			node.parsenode = parent
 		}
-		if(parent && parent.type === 'ExpressionStatement' && 
-			node.parsenode.type != 'CallExpression' &&
-			node.parsenode.type != 'AssignmentExpression') {
+		if(parent && esp_isExpStm(parent) && 
+			!(esp_isCallExp(node.parsenode)) &&
+			!(esp_isAssignmentExp(node.parsenode))) {
 			node.parsenode = parent
 		}
 		console.log('METEOR('+node.parsenode.type+') ' + node.parsenode);
