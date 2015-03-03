@@ -233,9 +233,9 @@ var handleDeclarator = function (graphs, node, upnode, toadd) {
 				scopeInfo = Ast.scopeInfo(parent);
 				parent = Ast.hoist(scopeInfo).parent(parent, graphs.AST);
 				var stm_node = graphs.PDG.make_stm(parent);
-				addToPDG(stm_node);
-				handled = handleAnonFuncDeclaration(graphs, node, upnode, toadd);
-				stm_node.addEdgeOut(handled[1], EDGES.DATA)
+				handled = handleAnonFuncDeclaration(graphs, node, parent, toadd);
+				stm_node.addEdgeOut(handled[1], EDGES.DATA);
+				handled[1] = stm_node
 			}
 
 	}
