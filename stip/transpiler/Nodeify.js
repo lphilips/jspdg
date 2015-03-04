@@ -43,10 +43,11 @@ var Nodeify = (function () {
 	  	/* Outgoing data dependency to entry node? -> Function Declaration */
 		if (entry.length > 0) {
 	     	var f = toNode(cloneSliced(sliced, slicedn, entry[0].to));
-	     	if(f.method) {
+	     	if (f.method) {
 	     		/* set the name of the method */
-	     		f.method.key = node.parsenode.declarations[0].id;
-	     		sliced.methods = sliced.methods.concat(f.method);
+	     		f.method.setName(node.parsenode.declarations[0].id);
+	     		sliced.method = {};
+	     		sliced.methods = sliced.methods.concat(f.method.parsenode);
 	     	}
 		 	node.parsenode.declarations.init = f.parsednode;
 		 	slicedn = f.nodes;

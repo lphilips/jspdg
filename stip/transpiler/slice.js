@@ -34,9 +34,9 @@ var addHeader = function (option, sliced) {
 	switch (option.target) {
 		case 'node.js':
 			if(option.tier === 'client')
-				sliced.setup = sliced.setup.concat(nodeHeaderC());
-			//else
-			//	sliced.setup = sliced.setup.concat(nodeHeaderS());
+				sliced.setup = sliced.setup.concat(NodeParse.createClient());
+			else
+				sliced.setup = sliced.setup.concat(NodeParse.createServer());
 	}
 	return sliced;
 }
@@ -59,8 +59,8 @@ var transformBody = function (option, slicing, body, methods) {
 			}
 			else {
 				/* server rpcs + cloudtypes are added */
-				var server = nodeCreateServer();
-				server.declarations[0].init.arguments[0].properties = slicing.methods;
+				var methodsDecl = NodeParse.methodsServer();
+				methodsDecl.expression.arguments = methods;
 
 				/* Declare cloud types + add their declarations as well (for use on server side as well) */
 				for(var name in slicing.cloudtypes) {
@@ -69,24 +69,20 @@ var transformBody = function (option, slicing, body, methods) {
         				body = [cloudtype.declarationS].concat(cloudtype.declarationC).concat(body);
     				}
 				}
-
-				//body = body.addFirst(server);
-				return body;
+				return body.concat(methodsDecl);
 			}
 		case 'meteor':
 			if (option.tier === 'server') {
 				/* remote procedure definitions are added */
 				var methodsDecl = MeteorParse.methodsServer();
 				methodsDecl.expression.arguments = methods;
-				body = body.concat(methodsDecl)
-				return body
+				return body.concat(methodsDecl);
 			}
 			if (option.tier === 'client') {
 				/* remote procedure definitions are added */
 				var methodsDecl = MeteorParse.methodsClient();
 				methodsDecl.expression.arguments = methods;
-				body = body.concat(methodsDecl);
-				return body
+				return body.concat(methodsDecl);
 			}
 	}
 	return body

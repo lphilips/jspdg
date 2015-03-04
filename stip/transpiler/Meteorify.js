@@ -61,7 +61,7 @@ var Meteorify = (function () {
 				return sliced;
 			} else if (entry.isClientNode() && entry.serverCalls > 0) {
 				f.method.properties[0].key.value = name;
-				sliced.method = {},
+				sliced.method = {};
 				sliced.methods = sliced.methods.concat(f.method);
 				sliced.nodes = f.nodes;
 				if (entry.clientCalls > 0) {
