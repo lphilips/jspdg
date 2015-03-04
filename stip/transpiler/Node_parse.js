@@ -164,9 +164,16 @@ var NodeParse = (function () {
         }
     }
 
+    var createServer = function () {
+    	return esprima.parse('var server = new ServerRpc(serverHttp, {})').body[0];
+    }
+
+    var createClient = function () {
+    	return esprima.parse("var client = new ClientRpc('http://127.0.0.1:8080');").body[0];
+    }
 
     var methodsServer = function () {
-    	return esprima.parse('{}').body[0]; 
+    	return esprima.parse('server.expose({})').body[0]; 
     }
 
     var methodsClient = function () {
@@ -178,50 +185,9 @@ var NodeParse = (function () {
     module.asyncFun      = asyncFun;
     module.methodsClient = methodsClient;
     module.methodsServer = methodsServer; 
-
+    module.createServer  = createServer;
+    module.createClient  = createClient;
 
 	return module;
 
 })();
-/* 
- * Requires the zerorpc and wait.for libraries (CLIENT)
- */
-var nodeRequiresC = function (port) {
-	var parsed = esprima.parse(" var client = new ClientRpc('http://127.0.0.1:8080');");
-	return parsed.body[0];
-}
-
-
-var nodeHeaderC = function () {
-	return nodeRequiresC()
-}
-
-
-
-/* * * * * * * * * * * * * * *
- * 			SERVER			 *
- * * * * * * * * * * * * * * */
-
-
-
-/* 
- * Requires the zerorpc library (SERVER)
- */
-var nodeRequiresS = function () {
-	var parsed = esprima.parse("var zerorpc = require('zerorpc');");
-	return parsed.body[0];
-}
-
-var nodeHeaderS = function () {
-	return nodeRequiresS()
-}
-
-
-var nodeFooterS = function () {
-	return nodeServerRun();
-}
-
-var nodeCreateServer = function () {
-	var parsed = esprima.parse('var server = new zerorpc.Server({})');
-	return parsed.body[0]
-}
