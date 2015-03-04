@@ -1,3 +1,3 @@
 [submodule "Jipda"]
 	path = Jipda
-	url = https://github.com/jensnicolay/protopurity
+	url = https://github.com/jensnicolay/protopurity.git
