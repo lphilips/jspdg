@@ -17,7 +17,7 @@ var handleStm = function (graphs, kontnode, node, stm_node, addJtc, toadd) {
 			break;
 		else {
 			if(addJtc)
-				PDG_node = makePDGNode(graphs, target, toadd, addJtc);
+				PDG_node = makePDGNode(graphs, successor, toadd, addJtc);
 			else
 				PDG_node = makePDGNode(graphs, target, toadd, stm_node);
 			if(PDG_node) {
@@ -39,6 +39,29 @@ var handleStm = function (graphs, kontnode, node, stm_node, addJtc, toadd) {
 	}
 	return cont
 }
+
+
+/* Get corresponding kont-node of an eval-node */
+var getKont = function (JG, node) {
+	var successors = JG.successors(node),
+	    successor, kont;
+	while (successors.length > 0) {
+		successor = successors.shift();
+		if (isKont(successor) && successor.kont.equals(node.kont) &&
+			successor.lkont.equals(node.lkont)) {
+			kont = successor;
+			break;
+		} else 
+			successors = successors.concat(JG.successors(successor))
+	}
+	return kont;
+}
+
+
+/*       _________________________________ DECLARATIONS _________________________________
+ *
+ *  https://developer.mozilla.org/en-US/docs/Mozilla/Projects/SpiderMonkey/Parser_API#Declarations
+ */
 
 /* VARIABLE DECLARATION is followed by one/more variable declarator(s)
  * Edges are marked (+) (-) vrator */
@@ -62,90 +85,143 @@ var handleVarDecl = function (graphs, node, stm_node, upnode) {
 	return [cont, node];     
 }
 
-/* RETURN STATEMENT is either a return eval state, followed by a RetKont edge (+ ret)
- *  or an eval state with an incoming RetKont edge; */
-var handleReturnStm = function (graphs, node, stm_node, upnode) {
-	var etg 	 = graphs.etg(),
-		jtc 	 = graphs.JTC,
-		incoming = etg.incoming(node),
-		outgoing = etg.outgoing(node);
-	jtc.addNodes(node,stm_node);
-	if (esp_isRetStm(node.node))
-		incoming = etg.outgoing(node);
-	var returns = incoming.filter( function (e) {
-		return e.g && e.g.frame;
-	}).map( function (e) { return e.g.frame});
-	var cont 	= handleStm(graphs, returns, node, stm_node,upnode),
-		formout = handleFormalOutParameters(graphs, stm_node);
-	stm_node.add_edge_out(formout, EDGES.DATA);
-	return [cont, node];
+/* FUNCTION DECLARATION creates a new entry node in the DPDG */
+var handleFuncDeclaration = function (graphs, node, entry) {
+	var PDG 	   = graphs.PDG,
+		jtc 	   = graphs.JTC,
+		entry 	   = new EntryNode(PDG.ent_index, node.node),
+		prev_entry = PDG.entry_node;
+	PDG.change_entry(entry);
+	handleFormalParameters(graphs,node,entry);
+	// Body isn't evaluated, so switch back to previous entry node
+	PDG.reverse_entry(prev_entry);
+	jtc.addNodes(node,entry);
+	return [node, entry];
 }
 
-/* BINARY EXPRESSION has left edges continued by right edges;
- * Bundled by body edges */
-var handleBinExp = function (graphs, node, stm_node, upnode) {
-	var etg 	 = graphs.etg(),
-		jtc 	 = graphs.JTC,
-		incoming = etg.incoming(node),
-		outgoing = etg.outgoing(node),
-		bodys 	 = incoming.filter( function (e) {
-			return e.g && e.g.frame
-		}).map( function (e) {
-			return e.g.frame;
-		});
-	if (upnode.isEntryNode)
-		cont 	 = handleStm(graphs, bodys, node, stm_node, stm_node);
-	else 
-		var cont = handleStm(graphs, bodys, node, stm_node, upnode);
-	jtc.addNodes(node, stm_node);
-	return [cont, node];
+/* ANONYMOUS FUNCTION DECLARATION bound to a variable
+ * creates a entry node and data dependency on the variable */
+var handleAnonFuncDeclaration = function (graphs, node, entry, toadd) {
+	var successors = graphs.JG.successors(node),
+	    // Statement node of the variable declaration
+	    stm_node   = graphs.PDG.make_stm(node.node),
+	    next_node  = esp_isFunExp(node.node) ? node : successors[0],
+        // Entry node for the function
+        entry_node = new EntryNode(graphs.PDG.ent_index, next_node.node),
+        prev_entry = graphs.PDG.entry_node;
+    graphs.PDG.change_entry(entry_node);
+	// Body isn't evaluated, so switch back to previous entry node
+	graphs.PDG.reverse_entry(prev_entry);
+	graphs.JTC.addNodes(next_node, entry_node);
+	if(entry_node.parsenode)
+		handleFormalParameters(graphs,node,entry_node);
+	if (esp_isFunExp(node.node))
+		return [next_node, entry_node]
+	else {
+		stm_node.addEdgeOut(entry_node, EDGES.DATA);
+		graphs.JTC.addNodes(node,stm_node);
+		return [next_node, stm_node];
+	}
+	
 }
 
-/* ASSIGNMENT */
-var handleAssignmentExp = function (graphs, node, stm_node, upnode) {
-	if(upnode) 
-		stm_node.dtype = upnode.getdtype();
-	var etg 	  = graphs.etg(),
-		jtc 	  = graphs.JTC,
-		incoming  = etg.incoming(node),
-		outgoing  = etg.outgoing(node),
-		asids 	  = outgoing.filter( function (e) {
-			return e.g && e.g.frame
-		}).map( function (e) {
-			return e.g.frame
-		}),
+
+/* GENERAL FUNCTION for DECLARATIONS */
+var handleDeclarator = function (graphs, node, upnode, toadd) {
+	var declaratortype = node.node.type,
+		scopeInfo      = Ast.scopeInfo(node.node),
+		parent         = Ast.hoist(scopeInfo).parent(node.node,graphs.AST),
+	    handled;
+	switch (declaratortype) {
+		case 'VariableDeclaration':
+			var successor = graphs.JG.successors(node)[0];
+			if (successor && isFunExp(graphs, successor)) 
+				handled = handleAnonFuncDeclaration(graphs, node, upnode, toadd);
+			else 
+				handled = handleVarDecl(graphs, node, upnode);
+			break;
+		case 'FunctionDeclaration':
+			handled = handleFuncDeclaration(graphs, node, upnode);
+			break;
+		case 'FunctionExpression':
+			if (upnode.parsenode === parent)
+				handled = handleAnonFuncDeclaration(graphs, node, upnode, toadd)
+			/* TODO JIPDA : case where 1 function defined in block */
+			else if (esp_isVarDeclarator(parent)) {
+				/* Get the variable declaration node (parent of parent) */
+				scopeInfo = Ast.scopeInfo(parent);
+				parent = Ast.hoist(scopeInfo).parent(parent, graphs.AST);
+				var stm_node = graphs.PDG.make_stm(parent);
+				handled = handleAnonFuncDeclaration(graphs, node, parent, toadd);
+				stm_node.addEdgeOut(handled[1], EDGES.DATA);
+				handled[1] = stm_node
+			}
+
+	}
+	if (handled && toadd) {
+    	addToPDG(handled[1])
+    } 
+    return handled;
+}
+
+/*        _________________________________ STATEMENTS _________________________________
+ *
+ *  https://developer.mozilla.org/en-US/docs/Mozilla/Projects/SpiderMonkey/Parser_API#Statements
+ */
+
+
+/* BLOCK STATEMENT:
+ * Consists of several statements surrounded by corresponding 
+ * push and pop body edges */
+var handleBlockStatement = function (graphs, node, entry, toadd) {
+	var PDG 	  = graphs.PDG,
 		parsenode = node.node,
-		ident     = node.node.left,
-		nr_entry  = graphs.PDG.nodes.length,
-		cont 	  = handleStm(graphs,asids,node,stm_node),
-		epsk = graphs.DSG.ecg.successors(node).filter(function (n) {
-			return n !== node
-		}),
-		declarations;
+		old_entry = PDG.entry_node,
+		new_entry = new EntryNode(PDG.ent_index,node.node),
+		kontnode  = getKont(graphs.JG, node),
+		addUnder   = function (n) {
+			if (n.isEntryNode) 
+				new_entry.addEdgeOut(n, EDGES.CONTROL);
+		},
+		nextEval   = function (start, n) {
+			if (!(start.equals(n)) && isEval(n)) 
+				return n
+			else {
+				var successors = graphs.JG.successors(n);
+				if (successors.length > 0) 
+					return nextEval(start, successors[0])
+				else 
+					return false
+			}
+		};
+	if (toadd) {
+		addToPDG(new_entry);
+		PDG.change_entry(new_entry);
+		PDG.curr_body_node = old_entry;
+	} else
+		new_entry = entry;
 
-	node.node = ident;
-	declarations = graphs.DSG.declarations(node);
-	handleIdentifier(graphs, node, stm_node);
-	stm_node.konts = epsk;
-	stm_node.name = parsenode.left.name;
-	if (declarations) {
-		jtc.addNodes(declarations[0], stm_node);
-		if (graphs.PDG.nodes.length > nr_entry) {
-			var latest_entry = graphs.PDG.nodes[nr_entry],
-				decl_node = jtc.getNode(declarations[0]);
-			addDataDep(decl_node[0], latest_entry);
+	var successors = graphs.JG.successors(node);
+	while (successors.length > 0 ) { 
+		var succ = successors.shift();
+		if (succ.equals(kontnode))
+			break;
+		else {
+			var pdgnode = makePDGNode(graphs, succ, true, new_entry); 
+			if (pdgnode) {
+				var cont = pdgnode[0];
+				var contnode = pdgnode[1];
+				if (toadd)
+					addUnder(contnode);
+				successors = successors.concat(graphs.JG.successors(cont));
+			}
+			else 
+				successors = successors.concat(graphs.JG.successors(succ));
 		}
 	}
-	/* Recheck dependent call nodes for dtype (could be wrong because assign. exp had
-	   no dtype at that moment ) */
-	var calls = stm_node.edges_out.map(function (e) {
-		if (e.to.isCallNode && e.equalsType(EDGES.CONTROL))
-			e.to.dtype = stm_node.getdtype()
-	})
-	node.node = parsenode;
-	return [cont,node];
+	PDG.reverse_entry(entry.isEntryNode ? entry : old_entry);
+	return [kontnode, new_entry]
 }
-
 
 /* IF STATEMENT */
 var handleIfStatement = function (graphs, node, stm_node, entry) {
@@ -203,56 +279,161 @@ var handleIfStatement = function (graphs, node, stm_node, entry) {
 }
 
 
-var handleExpressionStatement = function (graphs, node, upnode, toadd) {
-	var expressiontype = node.node.expression ? node.node.expression.type : node.node.type,
-	    handled;
-	switch (expressiontype) {
-      	case 'CallExpression':
-      		handled = handleCallExpression(graphs, node, upnode, toadd);
-      		break;
-      	case 'BinaryExpression' :
-      		handled = handleBinExp(graphs, node, upnode, toadd);
-      		break;
-
-     }
-    if (handled && toadd) {
-    	addToPDG(handled[1], upnode)
-    } 
-    return handled;
+/* RETURN STATEMENT is either a return eval state, followed by a RetKont edge (+ ret)
+ *  or an eval state with an incoming RetKont edge; */
+var handleReturnStm = function (graphs, node, stm_node, upnode) {
+	var kontnode = getKont(graphs.JG, node);
+	var cont 	= handleStm(graphs, kontnode, node, stm_node,upnode),
+		formout = handleFormalOutParameters(graphs, stm_node);
+	stm_node.addEdgeOut(formout, EDGES.DATA);
+	graphs.JTC.addNodes(node, stm_node);
+	return [cont, node];
 }
 
-var handleDeclarator = function (graphs, node, upnode, toadd) {
-	var declaratortype = node.node.type,
-		scopeInfo      = Ast.scopeInfo(node.node),
-		parent         = Ast.hoist(scopeInfo).parent(node.node,graphs.AST),
-	    handled;
-	switch (declaratortype) {
-		case 'VariableDeclaration':
-			var successor = graphs.JG.successors(node)[0];
-			if (successor && isFunExp(graphs, successor)) 
-				handled = handleAnonFuncDeclaration(graphs, node, upnode, toadd);
-			else 
-				handled = handleVarDecl(graphs, node, upnode);
-			break;
-		case 'FunctionDeclaration':
-			handled = handleFuncDeclaration(graphs, node, upnode);
-			break;
-		case 'FunctionExpression':
-			if (upnode.parsenode === parent)
-				handled = handleAnonFuncDeclaration(graphs, node, upnode, toadd)
-			/* TODO JIPDA : case where 1 function defined in block */
-			else if (esp_isVarDeclarator(parent)) {
-				/* Get the variable declaration node (parent of parent) */
-				scopeInfo = Ast.scopeInfo(parent);
-				parent = Ast.hoist(scopeInfo).parent(parent, graphs.AST);
-				var stm_node = graphs.PDG.make_stm(parent);
-				handled = handleAnonFuncDeclaration(graphs, node, parent, toadd);
-				stm_node.addEdgeOut(handled[1], EDGES.DATA);
-				handled[1] = stm_node
-			}
-			// Add alternate if not already added
-			else if (next.node === alternate && !(hasbranch(stm_node, alternate))) {
-				stm_node.add_edge_out(contnode[1], EDGES.CONTROL, false)	
+
+/*       _________________________________ EXPRESSIONS _________________________________
+ *
+ *  https://developer.mozilla.org/en-US/docs/Mozilla/Projects/SpiderMonkey/Parser_API#Expressions
+ */
+
+/* BINARY EXPRESSION has left edges continued by right edges;
+ * Bundled by body edges */
+var handleBinExp = function (graphs, node, upnode, toadd) {
+	var kontnode = getKont(graphs.JG, node),
+	    stm_node = graphs.PDG.make_stm(node.node),
+		cont;
+	if (upnode.isEntryNode)
+		cont 	 = handleStm(graphs, kontnode, node, stm_node, stm_node);
+	else 
+		cont = handleStm(graphs, kontnode, node, stm_node, upnode, toadd);
+	graphs.JTC.addNodes(node, stm_node);
+	return [kontnode, stm_node];
+}
+
+/* ASSIGNMENT */
+var handleAssignmentExp = function (graphs, node, stm_node, upnode) {
+	if(upnode) 
+		stm_node.dtype = upnode.getdtype();
+	var jtc 	     = graphs.JTC,
+		kontnode     = getKont(graphs.JG, node),
+		parsenode    = node.node.expression,
+		ident        = parsenode.left,
+		nr_entry     = graphs.PDG.nodes.length,
+		declaration  = declarations(graphs.JG, node, ident.name)[0],
+		cont 	     = handleStm(graphs, kontnode, node, stm_node);
+
+	handleIdentifier(graphs, node, ident.name, stm_node);
+	stm_node.konts = [kontnode];
+	stm_node.name = parsenode.left.name;
+	if (declaration) {
+		jtc.addNodes(declaration, stm_node);
+		if (graphs.PDG.nodes.length > nr_entry) {
+			var latest_entry = graphs.PDG.nodes[nr_entry],
+				decl_node = jtc.getNode(declaration);
+			addDataDep(decl_node[0], latest_entry);
+		}
+	}
+	/* Recheck dependent call nodes for dtype (could be wrong because assign. exp had
+	   no dtype at that moment ) */
+	var calls = stm_node.edges_out.map(function (e) {
+		if (e.to.isCallNode && e.equalsType(EDGES.CONTROL))
+			e.to.dtype = stm_node.getdtype()
+	})
+	node.node = parsenode;
+	return [cont,node];
+}
+
+
+/* Kont-node is optional parameter. This is for the case where the successor of the 
+   callnode isn't the block statement of the body, but the states for one/more of the arguments */
+var handleBody = function (graphs, callnode, entrynode, kontnode) {
+	var hasbody  = entrynode.getOutEdges(EDGES.CONTROL).filter( function (e) {
+			return !e.to.isFormalNode
+		}).length > 0,
+		succ     = graphs.JG.successors(callnode)[0],
+		bodykont = getKont(graphs.JG, succ),
+		successors = graphs.JG.successors(succ);
+	if (succ.node && !esp_isBlockStm(succ.node)) {
+		/* Look for block statement, starting from kontnode */
+		successors = graphs.JG.successors(kontnode);
+		while(successors.length > 0) {
+			succ = successors.shift();
+			if (succ.node && esp_isBlockStm(succ.node))
+				break;
+			successors = graphs.JG.successors(succ);
+		}
+		bodykont = getKont(graphs.JG, succ);
+	}
+	if (!hasbody)
+		return makePDGNode(graphs, succ, false, entrynode);
+	else
+		return [bodykont, undefined]
+
+}
+
+var handleCallExpression = function (graphs, node, upnode, toadd) {
+	// Handle actual parameters of this call
+	var callcnt   = ++cnt,
+		parsenode = node.node.expression ? node.node.expression : node.node,
+		params 	  = handleActualParameters(graphs, node, parsenode),
+		contnode  = params[0],
+		primitive = isPrimitiveCall(node),
+		bodynodes = graphs.JG.successors(node);
+	var callnode;
+	if (primitive) {
+		callnode = PDG.make_cal(node.node);
+		callnode.cnt = callcnt;
+		callnode.name = node.node.callee.name;
+		params[1].map(function (a_in) {
+			callnode.addEdgeOut(a_in, EDGES.CONTROL);
+		})
+		return [contnode, callnode]
+	}
+	else {
+		var name      = parsenode.callee.name,
+		    preventry = graphs.PDG.entry_node,
+			entry     = graphs.PDG.getEntryNode(name, node),
+			formals   = entry.getFormalIn(),
+			body;
+
+		callnode = graphs.PDG.make_cal(node.node);
+		callnode.name = name;
+		/* Add call edge to entry node 
+		   Anonymous function created for callback arguments 
+		   are only called to evaluate their body. This should not
+		   be reflected in the pdg, so no edge to their
+		   entry node */
+		if(!callnode.name.startsWith('anonf')) {
+			if(!upnode.equals(entry)) 
+				upnode.addEdgeOut(callnode, EDGES.CONTROL);
+			addCallDep(callnode, entry);
+		}	
+
+		// Bind the actual and formal parameters
+		for (var i = 0; i < params[1].length; i++) {
+			var a = params[1][i],
+			f = formals[i];
+			// Call node -> actual-in parameter
+			callnode.addEdgeOut(a, EDGES.CONTROL);
+			// actual-in parameter -> formal-in parameter
+			if (!a.equalsdtype(f) ||
+				!a.isSharedNode() ||
+				!f.isSharedNode())
+				a.addEdgeOut(f, EDGES.REMOTEPARIN)
+			else
+			    a.addEdgeOut(f, EDGES.PARIN);
+		}
+		graphs.PDG.change_entry(entry);
+
+		body = handleBody(graphs, node, entry, params[0]);
+		graphs.PDG.change_entry(preventry);
+		var kont = body[0];
+		if (!isReturnKont(kont)) {
+			var successors = graphs.JG.successors(kont),
+				kont = successors.shift();
+			while(!isReturnKont(kont) && successors.length > 0) {
+				successors = successors.concat(graphs.JG.successors(kont));
+				kont = successors.shift();
 			}
 			if (entryHasIf.length > 0) 
 				// TODO
@@ -261,106 +442,6 @@ var handleDeclarator = function (graphs, node, upnode, toadd) {
 		}
 		return [cont,node];
 	}
-
-/* BLOCK STATEMENT:
- * Consists of several statements surrounded by corresponding 
- * push and pop body edges */
-var handleBlockStatement = function (graphs, node, entry, toadd) {
-	var PDG 	  = graphs.PDG,
-		etg 	  = graphs.etg(),
-		parsenode = node.node,
-		old_entry = PDG.entry_node,
-		new_entry = new EntryNode(PDG.ent_index,node.node),
-		outgoing  = etg.outgoing(node),
-		bodys 	  = outgoing.filter( function (e) {
-			return e.g && e.g.frame
-		}).map( function (e) {
-			return e.g.frame
-		}),
-		addUnder   = function (n) {
-			if (n.isEntryNode) //| n.isCallNode)
-				new_entry.add_edge_out(n, EDGES.CONTROL);
-		},
-		nextEval   = function (start,n) {
-			if (!(start.equals(n)) && isEval(n)) 
-				return n
-			else {
-				next = etg.outgoing(n);
-				if (next.length > 0) 
-					return nextEval(start,next[0].target)
-				else 
-					return false
-			}
-		};
-	if(toadd)
-		addToPDG(new_entry);
-	PDG.change_entry(new_entry);
-	PDG.curr_body_node = old_entry;
-	var out = etg.outgoing(node);
-	while (out.length>0 ) { 
-		var edge = out.shift(),
-			n = edge.target,
-		    pdgnode = makePDGNode(graphs,n,true,new_entry); 
-		if (pdgnode) {
-			var cont = pdgnode[0];
-			var contnode = pdgnode[1];
-			addUnder(contnode);
-			var next = nextEval(cont,cont);
-			if(next) {
-				var scopeInfo = Ast.scopeInfo(next.node),
-				parent = Ast.hoist(scopeInfo).parent(next.node,graphs.AST);
-				if (!(esp_isBlockStm(parent) && 
-					parsenode.body.toString() === parent.body.toString()))
-					break;
-				out = out.concat(etg.outgoing(cont));
-			}
-			else 
-				break; 
-		}
-		else 
-			out = out.concat(etg.outgoing(n));
-	}
-	PDG.reverse_entry(entry);
-	return [cont,new_entry]
-}
-
-
-/* ACTUAL PARAMETER of a function call.
- * This handles only one parameter. */
-var handleActualParameter = function (graphs, node, stm_node) {
-	var etg 	 = graphs.etg(),
-		incoming = etg.incoming(node),
-		outgoing = etg.outgoing(node),
-		operands = outgoing.filter( function (e) {
-			return e.g && e.g.frame
-		}).map( function (e) {
-			return e.g.frame;
-		}),
-		cont 	 = node,
-		a_in 	 = new ActualPNode(graphs.PDG.fun_index, 1, stm_node);
-
-	graphs.PDG.fun_index++;
-	while(outgoing.length > 0) {
-		var edge = outgoing.shift(),
-		target = edge.target;
-		if(edge.g && edge.g.isPop && contains(operands, edge.g.frame)) {
-			a_in.value = target.value.prim.cvalue;
-			break;
-		}
-		else {
-			var PDG_node = makePDGNode(graphs, target, false, a_in);
-			if(PDG_node) {
-				cont = PDG_node[0];
-			}
-			else {
-				cont = target;
-			}
-			outgoing = outgoing.concat(etg.outgoing(cont));
-		}
-	}
-	return [cont, a_in];
-}
-
 
 /* ACTUAL PARAMETERS of a function call.
  * All parameters are bundled by operand continuation edges */
@@ -431,19 +512,23 @@ var handleSummaryEdges = function (callnode, entrynode) {
 	}
 }
 
+/* GENERAL FUNCTION for EXPRESSIONS */
+var handleExpressionStatement = function (graphs, node, upnode, toadd) {
+	var expressiontype = node.node.expression ? node.node.expression.type : node.node.type,
+	    handled;
+	switch (expressiontype) {
+      	case 'CallExpression':
+      		handled = handleCallExpression(graphs, node, upnode, toadd);
+      		break;
+      	case 'BinaryExpression' :
+      		handled = handleBinExp(graphs, node, upnode, toadd);
+      		break;
 
-/* FUNCTION DECLARATION creates a new entry node in the DPDG */
-var handleFuncDeclaration = function (graphs, node, entry) {
-	var PDG 	   = graphs.PDG,
-		jtc 	   = graphs.JTC,
-		entry 	   = new EntryNode(PDG.ent_index, node.node),
-		prev_entry = PDG.entry_node;
-	PDG.change_entry(entry);
-	handleFormalParameters(graphs,node,entry);
-	// Body isn't evaluated, so switch back to previous entry node
-	PDG.reverse_entry(prev_entry);
-	jtc.addNodes(node,entry);
-	return [node, entry];
+     }
+    if (handled && toadd) {
+    	addToPDG(handled[1], upnode)
+    } 
+    return handled;
 }
 
 /* IDENTIFIER doesn't create a new statement node, but can 
@@ -469,35 +554,22 @@ var handleIdentifier = function (graphs, node, entry) {
 	}
 }
 
-/* ANONYMOUS FUNCTION DECLARATION bound to a variable
- * creates a entry node and data dependency on the variable */
-var handleAnonFuncDeclaration = function (graphs, node, entry, toadd, successors) {
-	var PDG 	   = graphs.PDG,
-		jtc 	   = graphs.JTC,
-	    // Statement node of the variable declaration
-	    stm_node   = PDG.make_stm(node.node),
-	    next_node  = esp_isFunExp(node.node) ? node : successors[0],
-        // Entry node for the function
-        entry_node = new EntryNode(PDG.ent_index, next_node.node),
-        prev_entry = PDG.entry_node;
-        PDG.change_entry(entry_node);
-	// Body isn't evaluated, so switch back to previous entry node
-	PDG.reverse_entry(prev_entry);
-	stm_node.add_edge_out(entry_node, EDGES.DATA);
-	jtc.addNodes(node,stm_node);
-	jtc.addNodes(next_node, entry_node);
-	if(entry_node.parsenode)
-		handleFormalParameters(graphs,node,entry_node);
-	if(toadd)
-		addToPDG(stm_node);
-	return [next_node, stm_node];
+var handleLiteral = function (graphs, node, entry, toadd) {
+	var scopeInfo = Ast.scopeInfo(node.node),
+		parent    = Ast.hoist(scopeInfo).parent(node.node, graphs.AST);
+	if (parent && esp_isRetStm(parent)) {
+		var stm_node = graphs.PDG.make_stm(parent);
+		if (toadd) {
+			addToPDG(stm_node)
+		}
+	}
 }
 
-var addToPDG = function (node) {
-	if(isClientAnnotated(node.parsenode))
-		graphs.PDG.addClientStm(node)
-	else if(isServerAnnotated(node.parsenode))
-		graphs.PDG.addServerStm(node)
+
+/* Auxiliary Functions to add correct edges to nodes, etc. */
+var addToPDG = function (node, upnode) {
+	if (upnode)
+		upnode.addEdgeOut(node, EDGES.CONTROL)
 	else {
 		graphs.PDG.entry_node.add_edge_out(node, EDGES.CONTROL)
 	}
@@ -592,244 +664,29 @@ var makePDGNode = function (graphs, node, toadd, upnode) {
 		var parsetype = node.node.type;
 		console.log("PDG(" + parsetype + ")" + node.node);
 		if(parsetype != 'Program') {
-			var successors = etg.successors(node);
-			// Function declaration
-			if(isFunDecl(graphs, node)) {
-				return handleFuncDeclaration(graphs, node, upnode);
-			}			
-			// var functionname = function() {}
-			else if (isVarDecl(graphs, node) && successors.length > 0 &&
-				isFunExp(graphs,successors[0])) {
-				return handleAnonFuncDeclaration(graphs, node, upnode, toadd, successors);
-		}
-		else if (isFunExp(graphs, node)) {
-			return handleAnonFuncDeclaration(graphs,node,upnode, toadd, successors);
-		}	
-			// Block
-			else if (isBlockStm(graphs,node)) {
-				return handleBlockStatement(graphs, node, upnode, toadd)
-			}
-			// Identifier
-			else if(isIdentifier(graphs, node)) {		
-				if(isRetStm(graphs,node)) {
-					var stm_node = PDG.make_stm(node.node);
-					handleIdentifier(graphs, node, stm_node);
-					return [node, stm_node]
-				};
-				handleIdentifier(graphs, node, upnode);
-				return
-			}
-			// Call expression
-			else if (isCallExp(graphs,node)) {
-				// Handle actual parameters of this call
-				var callcnt   = cnt;
-				cnt++;
-				var params 	  = handleActualParameters(graphs, node),
-					contnode  = params[0],
-					primitive = isPrimitiveCall(node);
-				var callnode;
-				if(primitive) {
-					callnode = PDG.make_cal(node.node);
-					callnode.cnt = callcnt;
-					callnode.name = node.node.callee.name;
-					params[1].map(function(a_in) {
-						callnode.add_edge_out(a_in, EDGES.CONTROL);
-					})
-					return [contnode, callnode]
-				}
-				else {
-				// Move to Jipda node with type apply
-				while(!isApply(contnode)) {
-					var out = etg.outgoing(contnode);
-					if(out.length === 0) {
-						break;
-					}
-					contnode = etg.outgoing(contnode)[0].target;
-				};
-					// Create the call node
-					// When this is the first time the function is called,
-					// it will result in evaluating the body 
-					callnode   = makePDGNode(graphs, contnode, false, upnode);
-					var entry  = callnode[2],
-						formal = entry.getFormalIn();
-					callnode[1].cnt = callcnt;
-					callnode[1].expression = callnode[1].expression.concat(node.node);
-					// Bind the actual and formal parameters
-					for(var i = 0; i < params[1].length; i++) {
-						var a = params[1][i],
-						f = formal[i];
-						// Call node -> actual-in parameter
-						callnode[1].add_edge_out(a, EDGES.CONTROL);
-						// actual-in parameter -> formal-in parameter
-						if (!a.equalsdtype(f) ||
-							!a.isSharedNode() ||
-							!f.isSharedNode())
-							a.add_edge_out(f, EDGES.REMOTEPARIN)
-						else
-						    a.add_edge_out(f,EDGES.PARIN);
-					}
-					var cont = callnode[0];
-					while(cont.type !== "return") {
-						out = etg.outgoing(cont);
-						if(out.length > 0)
-							cont = etg.outgoing(cont)[0].target;
-						else {
-							cont = false;
-							break;
-						}
-					}
-					if (cont) {
-						callnode[0] = cont;
-						var actual_out = new ActualPNode(PDG.fun_index, -1);
-						actual_out.value = cont.node.toString();
-						PDG.fun_index++;
-						actual_out.add_edge_out(upnode, EDGES.DATA);
-						// Formal-out parameter -> actual-out parameter
-						var formal_out = entry.getFormalOut();
-						if (formal_out.length > 0 && !contnode.node.callee.name.startsWith('anonf')) 
-							if (!actual_out.equalsdtype(formal_out[0]) || 
-								!actual_out.isSharedNode() ||
-								!formal_out[0].isSharedNode () )
-								formal_out[0].add_edge_out(actual_out, EDGES.REMOTEPAROUT); 
-							else
-								formal_out[0].add_edge_out(actual_out, EDGES.PAROUT);
-						callnode[1].add_edge_out(actual_out, EDGES.CONTROL);  
-					}
-					// Add summary edges between a_in and a_out
-					handleSummaryEdges(callnode[1],entry);
-					postRemoteDep(params[1]);
-					if(!contnode.node.callee.name.startsWith('anonf'))
-						entry.addCall(callnode[1]);
-				}
-				return callnode;
-			}
-			// Other types of nodes (Statement Nodes)
-			else {
-				var stm_node = PDG.make_stm(node.node),
-				cont;
-				// Return statement
-				if (isRetStm(graphs,node)){
-					cont = handleReturnStm(graphs,node,stm_node)[0];	
-				}
+			var successors = JG.successors(node);
+			switch (parsetype) {
+      			case 'FunctionDeclaration': 
+					return handleDeclarator(graphs, node, upnode, toadd);
+				case 'VariableDeclaration':
+					return handleDeclarator(graphs, node, upnode, toadd);
+				case 'FunctionExpression' :
+					return handleDeclarator(graphs, node, upnode, toadd);
+				case 'BlockStatement' :
+					return handleBlockStatement(graphs, node, upnode, toadd);
+				case 'Identifier' :
+					return handleIdentifier(graphs, node, node.node.name, upnode, toadd);
+				case 'ExpressionStatement' :
+					return handleExpressionStatement(graphs, node, upnode, toadd);
+				case 'BinaryExpression' :
+					return handleExpressionStatement(graphs, node, upnode, toadd);
+				case 'Literal' :
+					return handleLiteral(graphs, node, upnode, toadd);
+				case 'CallExpression' :
+					return handleExpressionStatement(graphs, node, upnode, toadd);
 
-				// Literals
-				else if (isLiteral(graphs,node)) {
-					// TODO: special case
-					var scopeInfo = Ast.scopeInfo(node.node),
-					parent = Ast.hoist(scopeInfo).parent(node.node,graphs.AST);
-					if(parent && esp_isRetStm(parent) && 
-						upnode.parsenode && !esp_isRetStm(upnode.parsenode)) {
-						cont = handleReturnStm(graphs, node, stm_node)[0]	
-				}
-				else {
-					PDG.decr_stm();
-					return;
-				}
-			}
-				// Expression statement
-				else if (isExpStm(graphs, node)) {
-					// Go to the expression
-					node.node = node.node.expression;
-					return makePDGNode(graphs, node, toadd, upnode);
-				}	
-				// Variable declaration		
-				else if(isVarDecl(graphs, node)) 
-					cont = handleVarDecl(graphs, node, stm_node, upnode)[0];
-				// Binary expression
-				else if (isBinExp(graphs, node)) 
-					cont = handleBinExp(graphs,node,stm_node,upnode)[0]
-				// Assignment expression
-				else if (isAssignmentExp(graphs, node)) {
-					cont = handleAssignmentExp(graphs, node, stm_node, upnode)[0]
-				}
-				// If statement
-				else if (isIfStm(graphs, node))
-					cont = handleIfStatement(graphs, node, stm_node, upnode)[0];
-
-				// Everything else
-				else 
-					return; 
-				if(toadd)
-					addToPDG(stm_node);
-				return [cont, stm_node];
 			}
 		}
-	}
-	
-	/* Apply state */
-	else if( isApply(node)) {
-		var call_node  = PDG.make_cal(node.node),
-		    name 	   = node.node.callee.name,
-			entry 	   = PDG.getEntryNode(name, node),
-			prev_entry = PDG.entry_node;
-
-		call_node.name = name;
-		jtc.addNodes(node, call_node);
-		/* From now on we process the body under the new entry node */
-		PDG.change_entry(entry);
-		/* Add call edge to entry node 
-		   Anonymous function created for callback arguments 
-		   are only called to evaluate their body. This should not
-		   be reflected in the pdg, so no edge to their
-		   entry node */
-		if(!call_node.name.startsWith('anonf')) {
-			if(!upnode.equals(entry)) 
-				upnode.add_edge_out(call_node, EDGES.CONTROL);
-			addCallDep(call_node, entry);
-		}
-		/* Higher order functions: data dependency */
-		var formalp = prev_entry.getFormalIn().filter(function (fp) {
-			return fp.name === call_node.name
-		});
-		if(formalp.length > 0) {
-			formalp[0].add_edge_out(call_node, EDGES.DATA);
-		}
-		/* Function body */
-		// TODO : currently only 1 outgoing edge
-		var edge = etg.outgoing(node)[0];
-		var fi =  etg.incoming(node)[0].g.frame;
-		console.log("-- START  " + fi);
-		var body = entry.hasBody();
-		// TODO : currently one node
-		var outgoing = etg.outgoing(node);
-		/* Keep traversing down the body. 
-		   Create corresponding nodes and add them under the current entry node */
-		while(outgoing.length > 0) {
-			var edge = outgoing.shift(),
-			target = edge.target;
-			if(edge.g.isPop && fi.equals(edge.g.frame)) {
-				/* End of body*/
-				console.log("--END  " + edge.g.frame); 
-				break;
-			}
-			else {
-				var out = etg.outgoing(node);
-				out.map(function (edge) {
-					var t = edge.target;
-					if (!body) {
-						var n = makePDGNode(graphs, t, false, entry);
-					    // Nested entry nodes don't have a control edge to current entry node
-					    if (n && (!n[1].isEntryNode || 
-					    	esp_isBlockStm(n[1].parsenode))  {
-					    	target = n[0];
-						    // Call expressions already have control edge to their entry node (except primitives)
-						    if(	n[1] && (isPrimitiveCall(n[1]) || 
-						      	!(n[1].isCallNode || 
-						      	esp_isBlockStm(n[1].parsenode))))
-						    	entry.add_edge_out(n[1], EDGES.CONTROL)
-						}
-					}
-				})
-				if(target) {				
-					outgoing = outgoing.concat(etg.outgoing(target));
-					node = target;
-				} else 
-					break;			         
-			}
-		}
-		/* Switch back to previous entry node */
-		PDG.reverse_entry(prev_entry);
-		return [node, call_node, entry];    
 	}
 }
 
@@ -893,4 +750,3 @@ Graphs.prototype.start = function () {
     	}
     }
 }
-
