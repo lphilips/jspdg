@@ -106,9 +106,9 @@
       		console.log(escodegen.generate(src2));
 
 			var src = editor.getSession().getValue(),
-		    	ast = Ast.createAst(src, {loc:true, attachComment: true});
+		    	ast = Ast.createAst(src, {loc:true, owningComments: true});
 		    var gc = true;
-		    cesk = jsCesk({a:createConcAg(), l: new ConcLattice(), gc: gc})
+		    cesk = jsCesk({a:createConcAg(), l: new ConcLattice(), gc: gc, ae: false})
 		    var system = cesk.explore(ast);
       		var states      = system.states,
       			transitions = system.graph.edges(),

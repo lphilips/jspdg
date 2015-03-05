@@ -10,7 +10,7 @@ function jipdaIt() {
     var lat = eval($("#lattice").val());
     var gc = true;
     //cesk = jsCesk({a:ag, l:lat, gc: gc});
-    cesk = jsCesk({a:createConcAg(), l: new ConcLattice(), gc: gc})
+    cesk = jsCesk({a:createConcAg(), l: new ConcLattice(), gc: gc, ae: false})
     //logOutput("analysis", "a " + ag + ", l " + lat + ", gc " + gc);
     //var profileName = (function (date) {return date.getHours() + ":" + date.getMinutes()})(new Date());
     //console.profile(profileName);

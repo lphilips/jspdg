@@ -12,57 +12,52 @@ var Nodeify = (function () {
 
 
 	var module = {};
-	
-	var makeTransformer = function () {
-			return {
-				AST        : graphs.AST,
-				transformF : nodeify,
-				callbackF  : NodeParse.callback,
-				asyncCallF : NodeParse.RPC,
-				asyncFuncF : NodeParse.asyncFun,
-				cps        : true,
-				shouldTransform : shouldTransform
-			}
-		};
-
-	var shouldTransform = function (call) {
-		var entrynode = call.getEntryNode()[0];
-		return !entrynode.equalsdtype(call) && entrynode.getdtype().value !== DNODES.SHARED.value 
-	}
 
 	/* Variable Declaration */
 	var nodeifyVarDecl = function (sliced) {
-	  	var node 	= sliced.node,
-	  		slicedn = sliced.nodes,
-	  		entry 	= node.getOutEdges(EDGES.DATA).filter(function (e) {
-							return e.to.isEntryNode;
-					}),
-	  		call 	= node.getOutEdges(EDGES.CONTROL).filter(function (e) {
-	  						return e.to.isCallNode;
-	  				});
-	  	/* Outgoing data dependency to entry node? -> Function Declaration */
-		if (entry.length > 0) {
-			var entry = entry[0].to,
-	     	    f = toNode(cloneSliced(sliced, slicedn, entry));
+	  	var node 		= sliced.node,
+	  		slicedn 	= sliced.nodes,
+	  		entry 		= node.edges_out.filter(function(e) {
+				return e.equalsType(EDGES.DATA) &&
+		       	e.to.isEntryNode;
+			}),
+	  		call 		= node.edges_out.filter(function(e) {
+	  			return e.equalsType(EDGES.CONTROL) &&
+	  			e.to.isCallNode;
+	  		});
+	  	/* Outgoing data dependency to entry node? -> function declaration */
+		if(entry.length > 0) {
+	     	var f = toNode(cloneSliced(sliced, slicedn, entry[0].to));
 	     	if (entry.isServerNode() && entry.clientCalls > 0) {
 	     		/* set the name of the method */
-	     		f.method.setName(node.parsenode.declarations[0].id);
-	     		sliced.method = {};
-	     		sliced.methods = sliced.methods.concat(f.method.parsenode);
+	     		f.method.key = node.parsenode.declarations[0].id;
+	     		sliced.methods = sliced.methods.concat(f.method);
 	     	}
 		 	node.parsenode.declarations.init = f.parsednode;
 		 	slicedn = f.nodes;
 		}
-		/* Outgoing dependency on call nodes?
+		/* outgoing dependency on call nodes?
 		 * -> nodeify every call (possibly rpcs) */
 		else if(call.length > 0) {
-			var cpsvar = CPSTransform.transformExp(node, sliced.nodes, makeTransformer());
-			sliced.nodes = cpsvar[0];
-			sliced.parsednode = cpsvar[1].parsenode;
-			return sliced;
+			call.map(function (c) {
+				var corig  = c.to.parsenode,
+					cnode  = toNode(cloneSliced(sliced, slicedn ,c.to)),
+					orig   = escodegen.generate(node.parsenode),
+					transf = falafel(orig, function (n) {
+						/* transform the original call node
+						   if changes to it were made in cnode (rpc call)*/
+						if( esp_isCallExp(n) && 
+						 	n.callee.name === c.to.name && 
+						 	argumentsEqual(n.arguments, c.to.parsenode.arguments) && 
+						 	corig !== cnode.parsednode) 
+							n.update(escodegen.generate(cnode.parsednode));
+					});
+				node.parsenode = esprima.parse(transf.toString());
+				slicedn = removeNode(cnode.nodes,c.to);
+			})
 		}
-		/* Cloud types */
-		/*else if (CTTransform.shouldTransform(node)) {
+
+		else if (CTTransform.shouldTransform(node)) {
 			if (CTTransform.hasSameType(node)) {
 				var ctype  = CTTransform.transformExpression(node);
 				if(ctype) {
@@ -74,20 +69,52 @@ var Nodeify = (function () {
 					return sliced;
 				}
 			}
-		} else { */
+		} else {
 			/* Transform the right hand side expression */
-			/*CTTransform.transformExpression(node, sliced.cloudtypes)
-		}*/
+			CTTransform.transformExpression(node, sliced.cloudtypes)
+		}
 
 		sliced.nodes = slicedn;
 		sliced.parsednode = node.parsenode;
 		return sliced;
 	}
 
+
+	var nodeifyAssExp = function (sliced) {
+		var call = sliced.node.edges_out.filter(function(e) {
+	  			return e.equalsType(EDGES.CONTROL) &&
+	  			       e.to.isCallNode;
+	  		}).map(function (e) { return e.to});
+		//if (CTTransform.shouldTransform(sliced.node)) {
+		if(call.length > 0) {
+			call.map(function (c) {
+				var corig  = c.parsenode,
+					cnode  = toNode(cloneSliced(sliced, sliced.nodes ,c)),
+					orig   = escodegen.generate(sliced.node.parsenode),
+					transf = falafel(orig, function (n) {
+						/* transform the original call node
+						   if changes to it were made in cnode (rpc call)*/
+						if( esp_isCallExp(n) && 
+						 	n.callee.name === c.name && 
+						 	argumentsEqual(n.arguments, c.parsenode.arguments) && 
+						 	corig !== cnode.parsednode) 
+							n.update(escodegen.generate(cnode.parsednode));
+					});
+				sliced.node.parsenode = esprima.parse(transf.toString()).body[0];
+				sliced.nodes = removeNode(cnode.nodes,c);
+			})
+		}
+		 CTTransform.transformExpression(sliced.node, sliced.cloudtypes);
+		//}
+		sliced.parsednode = sliced.node.parsenode;
+		return sliced;
+	}
+
 	/* Function expression */
-	var nodeifyFunExp = function (sliced) {
+	var nodeifyFunExp = function(sliced) {
 		/* Formal parameters */
 		var node 	  = sliced.node,
+			slicedn   = sliced.nodes,
 			form_ins  = node.getFormalIn(),
 			form_outs = node.getFormalOut(),
 		    parsenode = node.parsenode,
@@ -100,50 +127,53 @@ var Nodeify = (function () {
 			for(var i = 0; i < form_ins.length; i++) {
 				var fp = form_ins[i],
 				     p = params[i];
-				if(!slicedContains(sliced.nodes,fp)) {
+				if(!slicedContains(slicedn,fp)) {
 					params.splice(i,1);
 				}
-				sliced.nodes = sliced.nodes.remove(fp);
+				slicedn = slicedn.remove(fp);
 			}
 			parsenode.params = params;
 		};
 		/* Formal out parameters */
-		form_outs.map(function (f_out) {
-			sliced.nodes = sliced.nodes.remove(f_out)
+		form_outs.map(function(f_out) {
+			slicedn = slicedn.remove(f_out)
 		})
 		/* Body */
 		var body = [],
-		    bodynodes = node.getOutEdges(EDGES.CONTROL).filter(function (e) {
-				return e.to.isStatementNode || e.to.isCallNode;
+		    bodynodes = node.edges_out.filter(function (e) {
+				return e.equalsType(EDGES.CONTROL) &&
+				       e.to.isStatementNode || e.to.isCallNode;
 		    }).map(function (e) { return e.to });
 
 		/* nodeify every body node */
 		bodynodes.map(function (n) {
-			var bodynode = toNode(cloneSliced(sliced, sliced.nodes, n));
-			if(slicedContains(sliced.nodes,n)) 
+			var bodynode = toNode(cloneSliced(sliced, slicedn, n));
+			if(slicedContains(slicedn,n)) 
 				body = body.concat(bodynode.parsednode);
-			sliced.nodes = removeNode(bodynode.nodes,n);
+			slicedn = removeNode(bodynode.nodes,n);
 		});
-		sliced.nodes = sliced.nodes.remove(node);
+		slicedn = slicedn.remove(node);
 		parsenode.body.body = body;
 
-		/* CASE 2 : Server function that is called by client side */
+		/* Should the function be transformed to rpc function? */ 
 		if(node.isServerNode() && node.clientCalls > 0) {
-			var cpsfun = CPSTransform.transformFunction(node, sliced, makeTransformer());	
-			sliced.method     = cpsfun[1] 
+			var method = nodeRemoteProc(),
+				func   = escodegen.generate(parent);
+			/* Return statement in body should be replaced by callback call */
+			func = falafel(func, function (n) {
+				// TODO check parent (don't transform return statement in nested function def)
+				if (esp_isRetStm(n)) 
+					/* First argument of callback is error */
+					n.update('callback(null, ' + n.argument.source() + ')')
+			})
+			method.value.body.body = esprima.parse(func.toString()).body[0].expression.right.body.body;
+			/* Parameters: callback should be added */
+			method.value.params = parsenode.params.addLast({'type' : 'Identifier', 'name' : 'callback'});
+			sliced.method = method;
 		}
-		/* CASE 5 : Client function that is called by server side */ 
-		if (node.isClientNode() && node.serverCalls > 0) {
-			sliced.nodes = sliced.nodes.remove(node);
-			parsednode.properties[0].value.body.body = body;
-			sliced.parsednode = parsednode;
-			sliced.method     = parsednode;		
-		}
-		if (node.isClientNode() || (node.isServerNode() && node.clientCalls === 0) || node.dtype === DNODES.SHARED) {
-			sliced.nodes = removeNode(sliced.nodes,node);
-			sliced.parsednode  = node.getParsenode();
-			sliced.parsednode.body.body = body;
-		}
+
+		sliced.nodes = slicedn;
+		sliced.parsednode = parsenode;
 		return sliced;
 	}
 
@@ -159,64 +189,89 @@ var Nodeify = (function () {
 	 */
 	var nodeifyCallExp = function (sliced) {
 		var node 		= sliced.node,
+			slicednodes = sliced.nodes,
 			actual_ins  = node.getActualIn(),
 			actual_outs = node.getActualOut(),	
 			scopeInfo 	= Ast.scopeInfo(node.parsenode),
 		    parent 		= Ast.hoist(scopeInfo).parent(node.parsenode,graphs.AST),
 		    entryNode 	= node.getEntryNode()[0];
 		actual_ins.map(function (a_in) {
-			sliced.nodes = sliced.nodes.remove(a_in)
+			slicednodes = slicednodes.remove(a_in)
 		})
 		actual_outs.map(function (a_out) {
-			sliced.nodes = sliced.nodes.remove(a_out)
+			slicednodes = slicednodes.remove(a_out)
 		});
 
 		if(isPrimitiveCall(node)) {
 			return nodeifyPrimitive(sliced, actual_ins)
 		}
-		/* Perform cloud types transformations on arguments */
+
 		node.parsenode.arguments = CTTransform.transformArguments(node.parsenode.arguments, sliced.cloudtypes);
 		if (entryNode.isServerNode()) {
 			/* CASE 2 */
 			if (node.isClientNode()) {
-				cpscall = CPSTransform.transformCall(node, sliced.nodes, makeTransformer(), parent);
-	        	sliced.nodes = cpscall[0];
-	        	sliced.parsednode = cpscall[1].parsenode;
-	        	return sliced;
-			}
-			/* CASE 1 : defined on server, called by server */
-	    	else if(node.isServerNode()) {
-	    		sliced.parsednode = parent;
-	    	}       
-	        return sliced;
-		}
-		else if (entryNode.isClientNode()) {
-			/* CASE  4 : defined on client, called by client */
-			if(node.isClientNode()) {
-				cpscall = CPSTransform.transformCall(node, sliced.nodes, makeTransformer(), parent);
-	        	sliced.nodes = cpscall[0];
-	        	sliced.parsednode = cpscall[1].parsenode;
-	        	return sliced;
-			}
-			else {
-				/* CASE 5 : defined on client, called by server */
-				1
-			}
-		}
-		/* Shared function */
-		else if (entryNode.isSharedNode()) {
-			/* Called by client */
-			if(node.isClientNode()) {
+				var parsenode = nodeCallServerf(),
+					args	  = parsenode.arguments,
+					call_ins  = actual_ins.map(function (a_in) {
+									var call = a_in.edges_out.filter(function (e) {
+										return e.to.isCallNode
+									})
+									return call.map(function (e) {return e.to});
+								}).flatten();	
+
+				/* Has arguments that are calls? */
+				call_ins.map(function (call) {
+					if(call) {
+						var nodeified = toNode(cloneSliced(sliced, slicednodes, call));
+						for(var i = 0; i < node.parsenode.arguments.length; i++) {
+							var arg = node.parsenode.arguments[i];
+							if(arg === call.parsenode) {
+								node.parsenode.arguments[i] = nodeified.parsednode;
+							}
+						}
+						slicednodes = removeNode(nodeified.nodes,call);
+					}
+				})
+
+				/* Insert function name */
+				args[0].value = node.parsenode.callee.name;
+				parsenode.arguments = args.concat(node.parsenode.arguments);
 				sliced.nodes = slicednodes;
-				sliced.parsednode = parent;
+				sliced.parsednode = parsenode;
+				return sliced;
+
 			}
-			/* Called by server */
-			else if (node.isServerNode()) {
-				sliced.nodes = slicednodes;
-				sliced.parsednode = parent;
-			}
-			return sliced;
 		}
+		else {
+			var parsenode = nodeCallServerf(),
+				args	  = parsenode.arguments,
+				call_ins  = actual_ins.map(function (a_in) {
+					var call = a_in.edges_out.filter(function (e) {
+										return e.to.isCallNode
+									})
+								return call.map(function (e) {return e.to});
+								}).flatten();	
+
+				/* Has arguments that are calls? */
+				call_ins.map(function (call) {
+					if(call) {
+						var nodeified = toNode(cloneSliced(sliced, slicednodes, call));
+						for(var i = 0; i < node.parsenode.arguments.length; i++) {
+							var arg = node.parsenode.arguments[i];
+							if(arg === call.parsenode) {
+								node.parsenode.arguments[i] = nodeified.parsednode;
+							}
+						}
+						slicednodes = removeNode(nodeified.nodes,call);
+					}
+				})
+		}
+		if(parent.type === 'ExpressionStatement')
+			sliced.parsednode = parent;
+		else
+			sliced.parsednode = node.parsenode;
+		sliced.nodes = slicednodes;
+		return sliced;
 	}
 
 	/* Currently same primitive implementations as meteor */
@@ -249,6 +304,7 @@ var Nodeify = (function () {
 	/* Block statement */
 	var nodeifyBlockStm = function (sliced) {
 		var body 	    = [],
+			slicednodes = sliced.nodes,
 			node 		= sliced.node,
 			parsenode 	= node.parsenode,
 		    bodynodes 	= node.edges_out.filter(function (e) {
@@ -256,16 +312,17 @@ var Nodeify = (function () {
 				}).map(function (e) { return e.to });
 		/* nodeify every body node */
 		bodynodes.map(function (n) {
-			var toSlice = cloneSliced(sliced, sliced.nodes, n);
+			var toSlice = cloneSliced(sliced, slicednodes, n);
 			var bodynode = toNode(toSlice);
-			if( slicedContains(sliced.nodes, n) ) {
+			if( slicedContains(slicednodes, n) ) {
 					body = body.concat(bodynode.parsednode)
 			}
-			sliced.nodes = removeNode(bodynode.nodes,n);	
+			slicednodes = removeNode(bodynode.nodes,n);	
 			sliced.methods = bodynode.methods;
 			});
-		sliced.nodes = sliced.nodes.remove(node);
+		slicednodes = slicednodes.remove(node);
 		parsenode.body = body;
+		sliced.nodes = slicednodes;
 		sliced.parsednode = parsenode;
 		return sliced;
 	}
@@ -318,9 +375,7 @@ var Nodeify = (function () {
 		if(parent && esp_isRetStm(parent)) {
 			node.parsenode = parent
 		}
-		if(parent && esp_isExpStm(parent) && 
-			!(esp_isCallExp(node.parsenode)) &&
-			!(esp_isAssignmentExp(node.parsenode))) {
+		if(parent && esp_isExpStm(parent) && !(esp_isCallExp(node.parsenode))) {
 			node.parsenode = parent
 		}
 		if(node.isActualPNode || node.isFormalNode) {
@@ -341,7 +396,7 @@ var Nodeify = (function () {
 		  	return nodeifyCallExp(sliced);
 		  default: 
 		  	if(esp_isExpStm(node.parsenode) && esp_isAssignmentExp(node.parsenode.expression))
-		  		return nodeifyVarDecl(sliced)
+		  		return nodeifyAssExp(sliced)
 		  	if(esp_isExpStm(node.parsenode) && esp_isBinExp(node.parsenode.expression))
 				return nodeifyBinExp(sliced)
 			CTTransform.transformExpression(node, sliced.cloudtypes)
