@@ -267,12 +267,23 @@ CallNode.prototype.getEntryNode = function () {
 }
 
 CallNode.prototype.getStmNode = function () {
-	return this.edges_in.filter(function (e) {
-		return e.from.isStatementNode &&
-		e.equalsType(EDGES.CONTROL)
-	}).map(function (e) {
-		return e.from
-	})
+	var upnodes = this.getInEdges(EDGES.CONTROL).filter( function (e) {
+					return e.from.isActualPNode 
+				  }).flatMap(function (e) {
+				  	return e.from.getCall()
+				  }),
+		upnode;
+	/* Call is argument itse;f */
+	if (upnodes.length > 0) {
+		return upnodes.flatMap(function (callnode) {
+			return callnode.getStmNode()
+		})
+	} else {
+		return this.getInEdges(EDGES.CONTROL).filter( function (e) {
+			return e.from.isStatementNode
+		}).map(function (e) {return e.from})
+
+	}
 }
 
 /* Statement nodes, denoted by "s+index". (Statement) */

@@ -40,7 +40,7 @@ var CPSTransform = (function () {
 		/* Upnode is given + of type var decl, assignment, etc */
 		if(upnode && upnode.dataDependentNodes) {
 			/* Put it in callback, together with all statements dependent on the variable */
-			datadeps = upnode.dataDependentNodes();
+			datadeps = upnode.dataDependentNodes(false, true);
 			if (!esp_exp) {
 				esp_exp = CPSgetExpStm(upnode.parsenode)
 			}

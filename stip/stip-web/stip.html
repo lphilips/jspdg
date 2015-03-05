@@ -8,6 +8,7 @@
 
 	<link rel="stylesheet" href="css/bootstrap.css"> 
 	<link rel="stylesheet" href="css/starter-template.css">
+	<link rel="stylesheet" href="protopurity.css" type="text/css" media="all"/> 
 
 	<title>STiP.js</title>
 	<!-- Le javascript-->
@@ -97,13 +98,18 @@
       			cesk = jsCesk({a:tagAg, p:lat});
       		result = new Pushdown().analyze(ast, cesk);
 
-      		var etgEdges = result.etg.edges(),
-      			emptySet = ArraySet.empty(),
-      			meta = result.ss.entries().reduce(function (acc, entry) {return acc.put(entry.key, {ss:entry.value})}, HashMap.empty()),
-      			element = $("#graph"),
-      			nodes = [],
-      			frames = [],
-      			graphs;
+			var src = editor.getSession().getValue(),
+		    	ast = Ast.createAst(src, {loc:true, owningComments: true});
+		    var gc = true;
+		    cesk = jsCesk({a:createConcAg(), l: new ConcLattice(), gc: gc, ae: false})
+		    var system = cesk.explore(ast);
+      		var states      = system.states,
+      			transitions = system.graph.edges(),
+      			emptySet    = ArraySet.empty(),
+      			//meta = result.ss.entries().reduce(function (acc, entry) {return acc.put(entry.key, {ss:entry.value})}, HashMap.empty()),
+      			element     = $("#graph"),
+      			nodes       = [],
+      			frames      = [];
       		$("#graph").empty();
       		graphs = new Graphs(result,ast,src);
       		graphs.start();

@@ -42,8 +42,9 @@ var Nodeify = (function () {
 	  				});
 	  	/* Outgoing data dependency to entry node? -> Function Declaration */
 		if (entry.length > 0) {
-	     	var f = toNode(cloneSliced(sliced, slicedn, entry[0].to));
-	     	if (f.method) {
+			var entry = entry[0].to,
+	     	    f = toNode(cloneSliced(sliced, slicedn, entry));
+	     	if (entry.isServerNode() && entry.clientCalls > 0) {
 	     		/* set the name of the method */
 	     		f.method.setName(node.parsenode.declarations[0].id);
 	     		sliced.method = {};

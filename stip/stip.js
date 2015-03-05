@@ -19,8 +19,8 @@ var handleStm = function (graphs, kontnode, node, stm_node, addJtc, toadd) {
 			if(addJtc)
 				PDG_node = makePDGNode(graphs, successor, toadd, addJtc);
 			else
-				PDG_node = makePDGNode(graphs, target, toadd, stm_node);
-			if(PDG_node) {
+				PDG_node = makePDGNode(graphs,  successor, toadd, stm_node);
+			if(PDG_node && PDG_node[1]) {
 				if(addJtc)
 					jtc.addNodes(PDG_node[0], addJtc)
 				else
@@ -350,7 +350,7 @@ var handleBody = function (graphs, callnode, entrynode, kontnode) {
 	var hasbody  = entrynode.getOutEdges(EDGES.CONTROL).filter( function (e) {
 			return !e.to.isFormalNode
 		}).length > 0,
-		succ     = graphs.JG.successors(callnode)[0],
+		succ     = graphs.JG.successors(kontnode)[0],
 		bodykont = getKont(graphs.JG, succ),
 		successors = graphs.JG.successors(succ);
 	if (succ.node && !esp_isBlockStm(succ.node)) {
@@ -375,10 +375,13 @@ var handleCallExpression = function (graphs, node, upnode, toadd) {
 	// Handle actual parameters of this call
 	var callcnt   = ++cnt,
 		parsenode = node.node.expression ? node.node.expression : node.node,
-		params 	  = handleActualParameters(graphs, node, parsenode),
+		succ      = graphs.JG.successors(node)[0],
+		succkont  = getKont(graphs.JG, succ),
+		params 	  = handleActualParameters(graphs, graphs.JG.successors(succkont)[0], parsenode),
 		contnode  = params[0],
 		primitive = isPrimitiveCall(node),
 		bodynodes = graphs.JG.successors(node);
+
 	var callnode;
 	if (primitive) {
 		callnode = PDG.make_cal(node.node);
@@ -408,7 +411,6 @@ var handleCallExpression = function (graphs, node, upnode, toadd) {
 				upnode.addEdgeOut(callnode, EDGES.CONTROL);
 			addCallDep(callnode, entry);
 		}	
-
 		// Bind the actual and formal parameters
 		for (var i = 0; i < params[1].length; i++) {
 			var a = params[1][i],
@@ -452,20 +454,19 @@ var handleActualParameters = function (graphs, node) {
 		push 	   = undefined,
 		cont 	   = node,
 		params 	   = [],
-		curr_param = 0;
-	while(outgoing.length > 0 && nr_param != curr_param) {
-		var edge   = outgoing.shift(),
-			target = edge.target;
-		if(edge.g && edge.g.isPush && isOperandKont(edge)) {
-			push = edge.g.frame;
-			var param = handleActualParameter(graphs, edge.source, node.node.arguments[curr_param]);
-			curr_param++;
-			params = params.concat(param[1]);
-			target = param[0];
-		}
-		outgoing = outgoing.concat(etg.outgoing(target));
-		cont = target;
-	}	
+		curr_param = 0,
+		cont       = node,
+		effect, a_in, successor;
+	while (nr_param != curr_param) {
+		a_in = new ActualPNode(graphs.PDG.fun_index, 1);
+		graphs.PDG.fun_index++;
+		successor = graphs.JG.successors(cont)[0];
+		var PDG_node = makePDGNode(graphs, cont, false, a_in);
+		a_in.parsenode = PDG_node && PDG_node[1] ? PDG_node[1].parsenode : cont.node;
+		cont = PDG_node ? PDG_node[0] : successor;
+		curr_param++;
+		params = params.concat(a_in);
+	}
 	return [cont, params];
 }
 
@@ -475,7 +476,7 @@ var handleFormalParameters = function (graphs, node, entry) {
 	var nr_params = entry.parsenode.params.length,
 		PDG 	  = graphs.PDG,
 		params 	  = entry.parsenode.params;
-	for(var i = 0; i < nr_params; i++) {
+	for (var i = 0; i < nr_params; i++) {
 		var param    = params[i],
 			fin_node = new FormalPNode(PDG.fun_index, param.name, 1);
 		PDG.fun_index++;
@@ -519,6 +520,8 @@ var handleExpressionStatement = function (graphs, node, upnode, toadd) {
 	switch (expressiontype) {
       	case 'CallExpression':
       		handled = handleCallExpression(graphs, node, upnode, toadd);
+      		if (upnode.isEntryNode)
+      			toadd=false
       		break;
       	case 'BinaryExpression' :
       		handled = handleBinExp(graphs, node, upnode, toadd);
@@ -552,6 +555,16 @@ var handleIdentifier = function (graphs, node, entry) {
 				addDataDep(c, entry)
 			})
 	}
+
+	if (parent && esp_isRetStm(parent)) {
+		var stm_node = graphs.PDG.make_stm(parent);
+		if (toadd) {
+			addToPDG(stm_node)
+		}
+		return [node, stm_node]
+	}
+	else
+		return [getKont(graphs.JG, node), false]
 }
 
 var handleLiteral = function (graphs, node, entry, toadd) {
