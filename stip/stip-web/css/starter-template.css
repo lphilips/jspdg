@@ -59,3 +59,94 @@ body {
 .marketing p + h4 {
   margin-top: 28px;
 }
+
+.node.enter.e rect {
+  fill: #00ffd0;
+}
+
+.node.enter.D rect {
+  fill: #A4E666;
+}
+.node.sliced rect {
+  fill: #FF4D0E;
+}
+
+text {
+  font-weight: 300;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serf;
+  font-size: 14px;
+}
+
+
+
+
+.edge.control {
+  stroke: #000;
+  fill: none;
+  stroke-width: 1px;
+}
+
+.edge.data {
+  stroke-width: 2px; 
+  stroke : #000;
+  stroke-dasharray: 5, 5;
+  fill: none;
+}
+
+.edge.remote.data {
+  stroke: #A4E666;
+  stroke-width: 3px; 
+  stroke-dasharray: 5, 5;
+  fill: none;
+}
+
+.edge.call {
+  stroke: #31B96E;
+  fill: none;
+  stroke-width: 1px;
+}
+
+.edge.remote.call {
+  stroke: #A4E666;
+  fill: none;
+  stroke-width: 1px;
+}
+
+
+.edge.remote.par-in {
+  fill: none;
+  stroke: #A4E666;
+}
+
+.edge.par-in {
+  stroke: #000;
+  fill: none;
+  stroke-width: 1px;
+}
+
+
+.tooltip {
+    pointer-events:none; /*let mouse events pass through*/
+    opacity:0;
+    transition: opacity 0.3s;
+}
+
+div.tooltip {
+    background: #fff;
+    border:solid gray;
+    position: absolute;
+    max-width: 150px;
+}
+div.fixed {
+    position:fixed;
+}
+g.tooltip:not(.css) {
+  fill:currentColor;
+}
+g.tooltip rect {
+    fill: lightblue;
+    stroke: gray;
+}
+circle:hover + g.tooltip.css {
+  opacity:1;
+}

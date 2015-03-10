@@ -21,6 +21,9 @@ var PDG_Node = function (id) {
   this.expression = [];
 }
 
+PDG_Node.prototype.equals = function (node) {
+	return this.id === node.id
+}
 
 PDG_Node.prototype.add_edges_in = function (froms) {
     for (var i = 0; i < froms.length; i++)   
@@ -121,20 +124,15 @@ PDG_Node.prototype.dataDependentNodes = function(crossTier, includeActualP) {
 	while(data_out.length > 0) {
 		var e    = data_out.shift(),
 		    to   = e.to,
-		    tout = to.edges_out.filter(function (e) {
-		    	return e.equalsType(EDGES.DATA)
-		    });
+		    tout = to.getOutEdges(EDGES.DATA);
 		    if (to.isActualPNode) {
 		    	if (includeActualP) {
 		    		set = set.concat(to)
 		    	} else {
-			    	var calledges = to.edges_in.filter(function (e) {
-			    					return e.equalsType(EDGES.CONTROL)
-			    				}),
+			    	var calledges = to.getInEdges(EDGES.CONTROL),
 			    		callnode = calledges[0].from,
-			    		isarg	 = callnode.edges_in.filter(function (e) {
-			    					return  e.equalsType(EDGES.CONTROL) &&
-			    							e.from.isActualPNode
+			    		isarg	 = callnode.getInEdges(EDGES.CONTROL).filter(function (e) {
+			    					return  e.from.isActualPNode
 			    		});
 			    	/* If call node is an argument itself, keep going upwards until
 			    	   the "upper most call node" is found */
@@ -142,18 +140,16 @@ PDG_Node.prototype.dataDependentNodes = function(crossTier, includeActualP) {
 			    		var upcall = callnode;
 			    		while (isarg.length > 0) {
 			    			var uparg  		= isarg.shift().from,
-			    				upcalledges = uparg.edges_in.filter( function (e) {
-			    					return  e.equalsType(EDGES.CONTROL) &&
-			    							e.from.isCallNode
+			    				upcalledges = uparg.getInEdges(EDGES.CONTROL).filter( function (e) {
+			    					return  e.from.isCallNode
 			    				}),
 			    				upcall 		= upcalledges[0].from;
-			    			isarg = upcall.edges_in.filter(function (e) {
-			    				return  e.equalsType(EDGES.CONTROL) &&
-			    							e.from.isActualPNode
+			    			isarg = upcall.getInEdges(EDGES.CONTROL).filter(function (e) {
+			    				return  e.from.isActualPNode
 			    			});
 			    		}
-			    		data_out = data_out.concat(upcall.edges_out.filter(function (e) {return e.equalsType(EDGES.DATA)}));
-		    			var upedges = callnode.edges_in.filter(function (e) {return e.equalsType(EDGES.CONTROL)});
+			    		data_out = data_out.concat(upcall.getOutEdges(EDGES.DATA));
+		    			var upedges = callnode.getInEdges(EDGES.CONTROL);
 		    			if (upedges.length > 0)
 		    				data_out = data_out.concat(upedges)
 		    			else
@@ -162,12 +158,10 @@ PDG_Node.prototype.dataDependentNodes = function(crossTier, includeActualP) {
 		    	}
 		    }
 		    else if (to.isCallNode) {
-		    	var upnode    = to.edges_in.filter(function (e) {
-		    						return e.equalsType(EDGES.CONTROL)
-		    				   })[0].from,
+		    	var upnode    = to.getInEdges(EDGES.CONTROL)[0].from,
 		    		parsenode = upnode.parsenode;
 		    		set = set.concat(upnode);
-		    		data_out = data_out.concat(upnode.edges_out.filter(function (e) { return e.equalsType(EDGES.DATA)})) 
+		    		data_out = data_out.concat(upnode.getOutEdges(EDGES.DATA)); 
 		    }
 		    else 
 		    	if(!(contains(set, to)) && !to.isFormalNode) {
@@ -329,17 +323,16 @@ ActualPNode.prototype.isActualOut = function () {
 }
 
 ActualPNode.prototype.callArgument = function () {
-	var edges = this.edges_out.filter(function (e) {
-		return e.to.isCallNode && e.equalsType(EDGES.CONTROL)
-	})
-	return edges.map(function (e) {
+	return this.getOutEdges(EDGES.CONTROL).filter(function (e) {
+		return e.to.isCallNode 
+	}).map(function (e) {
 		return e.to
 	})
 }
 
 ActualPNode.prototype.getCall = function () {
-	return this.edges_in.filter(function (e) {
-		return e.from.isCallNode && e.equalsType(EDGES.CONTROL)
+	return this.getInEdges(EDGES.CONTROL).filter(function (e) {
+		return e.from.isCallNode 
 	}).map(function (e) {
 		return e.from
 	})
@@ -402,8 +395,8 @@ PDG_Node.prototype.getdtype = function (recheck) {
 		if (e.to.equals(e.from)) 
 		  return false
 		// Follow function declarations in form var x  = function () { }
-		else if (e.to.parsenode && e.to.parsenode.type === "FunctionExpression" &&
-		    e.from.parsenode && e.from.parsenode.type === "VariableDeclaration") 
+		else if (e.to.parsenode && esp_isFunExp(e.to.parsenode) &&
+		    e.from.parsenode && esp_isVarDecl(e.from.parsenode)) 
 			return true
 		// Follow edge from argument to its call node
 		else if (e.from.isActualPNode && e.to.isCallNode) 
