@@ -50,6 +50,7 @@
 	<script src="../lib/json2.js"></script>
 	<script src="../lib/beautifier.js"></script>
 	<script src="lib/ace/ace.js"></script>
+	<script src="lib/jquery.tooltipster.min.js"></script>
 	<script type="text/javascript" src="../lib/falafel.js"></script>
 	<script src="https://code.jquery.com/jquery.js"></script>
 	<script src="http://yui.yahooapis.com/3.9.0/build/yui/yui-min.js"></script>
@@ -79,7 +80,7 @@
 	<script type="text/javascript" src="../annotations.js"></script>
 	<script type="text/javascript" src="../lib/escodegen.browser.js"></script>
 	<script type="text/javascript" src="PDGgraph.js"></script>
-
+	<script type="text/javascript" src="pdgGraphs.js"></script>
 	<script type="text/javascript" src="lib/viz.js"></script>
 	<script type="text/javascript" src="js/jquery.panzoom.js"></script>
 
@@ -120,7 +121,10 @@
       		$("#graph").empty();
       		graphs = new Graphs(system.graph, ast, src);
       		graphs.start(system.initial);
-      		drawLinks(graphs.PDG, element, window, slicededitor);
+      		var g = createPDGGraph(graphs.PDG);
+
+    		drawPDGGraph(g[0], g[1], g[2])
+      		//drawLinks(graphs.PDG, element, window, slicededitor);
       		return graphs; 
       	} catch (err) {
       		console.log(err.message);
@@ -179,8 +183,10 @@
       $(function ()
       {
       	editor = ace.edit("editor");
+      	editor.getSession().setUseWorker(false);
       	editor.getSession().setMode("ace/mode/javascript");
       	slicededitor = ace.edit("slicededitor");
+      	slicededitor.getSession().setUseWorker(false);
       	slicededitor.getSession().setMode("ace/mode/javascript");
 
       	editor.setValue(example1);
@@ -307,7 +313,17 @@
 							   Zoom in/out: <input type="range" class="zoom-range">
 							 <div id="error" style="color: #ff0606;"> </div>
 							 <div id="graphcont">
-								<div id="graph" class="container panzoom"></div>
+								<div><!-- id="graph" class="container panzoom"> -->
+									
+											<svg>
+												<defs>
+												
+												</defs>	
+												<g> </g>
+											</svg>
+											<div class="fixed tooltip"></div>
+
+								</div>
 							</div>
 						</div> <!-- ./stip -->
 
@@ -323,14 +339,14 @@
 									</div>
 									<div id="right" class="container">
 										<div id="graphjipda" class="container">
-											<svg>
+										<!--	<svg>
 												<defs>
 													<marker id="highlightarrowhead" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="strokeWidth" markerWidth="8" markerHeight="5" orient="auto">
 														<path d="M 0 0 L 10 5 L 0 10 z"></path>
 													</marker>
 												</defs>	
 									    	<g transform="translate(20,20)"/>
-											</svg>
+											</svg>-->
 										</div>
 									</div>
 									<!-- /.right -->
