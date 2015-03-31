@@ -146,7 +146,8 @@ var Meteorify = (function () {
 
 		/* CASE 2 : Server function that is called by client side */
 		if(node.isServerNode() && node.clientCalls > 0) {
-			var cpsfun = CPSTransform.transformFunction(node, sliced, makeTransformer());	
+			var cpsfun = CPSTransform.transformFunction(node, sliced, makeTransformer());
+			sliced.nodes = removeNode(sliced.nodes,node);	
 			sliced.method     = cpsfun[1] 
 		}
 		/* CASE 5 : Client function that is called by server side */ 
@@ -226,14 +227,13 @@ var Meteorify = (function () {
 		else if (entryNode.isSharedNode()) {
 			/* Called by client */
 			if(node.isClientNode()) {
-				sliced.nodes = slicednodes;
 				sliced.parsednode = parent;
 			}
 			/* Called by server */
 			else if (node.isServerNode()) {
-				sliced.nodes = slicednodes;
 				sliced.parsednode = parent;
 			}
+			sliced.nodes = sliced.nodes.remove(node);
 			return sliced;
 		}
 	}
@@ -352,6 +352,37 @@ var Meteorify = (function () {
 	}
 
 
+	/* Binary expression */
+	var meteorifyBinExp = function (sliced) {
+		var call = sliced.node.getOutEdges(EDGES.CONTROL).filter(function (e) {
+						return  e.to.isCallNode
+				   });
+		if (call.length > 0) {
+			var transformer = makeTransformer(),
+				cpsvar		= CPSTransform.transformExp(sliced.node, sliced.nodes, transformer);
+			sliced.nodes = cpsvar[0];
+			sliced.parsednode = cpsvar[1].parsenode;
+			return sliced;
+		}
+
+		return sliced;
+	}
+
+	var meteorifyRetStm = function (sliced) {
+		var call = sliced.node.getOutEdges(EDGES.CONTROL).filter(function (e) {
+						return  e.to.isCallNode
+				   });
+		if (call.length > 0) {
+			var transformer = makeTransformer(),
+				cpsvar		= CPSTransform.transformExp(sliced.node, sliced.nodes, transformer);
+			sliced.nodes = cpsvar[0];
+			sliced.parsednode = cpsvar[1].parsenode;
+			return sliced;
+		}
+
+		return sliced;
+	}
+
 	var removeNode = function (nodes,node) {
 		var callnode = false;
 		nodes = nodes.remove(node);
@@ -409,7 +440,14 @@ var Meteorify = (function () {
 		   	return meteorifyIfStm(sliced);
 		  case 'AssignmentExpression':
 		    return meteorifyAssignmentExp(sliced);
+		  case 'BinaryExpression':
+		  	return meteorifyBinExp(sliced);
 		  default: 
+		  	if (esp_isRetStm(node.parsenode) && 
+		  		node.getOutEdges(EDGES.CONTROL).filter(function (e) {
+		  				return e.to.isCallNode
+		  			}).length > 0)
+		  		return meteorifyRetStm(sliced)
 		    sliced.parsednode = node.parsenode;
 		    return sliced;
 	    }

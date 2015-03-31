@@ -27,14 +27,15 @@ function PDG () {
   this.stm_index 	 = 0;
   this.cal_index 	 = 0;
   this.fun_index 	 = 0;
+  this.pro_index     = 0;
   this.nodes 		 = [];
 }
 
-PDG.prototype.reverse_entry = function (node) {
+PDG.prototype.reverseEntry = function (node) {
   	this.entry_node = node;		
 }
 
-PDG.prototype.add_node = function (node) {
+PDG.prototype.addNode = function (node) {
 	var find = this.nodes.filter(function (n) {
 		return n.id === node.id
 	})
@@ -42,26 +43,26 @@ PDG.prototype.add_node = function (node) {
   		this.nodes.push(node);
 }
 
-PDG.prototype.make_stm = function (node) {
-	var stm = new StatementNode(this.stm_index, node);
-	this.stm_index++;
-	return stm;
+PDG.prototype.makeStm = function (node) {
+	return new StatementNode(++this.stm_index, node);
 }
 
-PDG.prototype.decr_stm = function () {
+PDG.prototype.decrStm = function () {
 	this.stm_index--;
 }
 
-PDG.prototype.make_cal = function (node) {
-	var cal = new CallNode(this.cal_index, node);
-	this.cal_index++;
-	return cal;
+PDG.prototype.makeCall = function (node) {
+	return new CallNode(++this.cal_index, node);
 }
 
-PDG.prototype.change_entry = function (node) {
+PDG.prototype.makeProEntry = function (node) {
+	return new ProEntryNode(++this.pro_index, node);
+}
+
+PDG.prototype.changeEntry = function (node) {
   this.entry_node = node;
   this.curr_body_node = node;
-  this.add_node(node);
+  this.addNode(node);
   this.current_index = this.nodes.length - 1;
   this.ent_index++;
 }
@@ -84,7 +85,7 @@ PDG.prototype.getEntryNode = function (name, node) {
 				   		  e.from.parsenode.type === "VariableDeclaration" &&
 				          e.from.parsenode.declarations[0].id.name === name;
 			   });
-		   if(innodes.length === 0 && node) {
+		   if (innodes.length === 0 && node) {
 			    var pn = n.parsenode;
 				if(pn && pn.tag === node.fun.tag)
 				  return true;
@@ -233,8 +234,8 @@ PDG.prototype.sliceDistributedNode = function (dnode) {
 					    data_out[0].to.parsenode && 
 					    data_out[0].to.parsenode.type === 'FunctionExpression') 
 					   out = out.concat(data_out);
-					else if (control_out.length === 0 && !target.isFormalNode && 
-						    !(target.isActualPNode && target.direction === -1))
+					else if (control_out.length === 0 && !target.isFormalNode )//&& 
+						    //!(target.isActualPNode && target.direction === -1))
 						    leaves = leaves.concat([target]);
 					else 
 						out = out.concat(control_out);		

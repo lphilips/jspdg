@@ -5,7 +5,7 @@ var toCode = function (option, slicednodes, node) {
 		case 'meteor':
 			return Meteorify.transpile(slicednodes, node)
 		case 'node.js':
-			return Nodeify.transpile(slicednodes, node, option.cloudtypes, option.tier)
+			return Nodeify.transpile(slicednodes, node, option)
 	}
 }
 
@@ -146,7 +146,7 @@ var cloneSliced = function (sliced, nodes, node) {
 	clone.setup      = sliced.setup;
 	clone.streams    = sliced.streams;
 	clone.cloudtypes = sliced.cloudtypes;
-	clone.tier       = sliced.tier;
+	clone.option     = sliced.option;
 	return clone;
 }
 

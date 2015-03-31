@@ -55,6 +55,21 @@ var esp_isIfStm = function (node) {
 	return 	node.type === 'IfStatement'
 }
 
+var esp_isNewExp = function (node) {
+	return node.type === 'NewExpression'
+}
+
+var esp_isThisExpression = function (node) {
+	return node.type === 'ThisExpression'
+}
+
+var esp_isMemberExpression = function (node) {
+	return node.type === 'MemberExpression'
+}
+
+var esp_isForStm = function (node) {
+	return node.type === 'ForStatement'
+}
 
 /*  Predicates on type of eval node (Jipda nodes) */
 var isEval = function (node) {

@@ -164,6 +164,8 @@ var NodeParse = (function () {
         }
     }
 
+
+
     var createServer = function () {
     	return esprima.parse('var server = new ServerRpc(serverHttp, {})').body[0];
     }

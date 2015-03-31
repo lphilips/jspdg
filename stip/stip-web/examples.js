@@ -1,10 +1,15 @@
-var uncomment = function (fn){
-  var multiline = fn.toStringOrig().split(/\/\*\n|\n\*\//g).slice(1,-1).join();
-  return multiline.replace("@client", "/* @client */").replace("@server", "/* @server */")
-};
+var Examples =  (function () {
 
- 
-var example1 = uncomment (function (){/*
+
+  var module = {};
+
+  var uncomment = function (fn){
+    var multiline = fn.toString().split(/\/\*\n|\n\*\//g)[1];
+    return multiline.replace("@client", "/* @client */").replace("@server", "/* @server */")
+  };
+
+   
+  var example1 = uncomment (function (){/*
 var a = 1;
 var b = 2;
 @server
@@ -27,7 +32,7 @@ var b = 2;
 
 
 
-var example2 = uncomment (function (){/*
+  var example2 = uncomment (function (){/*
 var a = 1;
 var b = 2;
 var c = 3;
@@ -48,7 +53,7 @@ foo()
 bar()
 */});
 
-var example3 = uncomment (function (){/*
+  var example3 = uncomment (function (){/*
 var factor = function () { return 9/5 };
 var add = 32;
 @server
@@ -70,7 +75,7 @@ var add = 32;
 }
 */});
 
-var example4 = uncomment( function (){/*
+  var example4 = uncomment( function (){/*
 @server
 {
 	var serverf = function (x) { return x }
@@ -86,7 +91,13 @@ var example4 = uncomment( function (){/*
 }
 */});
 
-var tiersplittxt = ['Basic', 'Temperature', 'Callback Hell'];
-var tiersplitexs = [example1, example3, example4];
-var slicetxt = ['Data dependencies']
-var sliceexs = [example2]
+  module.tiersplittxt = ['Basic', 'Temperature', 'Callback Hell'];
+  module.tiersplitexs = [example1, example3, example4];
+  module.slicetxt = ['Data dependencies']
+  module.sliceexs = [example2]
+
+
+  return module
+
+
+})()

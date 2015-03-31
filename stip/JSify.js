@@ -63,9 +63,8 @@ var JSify = (function () {
 
 	/* Binary expression */
 	var sliceBinExp = function (slicednodes, node, cps) {
-		var call = node.edges_out.filter(function (e) {
-						return  e.equalsType(EDGES.CONTROL) &&
-								e.to.isCallNode
+		var call = node.getOutEdges(EDGES.CONTROL).filter(function (e) {
+						return e.to.isCallNode
 				   });
 		if (call.length > 0) {
 			var transformer = makeTransformer(cps),
@@ -144,6 +143,19 @@ var JSify = (function () {
 		return new Sliced(slicednodes, node, parent)
 	}
 
+	var sliceRetStm = function (slicednodes, node, cps) {
+		var call = node.getOutEdges(EDGES.CONTROL).filter(function (e) {
+						return  e.to.isCallNode
+				   });
+		if (call.length > 0) {
+			var transformer = makeTransformer(cps),
+				cpsvar		= CPSTransform.transformExp(node, slicednodes, transformer)
+			return new Sliced(cpsvar[0], node, cpsvar[1].parsenode)
+		}
+
+		return new Sliced(slicednodes, node, node.parsenode)
+	}
+
 	var sliceBlockStm = function (slicednodes, node, cps) {
 		var body = [],
 			sliced = slicednodes,
@@ -219,6 +231,11 @@ var JSify = (function () {
 		  case 'BinaryExpression':
 		  	return sliceBinExp(slicednodes, node, cps);
 		  default: 
+		  	if (esp_isRetStm(node.parsenode) && 
+		  		node.getOutEdges(EDGES.CONTROL).filter(function (e) {
+		  				return e.to.isCallNode
+		  			}).length > 0)
+		  		return sliceRetStm(slicednodes, node, cps)
 		  	if(esp_isExpStm(node.parsenode) && esp_isAssignmentExp(node.parsenode.expression))
 		  		return sliceVarDecl(slicednodes, node, cps)
 		  	if(esp_isExpStm(node.parsenode) && esp_isBinExp(node.parsenode.expression))

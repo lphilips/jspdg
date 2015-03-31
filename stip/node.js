@@ -176,11 +176,12 @@ PDG_Node.prototype.dataDependentNodes = function(crossTier, includeActualP) {
 /* Entry nodes, denoted by "e+index". (Entry) */
 var EntryNode = function (id,parsenode) {
   PDG_Node.call(this,'e'+id);
-  this.parsenode 	= parsenode;
-  this.isEntryNode  = true;
-  this.isCalled 	= false;
-  this.clientCalls 	= 0;
-  this.serverCalls 	= 0;
+  this.parsenode 	 = parsenode;
+  this.isEntryNode   = true;
+  this.isCalled 	 = false;
+  this.clientCalls 	 = 0;
+  this.serverCalls 	 = 0;
+  this.isConstructor = false;
 }
 
 EntryNode.prototype = new PDG_Node();
@@ -214,11 +215,20 @@ EntryNode.prototype.hasBody = function () {
 
 EntryNode.prototype.addCall = function (callnode) {
 	this.isCalled = true;
-	if(callnode.isServerNode())
+	if (callnode.isServerNode())
 		this.serverCalls += 1;
-	else if(callnode.isClientNode())
+	else if (callnode.isClientNode())
 		this.clientCalls += 1;
 }
+
+
+/* Prototype Entry nodes, denoted by "PE+index" */
+var ProEntryNode = function (id, parsenode) {
+	PDG_Node.call(this, 'PE'+id);
+	this.parsenode = parsenode;
+	this.isPENode = true;
+}
+
 
 /* Call nodes, denoted by "c+index". (Call) */
 var CallNode = function (id, parsenode) {

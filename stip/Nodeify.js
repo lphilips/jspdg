@@ -13,7 +13,9 @@ var Nodeify = (function () {
 
 	var module = {};
 	
-	var makeTransformer = function () {
+	var makeTransformer = function (option) {
+		switch (option.asynccomm) {
+		case 'callbacks':
 			return {
 				AST        : graphs.AST,
 				transformF : nodeify,
@@ -21,9 +23,24 @@ var Nodeify = (function () {
 				asyncCallF : NodeParse.RPC,
 				asyncFuncF : NodeParse.asyncFun,
 				cps        : true,
-				shouldTransform : shouldTransform
+				shouldTransform : shouldTransform,
+				option     : option,
+				transform  : CPSTransform
 			}
-		};
+		case 'promises':
+			return {
+				AST        : graphs.AST,
+				transformF : nodeify,
+				callbackF  : NodeParse.callback,
+				asyncCallF : NodeParse.RPC,
+				asyncFuncF : NodeParse.asyncFun,
+				cps        : true,
+				shouldTransform : shouldTransform,
+				option     : option,
+				transform  : PromiseTransform
+			}
+		}
+	}
 
 	var shouldTransform = function (call) {
 		var entrynode = call.getEntryNode()[0];
@@ -39,7 +56,9 @@ var Nodeify = (function () {
 					}),
 	  		call 	= node.getOutEdges(EDGES.CONTROL).filter(function (e) {
 	  						return e.to.isCallNode;
-	  				});
+	  				}),
+	  		transformer = makeTransformer(sliced.option);
+
 	  	/* Outgoing data dependency to entry node? -> Function Declaration */
 		if (entry.length > 0) {
 			var entry = entry[0].to,
@@ -56,7 +75,7 @@ var Nodeify = (function () {
 		/* Outgoing dependency on call nodes?
 		 * -> nodeify every call (possibly rpcs) */
 		else if(call.length > 0) {
-			var cpsvar = CPSTransform.transformExp(node, sliced.nodes, makeTransformer());
+			var cpsvar = transformer.transform.transformExp(node, sliced.nodes, transformer);
 			sliced.nodes = cpsvar[0];
 			sliced.parsednode = cpsvar[1].parsenode;
 			return sliced;
@@ -93,7 +112,8 @@ var Nodeify = (function () {
 		    parsenode = node.parsenode,
 		    params    = parsenode.params,
 		    scopeInfo = Ast.scopeInfo(parsenode),
-		    parent 	  = Ast.hoist(scopeInfo).parent(parsenode, graphs.AST);
+		    parent 	  = Ast.hoist(scopeInfo).parent(parsenode, graphs.AST),
+		    transformer = makeTransformer(sliced.option);
 		/* Formal in parameters */
 		if(form_ins.length > 0) {
 			/* Remove parameters that are not in slicednodes */
@@ -129,7 +149,7 @@ var Nodeify = (function () {
 
 		/* CASE 2 : Server function that is called by client side */
 		if(node.isServerNode() && node.clientCalls > 0) {
-			var cpsfun = CPSTransform.transformFunction(node, sliced, makeTransformer());	
+			var cpsfun = transformer.transform.transformFunction(node, sliced, transformer);	
 			sliced.method     = cpsfun[1] 
 		}
 		/* CASE 5 : Client function that is called by server side */ 
@@ -163,7 +183,8 @@ var Nodeify = (function () {
 			actual_outs = node.getActualOut(),	
 			scopeInfo 	= Ast.scopeInfo(node.parsenode),
 		    parent 		= Ast.hoist(scopeInfo).parent(node.parsenode,graphs.AST),
-		    entryNode 	= node.getEntryNode()[0];
+		    entryNode 	= node.getEntryNode()[0],
+		    transformer = makeTransformer(sliced.option);
 		actual_ins.map(function (a_in) {
 			sliced.nodes = sliced.nodes.remove(a_in)
 		})
@@ -179,7 +200,7 @@ var Nodeify = (function () {
 		if (entryNode.isServerNode()) {
 			/* CASE 2 */
 			if (node.isClientNode()) {
-				cpscall = CPSTransform.transformCall(node, sliced.nodes, makeTransformer(), parent);
+				cpscall = transformer.transform.transformCall(node, sliced.nodes, transformer , parent);
 	        	sliced.nodes = cpscall[0];
 	        	sliced.parsednode = cpscall[1].parsenode;
 	        	return sliced;
@@ -193,7 +214,7 @@ var Nodeify = (function () {
 		else if (entryNode.isClientNode()) {
 			/* CASE  4 : defined on client, called by client */
 			if(node.isClientNode()) {
-				cpscall = CPSTransform.transformCall(node, sliced.nodes, makeTransformer(), parent);
+				cpscall = transformer.transform.transformCall(node, sliced.nodes, transformer, parent);
 	        	sliced.nodes = cpscall[0];
 	        	sliced.parsednode = cpscall[1].parsenode;
 	        	return sliced;
@@ -351,12 +372,9 @@ var Nodeify = (function () {
 	    }
 	}
 
-	var nodeify = function (slicednodes, node, cloudtypes, tier) {
+	var nodeify = function (slicednodes, node, option) {
 		var sliced = new Sliced(slicednodes, node);
-		sliced.tier = tier;
-		if (cloudtypes) {
-			sliced.cloudtypes = cloudtypes
-		}
+		sliced.option = option;
 		return toNode(sliced)
 	}
 

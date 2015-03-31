@@ -65,6 +65,7 @@ var getKont = function (JG, node) {
 
 /* VARIABLE DECLARATION is followed by one/more variable declarator(s)
  * Edges are marked (+) (-) vrator */
+<<<<<<< HEAD
 var handleVarDecl = function (graphs, node, stm_node, upnode) {
 	var jtc  = graphs.JTC,
 		out  = graphs.etg().outgoing(node),
@@ -75,6 +76,16 @@ var handleVarDecl = function (graphs, node, stm_node, upnode) {
 		vrators, cont;
 	jtc.addNodes(node, stm_node);
 	stm_node.konts = epsk;
+=======
+var handleVarDecl = function (graphs, node, upnode) { 
+	/* Search for corresponding kont-node to obtain type info */
+	var	kontnode = getKont(graphs.JG, node),
+		stm_node = graphs.PDG.makeStm(node.node),
+		cont;
+
+	graphs.JTC.addNodes(node, stm_node);
+	stm_node.konts = [kontnode];
+>>>>>>> First adaptations to new Jipda PDG API (construction of PDG)
 	if (upnode) 
 		stm_node.dtype = upnode.getdtype();
 	vrators = out.map( function (e) {
@@ -91,10 +102,10 @@ var handleFuncDeclaration = function (graphs, node, entry) {
 		jtc 	   = graphs.JTC,
 		entry 	   = new EntryNode(PDG.ent_index, node.node),
 		prev_entry = PDG.entry_node;
-	PDG.change_entry(entry);
+	PDG.changeEntry(entry);
 	handleFormalParameters(graphs,node,entry);
 	// Body isn't evaluated, so switch back to previous entry node
-	PDG.reverse_entry(prev_entry);
+	PDG.reverseEntry(prev_entry);
 	jtc.addNodes(node,entry);
 	return [node, entry];
 }
@@ -104,14 +115,14 @@ var handleFuncDeclaration = function (graphs, node, entry) {
 var handleAnonFuncDeclaration = function (graphs, node, entry, toadd) {
 	var successors = graphs.JG.successors(node),
 	    // Statement node of the variable declaration
-	    stm_node   = graphs.PDG.make_stm(node.node),
+	    stm_node   = graphs.PDG.makeStm(node.node),
 	    next_node  = esp_isFunExp(node.node) ? node : successors[0],
         // Entry node for the function
         entry_node = new EntryNode(graphs.PDG.ent_index, next_node.node),
         prev_entry = graphs.PDG.entry_node;
-    graphs.PDG.change_entry(entry_node);
+    graphs.PDG.changeEntry(entry_node);
 	// Body isn't evaluated, so switch back to previous entry node
-	graphs.PDG.reverse_entry(prev_entry);
+	graphs.PDG.reverseEntry(prev_entry);
 	graphs.JTC.addNodes(next_node, entry_node);
 	if(entry_node.parsenode)
 		handleFormalParameters(graphs,node,entry_node);
@@ -151,7 +162,7 @@ var handleDeclarator = function (graphs, node, upnode, toadd) {
 				/* Get the variable declaration node (parent of parent) */
 				scopeInfo = Ast.scopeInfo(parent);
 				parent = Ast.hoist(scopeInfo).parent(parent, graphs.AST);
-				var stm_node = graphs.PDG.make_stm(parent);
+				var stm_node = graphs.PDG.makeStm(parent);
 				handled = handleAnonFuncDeclaration(graphs, node, parent, toadd);
 				stm_node.addEdgeOut(handled[1], EDGES.DATA);
 				handled[1] = stm_node
@@ -196,7 +207,7 @@ var handleBlockStatement = function (graphs, node, entry, toadd) {
 		};
 	if (toadd) {
 		addToPDG(new_entry);
-		PDG.change_entry(new_entry);
+		PDG.changeEntry(new_entry);
 		PDG.curr_body_node = old_entry;
 	} else
 		new_entry = entry;
@@ -219,7 +230,7 @@ var handleBlockStatement = function (graphs, node, entry, toadd) {
 				successors = successors.concat(graphs.JG.successors(succ));
 		}
 	}
-	PDG.reverse_entry(entry.isEntryNode ? entry : old_entry);
+	PDG.reverseEntry(entry.isEntryNode ? entry : old_entry);
 	return [kontnode, new_entry]
 }
 
@@ -299,15 +310,30 @@ var handleReturnStm = function (graphs, node, stm_node, upnode) {
 /* BINARY EXPRESSION has left edges continued by right edges;
  * Bundled by body edges */
 var handleBinExp = function (graphs, node, upnode, toadd) {
-	var kontnode = getKont(graphs.JG, node),
-	    stm_node = graphs.PDG.make_stm(node.node),
-		cont;
+	var kontnode  = getKont(graphs.JG, node),
+	    stm_node  = graphs.PDG.makeStm(node.node),
+	    scopeInfo = Ast.scopeInfo(node.node),
+		parent    = Ast.hoist(scopeInfo).parent(node.node,graphs.AST),
+		cont, form_out;
 	if (upnode.isEntryNode)
 		cont 	 = handleStm(graphs, kontnode, node, stm_node, stm_node);
 	else 
 		cont = handleStm(graphs, kontnode, node, stm_node, upnode, toadd);
 	graphs.JTC.addNodes(node, stm_node);
+	if (parent && esp_isRetStm(parent)) {
+		form_out = handleFormalOutParameters(graphs, stm_node);
+		stm_node.addEdgeOut(form_out, EDGES.DATA);
+
+		stm_node.parsenode = parent;
+	}
 	return [kontnode, stm_node];
+}
+
+var handleNewExp = function (graphs, node, upnode, toadd) {
+	var kontnode = getKont(graphs.JG, node),
+		name     = node.node.callee.name,
+		entry    = graphs.PDG.getEntryNode(name, node),
+		proentry = graphs.PDG.makeProEntry(node);
 }
 
 /* ASSIGNMENT */
@@ -350,10 +376,10 @@ var handleBody = function (graphs, callnode, entrynode, kontnode) {
 	var hasbody  = entrynode.getOutEdges(EDGES.CONTROL).filter( function (e) {
 			return !e.to.isFormalNode
 		}).length > 0,
-		succ     = graphs.JG.successors(kontnode)[0],
+		succ     = kontnode, //graphs.JG.successors(kontnode)[0],
 		bodykont = getKont(graphs.JG, succ),
 		successors = graphs.JG.successors(succ);
-	if (succ.node && !esp_isBlockStm(succ.node)) {
+	if (!succ.node || (succ.node && !esp_isBlockStm(succ.node))) {
 		/* Look for block statement, starting from kontnode */
 		successors = graphs.JG.successors(kontnode);
 		while(successors.length > 0) {
@@ -384,7 +410,7 @@ var handleCallExpression = function (graphs, node, upnode, toadd) {
 
 	var callnode;
 	if (primitive) {
-		callnode = PDG.make_cal(node.node);
+		callnode = PDG.makeCall(node.node);
 		callnode.cnt = callcnt;
 		callnode.name = node.node.callee.name;
 		params[1].map(function (a_in) {
@@ -399,7 +425,7 @@ var handleCallExpression = function (graphs, node, upnode, toadd) {
 			formals   = entry.getFormalIn(),
 			body;
 
-		callnode = graphs.PDG.make_cal(node.node);
+		callnode = graphs.PDG.makeCall(node.node);
 		callnode.name = name;
 		/* Add call edge to entry node 
 		   Anonymous function created for callback arguments 
@@ -425,10 +451,10 @@ var handleCallExpression = function (graphs, node, upnode, toadd) {
 			else
 			    a.addEdgeOut(f, EDGES.PARIN);
 		}
-		graphs.PDG.change_entry(entry);
+		graphs.PDG.changeEntry(entry);
 
 		body = handleBody(graphs, node, entry, params[0]);
-		graphs.PDG.change_entry(preventry);
+		graphs.PDG.changeEntry(preventry);
 		var kont = body[0];
 		if (!isReturnKont(kont)) {
 			var successors = graphs.JG.successors(kont),
@@ -526,6 +552,8 @@ var handleExpressionStatement = function (graphs, node, upnode, toadd) {
       	case 'BinaryExpression' :
       		handled = handleBinExp(graphs, node, upnode, toadd);
       		break;
+      	case 'NewExpression' :
+      		handled = handleNewExp(graphs, node, upnode, toadd);
 
      }
     if (handled && toadd) {
@@ -534,6 +562,7 @@ var handleExpressionStatement = function (graphs, node, upnode, toadd) {
     return handled;
 }
 
+<<<<<<< HEAD
 /* IDENTIFIER doesn't create a new statement node, but can 
  * result in a data edge to the corresponding declaration
  * or formal parameter */
@@ -542,7 +571,26 @@ var handleIdentifier = function (graphs, node, entry) {
 		stm 			= graphs.PDG.make_stm(node.node),
 		declarationNode = declarations[0],
 		formp 			= graphs.PDG.entry_node.getFormalIn();
+=======
+var handleIdentifier = function (graphs, node, name, entry, toadd) {
+	var declaration = declarations(graphs.JG, node, name)[0],
+		stm 		= graphs.PDG.makeStm(node.node),
+		formp 		= graphs.PDG.entry_node.getFormalIn(),
+		scopeInfo   = Ast.scopeInfo(node.node),
+		parent      = Ast.hoist(scopeInfo).parent(node.node,graphs.AST),
+		stm_node;
+>>>>>>> First adaptations to new Jipda PDG API (construction of PDG)
 	
+	if (parent && esp_isRetStm(parent)) {
+		stm_node = graphs.PDG.makeStm(parent);
+		form_out = handleFormalOutParameters(graphs, stm_node);
+		stm_node.addEdgeOut(form_out, EDGES.DATA);
+		entry = stm_node;
+		if (toadd) {
+			addToPDG(stm_node)
+		}
+
+	}
 	formp = formp.filter( function (f) {
 		return f.name === node.node.name;
 	});
@@ -556,13 +604,8 @@ var handleIdentifier = function (graphs, node, entry) {
 			})
 	}
 
-	if (parent && esp_isRetStm(parent)) {
-		var stm_node = graphs.PDG.make_stm(parent);
-		if (toadd) {
-			addToPDG(stm_node)
-		}
+	if (stm_node)
 		return [node, stm_node]
-	}
 	else
 		return [getKont(graphs.JG, node), false]
 }
@@ -571,7 +614,7 @@ var handleLiteral = function (graphs, node, entry, toadd) {
 	var scopeInfo = Ast.scopeInfo(node.node),
 		parent    = Ast.hoist(scopeInfo).parent(node.node, graphs.AST);
 	if (parent && esp_isRetStm(parent)) {
-		var stm_node = graphs.PDG.make_stm(parent);
+		var stm_node = graphs.PDG.makeStm(parent);
 		if (toadd) {
 			addToPDG(stm_node)
 		}
@@ -697,6 +740,10 @@ var makePDGNode = function (graphs, node, toadd, upnode) {
 					return handleLiteral(graphs, node, upnode, toadd);
 				case 'CallExpression' :
 					return handleExpressionStatement(graphs, node, upnode, toadd);
+				case 'ThisExpression' :
+					return handleExpressionStatement(graphs, node, upnode, toadd);
+				case 'NewExpression' :
+					return handleExpressionStatement(graphs, node, upnode, toadd);
 
 			}
 		}
@@ -738,11 +785,19 @@ Graphs.prototype.etg = function () {
 }
 
 /* Create the program dependency graph */
+<<<<<<< HEAD
 Graphs.prototype.start = function () {
 	this.PDG.change_entry(new EntryNode(this.PDG.ent_index));
 	this.PDG.initial = JSON.parse(JSON.stringify(this.DSG.initial));
 	this.JTC.addNodes(result.initial, this.PDG.entry_node);
 	var node = result.initial;
+=======
+Graphs.prototype.start = function (initial) {
+	this.PDG.changeEntry(new EntryNode(this.PDG.ent_index));
+	this.PDG.initial = JSON.parse(JSON.stringify(initial.node));
+	this.JTC.addNodes(initial, this.PDG.entry_node);
+	var successors = [initial].concat(this.JG.successors(initial));
+>>>>>>> First adaptations to new Jipda PDG API (construction of PDG)
 	/* starting from the root node: create a pdg node for every node 
 	   and continue from the result */
 	while(this.etg().outgoing(node).length > 0) {
