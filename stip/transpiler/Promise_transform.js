@@ -1,20 +1,8 @@
-/*
- * CPS_transform takes a Call Node (PDG node), that must
- * be transformed to CPS style call. 
- * @param call  		: the call node
- * @param nodes 		: nodes that are selected in the current program (slice)
- * @param transform     : object that contains
- * 							- transformF  : function used to transform nodes (e.g. to JavaScript, to Meteor, etc.)
- * 							- callbackF	  : function that creates a new callback function
- * 							- asyncCallF  : function that creates a new async call (e.g. normal with extra callback param, rpc, etc.)  
- *							- AST
- *							- cps         : boolean indicating whether cps transformations should happen
- */
-
-var CPSTransform = (function () {
+var PromiseTransform = (function () {
 
 	var cps_count = 0,
 		module = {};
+
 
 	function transformCall(call, nodes, transform, upnode, esp_exp) {
 		var asyncCall 	= transform.asyncCallF(call, call.name, []),
@@ -263,12 +251,10 @@ var CPSTransform = (function () {
 			func = falafel(funcstr, function (n) {
 				// TODO check parent (don't transform return statement in nested function def)
 				if (esp_isRetStm(n)) 
-					/* First argument of callback is error */
-					n.update('callback(null, ' + n.argument.source() + ')')
+					n.update('return new Promise(function (fulfill, reject) {fulfill( ' + n.argument.source() + ')})')
 			})
 			method.setBody(esprima.parse(func.toString()).body[0].expression.right.body.body);
-			/* Parameters: callback should be added */
-			method.addParams(parsenode.params.addLast({'type' : 'Identifier', 'name' : 'callback'}));
+			method.addParams(parsenode.params);
 			return [nodes, method]
 	}
 
@@ -327,9 +313,6 @@ var CPSTransform = (function () {
 	    	else if (esp_isBinExp) 
 	    		return exp
 	    }
-	    else if (esp_isRetStm(parsenode)) {
-	    	return parsenode.argument
-	    }
 	}
 
 
@@ -343,9 +326,6 @@ var CPSTransform = (function () {
 	    		exp.right = newexp
 	    	else if (esp_isBinExp) 
 	    		parsenode.expression = newexp
-	    }
-	    else if (esp_isRetStm(parsenode)) {
-	    	parsenode.argument = newexp
 	    }
 	}
 
@@ -385,6 +365,7 @@ var CPSTransform = (function () {
 	    return parsed;
 	}
 
+
 	var slicedContains = function (nodes,node) {
 	 	return nodes.filter(function (n) {
 			if(n.isCallNode) {
@@ -408,6 +389,7 @@ var CPSTransform = (function () {
 		});
 		return nodes;
 	}
+
 
 
 	module.transformCall      = transformCall;

@@ -10,16 +10,17 @@
 *********************************************/
 
 var EDGES = {
-  CONTROL       : {value: 0, name: 'control'},
-  DATA          : {value: 1, name: 'data'},
-  SUMMARY       : {value: 2, name: 'summary'},
-  CALL          : {value: 3, name: 'call'},
-  PARIN         : {value: 4, name: 'par-in'},
-  PAROUT        : {value: 5, name: 'par-out'},
-  REMOTED       : {value: 6, name: 'remote data'},
-  REMOTEC       : {value: 7, name: 'remote call'},
-  REMOTEPARIN   : {value: 8, name: 'remote par-in'},
-  REMOTEPAROUT  : {value: 9, name: 'remote par-out'}
+  CONTROL       : {value: 0,  name: 'control'       },
+  DATA          : {value: 1,  name: 'data'          },
+  SUMMARY       : {value: 2,  name: 'summary'       },
+  CALL          : {value: 3,  name: 'call'          },
+  PARIN         : {value: 4,  name: 'par-in'        },
+  PAROUT        : {value: 5,  name: 'par-out'       },
+  PRMEMBER      : {value: 6,  name: 'pro-member'    },
+  REMOTED       : {value: 7,  name: 'remote data'   },
+  REMOTEC       : {value: 8,  name: 'remote call'   },
+  REMOTEPARIN   : {value: 9,  name: 'remote par-in' },
+  REMOTEPAROUT  : {value: 10, name: 'remote par-out'}
 }
 
 function PDG_Edge (from, to, type, label) {

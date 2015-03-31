@@ -38,6 +38,7 @@
 	<script type="text/javascript" src="../../Jipda/lib/web/d3.min.js"></script>
 	<script type="text/javascript" src="../../Jipda/lib/web/dagre-d3.min.js"></script>
 	<script type="text/javascript" src="../../Jipda/lib/web/dagregraphs.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/pdg/pdg.js"></script>
 
 	<!--/end Jipda -->
 
@@ -50,13 +51,14 @@
 	<script src="../lib/json2.js"></script>
 	<script src="../lib/beautifier.js"></script>
 	<script src="lib/ace/ace.js"></script>
-	<script src="lib/jquery.tooltipster.min.js"></script>
 	<script type="text/javascript" src="../lib/falafel.js"></script>
 	<script src="https://code.jquery.com/jquery.js"></script>
 	<script src="http://yui.yahooapis.com/3.9.0/build/yui/yui-min.js"></script>
 	<script src="js/bootstrap.min.js"></script>
 	<script src="js/prettify.js"></script>
 	<script src="js/tab.js"></script>
+	<script src="js/transition.js"></script>
+	<script src="js/collapse.js"></script>
 	<script type="text/javascript" src="../aux.js"></script>
 	<script type="text/javascript" src="../PDG/edge.js"></script>
 	<script type="text/javascript" src="../PDG/node.js"></script>
@@ -67,7 +69,9 @@
 	<script type="text/javascript" src="lib/jslint.js"></script>
 	<script type="text/javascript" src="js/jslinttool.js"></script>
 	<script type="text/javascript" src="../stip.js"></script>
+	<script type="text/javascript" src="../stip2.js"></script>
 	<script type="text/javascript" src="../transpiler/CPS_transform.js"></script>
+	<script type="text/javascript" src="../transpiler/Promise_transform.js"></script>
 	<script type="text/javascript" src="../transpiler/CT_transform.js"></script>
 	<script type="text/javascript" src="../transpiler/JS_parse.js"></script>
 	<script type="text/javascript" src="../transpiler/Meteor_parse.js"></script>
@@ -97,20 +101,17 @@
 			$("#error").empty();
 			var src = editor.getSession().getValue(),
 			// First parse and create again via escodegen
-				ast = esprima.parse(src, {range: true, tokens: true, comment: true});
+				ast = Ast.createAst(src, {loc:true, owningComments: true, comment: true});
 			src = escodegen.generate(escodegen.attachComments(ast, ast.comments, ast.tokens), {comment: true});
 
 			/* Pre analysis step */
-      		var preanalysis = pre_analyse(src),
-      			src2 = preanalysis[0].ast;
-      		src2.body = preanalysis[2].concat(src2.body).concat(preanalysis[1]).concat(preanalysis[3]);
-      		console.log(escodegen.generate(src2));
-
+      		var preanalysis = pre_analyse(src);
+      		console.log(preanalysis);
 			var src = editor.getSession().getValue(),
-		    	ast = Ast.createAst(src, {loc:true, owningComments: true});
+		    	ast = Ast.createAst(preanalysis, {loc:true, owningComments: true});
 		    var gc = true;
-		    cesk = jsCesk({a:createConcAg(), l: new ConcLattice(), gc: gc, ae: false})
-		    var system = cesk.explore(ast);
+		    cesk = jsCesk({a: createConcAg(), l: new ConcLattice(), gc: gc, ae: false})
+		    var system      = cesk.explore(ast);
       		var states      = system.states,
       			transitions = system.graph.edges(),
       			emptySet    = ArraySet.empty(),
@@ -119,12 +120,11 @@
       			nodes       = [],
       			frames      = [];
       		$("#graph").empty();
-      		graphs = new Graphs(system.graph, ast, src);
-      		graphs.start(system.initial);
+      		graphs = new Stip.Graphs(system.graph, ast, src);
+      		Stip.start(graphs);
       		var g = createPDGGraph(graphs.PDG);
 
-    		drawPDGGraph(g[0], g[1], g[2])
-      		//drawLinks(graphs.PDG, element, window, slicededitor);
+    		drawPDGGraph(g[0], g[1], g[2]);
       		return graphs; 
       	} catch (err) {
       		console.log(err.message);
@@ -133,14 +133,13 @@
       	}
       }
 
-
       function split () { 
       	try {
-
       		var graphs  = doIt(),
       			PDG 	= graphs.PDG;
       		PDGg = graphs;
       		slicededitor.setValue("");
+      		//$('.collapse').collapse();
       		var slicedc = PDG.sliceDistributedNode(PDG.dclient),
       		    sliceds = PDG.sliceDistributedNode(PDG.dserver),
       			sortedc = slicedc.slice(0),
@@ -149,8 +148,9 @@
       				nodes.sort(function (n1, n2) {
       					return n1.cnt - n2.cnt;
       				})
-      				var target 	= $('#tocode').val(),
-      					program = constructProgram(nodes, {target: target, tier: option}),
+      				var target 	= $('#target').val(),
+      					asyncomm = $('#asyncomm').val(),
+      					program = constructProgram(nodes, {target: target, tier: option, asynccomm : asyncomm}),
       					parsed 	= escodegen.generate(program);
       				slicededitor.setValue(slicededitor.getValue() + parsed + "\n");
       			};
@@ -180,8 +180,7 @@
       }
 
 
-      $(function ()
-      {
+      $(function () {
       	editor = ace.edit("editor");
       	editor.getSession().setUseWorker(false);
       	editor.getSession().setMode("ace/mode/javascript");
@@ -189,7 +188,7 @@
       	slicededitor.getSession().setUseWorker(false);
       	slicededitor.getSession().setMode("ace/mode/javascript");
 
-      	editor.setValue(example1);
+      	editor.setValue(Examples.tiersplitexs[0]);
       })
 
       function fillSnippets(){
@@ -200,7 +199,7 @@
       	    i = 0;
       	head.appendChild(document.createTextNode(split));
       	list.appendChild(head);
-      	tiersplittxt.map(function(txt) {
+      	Examples.tiersplittxt.map(function (txt) {
       		var li = document.createElement('li'),
       		    a = document.createElement('a');
       		a.appendChild(document.createTextNode(txt));
@@ -214,7 +213,7 @@
       	head = document.createElement('li');
       	head.appendChild(document.createTextNode(normal));
       	list.appendChild(head);
-      	slicetxt.map(function(txt) {
+      	Examples.slicetxt.map(function (txt) {
       		var li = document.createElement('li'),
       		    a = document.createElement('a');
       		a.appendChild(document.createTextNode(txt));
@@ -297,20 +296,35 @@
 									<button id="cpstransform" name="cpstransform" onClick="cpstransform()" class="btn btn-lg btn-success" 
 											style="float: left; margin-right: 10px">Transform CPS</button> 
 									<p style="float: left; margin-right: 10px; padding-top:1%"> or </p>
-									<button id="split" name="split" onClick="split()" class="btn btn-lg btn-success" 
+									<button id="split" name="split"  class="btn btn-lg btn-success" 
+											data-toggle="collapse" data-target="#splitconfig" aria-expanded="false"
+											aria-controls="splitconfig"
 											style="float: left; margin-right: 10px">Tier split</button> 
-									<p style="float: left; margin-right: 10px; padding-top:1%"> to </p>
-									<div style="float:left">
-										<select  id="tocode" class="form-control" style="float:left">
-											<option>meteor</option>
-											<option>node.js</option>
-										</select> 
+									<div class="collapse" id="splitconfig" style="float:left">
+										<div class="well">
+					
+												<div class="form-group">
+												    <label for="target">Target</label>
+												    <select class="form-control" id="target">
+												    	<option>meteor</option>
+												    	<option>node.js</option>
+												    </select>
+												</div>
+												<div class="form-group">
+												    <label for="asyncomm">Asynchronous Communication</label>
+												    <select class="form-control" id="asyncomm">
+												    	<option>callbacks</option>
+												    	<option>promises</option>
+												    </select>
+												</div>
+											  <button onClick="split()" class="btn btn-default">Split!</button>
+									
+										</div>
 									</div>
 								</div> <!-- /.manip -->
 								<!-- <p id="error" style="float:left;"></p> -->
 							</div> <!-- /.container -->
-							<p>Hover over nodes to see full statement. <br>
-							   Zoom in/out: <input type="range" class="zoom-range">
+							
 							 <div id="error" style="color: #ff0606;"> </div>
 							 <div id="graphcont">
 								<div><!-- id="graph" class="container panzoom"> -->
@@ -339,14 +353,14 @@
 									</div>
 									<div id="right" class="container">
 										<div id="graphjipda" class="container">
-										<!--	<svg>
+											<svg>
 												<defs>
 													<marker id="highlightarrowhead" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="strokeWidth" markerWidth="8" markerHeight="5" orient="auto">
 														<path d="M 0 0 L 10 5 L 0 10 z"></path>
 													</marker>
 												</defs>	
 									    	<g transform="translate(20,20)"/>
-											</svg>-->
+											</svg>
 										</div>
 									</div>
 									<!-- /.right -->
@@ -398,15 +412,15 @@
 	</body>
 	<script type="text/javascript">
 	      fillSnippets();
-	      $(".dropdown-menu li a").click(function() {
+	      $(".dropdown-menu li a").click(function () {
      			var value = $(this).data('value'),
-	                nr_splits = tiersplitexs.length,
+	                nr_splits = Examples.tiersplitexs.length,
 	                text = '',
 	                editor = ace.edit("editor");
 	          	if(value >= nr_splits) 
-	          		text = sliceexs[value - nr_splits];
+	          		text = Examples.sliceexs[value - nr_splits];
 	        	else
-	        		text = tiersplitexs[value];
+	        		text = Examples.tiersplitexs[value];
 	        	editor.setValue(text);
 
     	 })

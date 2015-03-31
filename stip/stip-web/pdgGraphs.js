@@ -51,12 +51,13 @@ function createPDGGraph (PDG)
           
           return {id: id, label: label, description: node.parsenode ? node.parsenode.toString() : ""}
         })
-    var edgeId = 1;
+    var edgeId = 0;
     var transitions = edges.map(function (edge) {
       var g = edge.type.name;
       var edge;
       var label = "";
-      if (!edge.equalsType(EDGES.CONTROL)) label += g;
+      label += g;
+      if (!edge.label) label += " (false)";
       return {id: edgeId++, source: Arrays.indexOf(edge.from, nodes), target: Arrays.indexOf(edge.to, nodes),
         label: label}
     });
@@ -80,8 +81,9 @@ function createPDGGraph (PDG)
       svg.selectAll("*").remove();
       svg.attr('width', 500);
       var layout = dagreD3.layout()
-                    .nodeSep(10)
-                    .rankDir("LR");
+                    .nodeSep(4)
+                    .edgeSep(5)
+                   // .rankDir("LR");
       renderer.layout(layout);
 
       renderer.run(graph, svg);
@@ -90,20 +92,19 @@ function createPDGGraph (PDG)
       $("g.node").each(function (n)
           {
 
-            var state = states[this.__data__];
+            var state = states[this.__data__ ];
 
             $(this).attr("class", "node enter " + state.id.slice(0,1))
               .attr("title" ,  state.parsenode ? state.parsenode.toString() : "")
-              .on("click", function () {
+              .on("mouseover", function () {
                   var tooltip = d3.selectAll(".tooltip:not(.css)");
                   var HTMLfixedTip = d3.select("div.tooltip.fixed");
                   tooltip.style("opacity", "1");
                 
-                  /* You'd normally set the tooltip text
-                     here, based on data from the  element
-                     being moused-over; I'm just setting colour. */
-                  if (state.parsenode)
+                  if (state.parsenode) {
+                    console.log(escodegen.generate(state.parsenode));
                     tooltip.text(escodegen.generate(state.parsenode));
+                  }
                   var matrix = this.getScreenCTM()
                           .translate(+this.getAttribute("cx"),
                                    +this.getAttribute("cy"));
@@ -125,8 +126,8 @@ function createPDGGraph (PDG)
       $("g.edgePath").each(function ()
           {
             var transition = transitions[this.__data__];
-            if (transition)
-            $(this).attr("class", "edge " + transition.type.name);
+            //if (transition)
+              $(this).attr("class", "edge " + transition.type.name);
       });
       var svg = d3.select("svg")
         //.attr("width", layout.graph().width + 40)
