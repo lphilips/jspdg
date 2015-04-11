@@ -16,7 +16,7 @@ var EDGES = {
   CALL          : {value: 3,  name: 'call'          },
   PARIN         : {value: 4,  name: 'par-in'        },
   PAROUT        : {value: 5,  name: 'par-out'       },
-  PRMEMBER      : {value: 6,  name: 'pro-member'    },
+  OBJMEMBER     : {value: 6,  name: 'object member'    },
   REMOTED       : {value: 7,  name: 'remote data'   },
   REMOTEC       : {value: 8,  name: 'remote call'   },
   REMOTEPARIN   : {value: 9,  name: 'remote par-in' },

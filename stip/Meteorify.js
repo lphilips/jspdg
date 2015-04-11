@@ -32,7 +32,7 @@ var Meteorify = (function () {
 	var meteorifyVarDecl = function (sliced) {
 	  	// Outgoing data dependency to entry or call node?
 	  	var node  = sliced.node,
-	  	    name  = node.parsenode.declarations[0].id.name,
+	  	    name  = node.name,
 	  	    entry = node.edges_out.filter(function (e) {
 			  return e.equalsType(EDGES.DATA) &&
 		         e.to.isEntryNode;
@@ -42,6 +42,8 @@ var Meteorify = (function () {
 					   e.to.isCallNode;
 			}),
 	        toSlice;
+	    if (esp_isVarDeclarator(node.parsenode))
+	    	node.parsenode = MeteorParse.createVarDecl(node.parsenode)
 	    /* Function declaration */
 		if (entry.length > 0) {
 			var entry = entry[0].to,
@@ -50,7 +52,7 @@ var Meteorify = (function () {
 	     	/* Server function that is called by client 
 	     	 * Alter the remote function definition with the name of the function */
 	     	if (entry.isServerNode() && entry.clientCalls > 0) {
-	     		f.method.setName(name);
+	     		f.method.setName(node.parsenode.declarations[0].id);
 		 		sliced.method = {};
 				sliced.methods = sliced.methods.concat(f.method.parsenode);
 				sliced.nodes = f.nodes;
@@ -178,8 +180,7 @@ var Meteorify = (function () {
 		var node 		= sliced.node,
 			actual_ins  = node.getActualIn(),
 			actual_outs = node.getActualOut(),	
-			scopeInfo 	= Ast.scopeInfo(node.parsenode),
-		    parent 		= Ast.hoist(scopeInfo).parent(node.parsenode,graphs.AST),
+		    parent 		= Ast.parent(node.parsenode,graphs.AST),
 		    entryNode 	= node.getEntryNode()[0],
 		    invardecl 	= false,
 		    cpscall, cpsargs;
@@ -244,8 +245,7 @@ var Meteorify = (function () {
 			name 	  	= node.name,
 			parsenode  	= node.getParsenode(),
 			slicednodes = sliced.nodes,
-			scopeInfo 	= Ast.scopeInfo(node.parsenode),
-		    parent 		= Ast.hoist(scopeInfo).parent(node.parsenode,graphs.AST);
+		    parent 		= Ast.parent(node.parsenode,graphs.AST);
 		
 		//sliced.parsednode = parent;
 		sliced.nodes = removeNode(slicednodes, node);
@@ -388,8 +388,7 @@ var Meteorify = (function () {
 		nodes = nodes.remove(node);
 		nodes.map(function (n) {
 			if(n.parsenode) {
-			var scopeInfo = Ast.scopeInfo(n.parsenode),
-			    parent = Ast.hoist(scopeInfo).parent(n.parsenode,graphs.AST);
+			var parent = Ast.parent(n.parsenode,graphs.AST);
 			if(n.isCallNode && (n.parsenode === node.parsenode || parent === node.parsenode)) {
 				callnode = n
 			}
@@ -414,8 +413,7 @@ var Meteorify = (function () {
 			return sliced;
 		}
 		var node = sliced.node,
-		    scopeInfo = Ast.scopeInfo(node.parsenode),
-		    parent = Ast.hoist(scopeInfo).parent(node.parsenode,graphs.AST);
+		    parent = Ast.parent(node.parsenode,graphs.AST);
 		if(parent && esp_isRetStm(parent)) {
 			node.parsenode = parent
 		}
@@ -428,6 +426,8 @@ var Meteorify = (function () {
 		switch (node.parsenode.type) {
 	      case 'VariableDeclaration': 
 			return meteorifyVarDecl(sliced);
+		  case 'VariableDeclarator':
+		  	return meteorifyVarDecl(sliced);
 		  case 'FunctionExpression':
 		  	return meteorifyFunExp(sliced);
 		  case 'FunctionDeclaration':

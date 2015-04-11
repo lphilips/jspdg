@@ -71,6 +71,23 @@ var esp_isForStm = function (node) {
 	return node.type === 'ForStatement'
 }
 
+var esp_isProperty = function (node) {
+	return node.type === 'Property'
+}
+
+var esp_isObjExp = function (node) {
+	return node.type === 'ObjectExpression'
+}
+
+
+var esp_getCalledName = function (callnode) {
+	if (esp_isMemberExpression(callnode.callee)) 
+		return callnode.callee.property.name
+	else
+		return callnode.callee.name
+}
+
+
 /*  Predicates on type of eval node (Jipda nodes) */
 var isEval = function (node) {
 	return node.type === 'eval'

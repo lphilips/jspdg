@@ -772,8 +772,12 @@ JipdaToPDGMap.prototype.getNode = function (JipdaNode) {
 	return res;
 }
 
+<<<<<<< HEAD
 function Graphs (DSG, AST, src) {
 	this.DSG  = DSG;
+=======
+function Graphs (AST, src) {
+>>>>>>> Adaptations to new Jipda PDG API (construction of PDG).
 	this.AST  = AST;
 	this.PDG  = new PDG();
 	this.JTC  = new JipdaToPDGMap();

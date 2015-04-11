@@ -5,6 +5,15 @@
 var NodeParse = (function () {
 
 	var module = {};
+
+
+	var createVarDecl = function (declarator) {
+		return {
+			type 			: 'VariableDeclaration',
+			declarations 	: [ declarator ],
+			kind			: 'var'
+		}
+	}
 	   
 	 /*  Representation of a callback function :
      *    callback(errx, resx) {}
@@ -182,13 +191,16 @@ var NodeParse = (function () {
     	return esprima.parse('{}').body[0];
     }
 
-    module.callback      = callback;
-    module.RPC           = RPC;
-    module.asyncFun      = asyncFun;
-    module.methodsClient = methodsClient;
-    module.methodsServer = methodsServer; 
-    module.createServer  = createServer;
-    module.createClient  = createClient;
+
+
+    module.createVarDecl  = createVarDecl;
+    module.callback       = callback;
+    module.RPC            = RPC;
+    module.asyncFun       = asyncFun;
+    module.methodsClient  = methodsClient;
+    module.methodsServer  = methodsServer; 
+    module.createServer   = createServer;
+    module.createClient   = createClient;
 
 	return module;
 
