@@ -61,12 +61,15 @@ var Stip = (function () {
 	        prev_entry = graphs.PDG.entry_node;
 	    graphs.PDG.changeEntry(entry_node);
 		graphs.ATP.addNodes(next_node, entry_node);
-		if (entry_node.parsenode)
-			handleFormalParameters(graphs,node,entry_node);
+		handleFormalParameters(graphs,node,entry_node);
 		if (!esp_isFunExp(node)) {
 			stm_node.addEdgeOut(entry_node, EDGES.DATA);
 			graphs.ATP.addNodes(node,stm_node);
 			addToPDG(stm_node, entry);
+		} 
+		else {
+			entry.addEdgeOut(entry_node, EDGES.DATA);
+			graphs.ATP.addNodes(node, entry)
 		}
 		/* BODY */
 		next_node.body.body.map(function (exp) {
@@ -78,9 +81,7 @@ var Stip = (function () {
 
 	/* GENERAL FUNCTION for DECLARATIONS */
 	var handleDeclarator = function (graphs, node, upnode) {
-		var declaratortype = node.type,
-			scopeInfo      = Ast.scopeInfo(node),
-			parent         = Ast.hoist(scopeInfo).parent(node, graphs.AST);
+		var declaratortype = node.type;
 		switch (declaratortype) {
 			case 'VariableDeclaration':
 				if (esp_isFunExp(node.declarations[0].init)) 
@@ -89,6 +90,8 @@ var Stip = (function () {
 					return handleVarDecl(graphs, node, upnode);
 			case 'FunctionDeclaration':
 				return handleFuncDeclaration(graphs, node, upnode);
+			case 'FunctionExpression':
+				handleAnonFuncDeclaration(graphs, node, upnode);
 		}
 	}
 
@@ -135,10 +138,12 @@ var Stip = (function () {
 
 
 	var handleReturnStatement  = function (graphs, node, upnode) {
-		var stmnode = graphs.PDG.makeStm(node);
+		var stmnode = graphs.PDG.makeStm(node),
+		    formout;
 		addToPDG(stmnode, upnode);
-		makePDGNode(graphs, node.argument, stmnode);
-		
+		formout = handleFormalOutParameters(graphs, stmnode);	
+		stmnode.addEdgeOut(formout, EDGES.DATA);
+		makePDGNode(graphs, node.argument, stmnode);	
 	}
 
 
@@ -161,8 +166,7 @@ var Stip = (function () {
 	/* BINARY EXPRESSION  */
 	var handleBinExp = function (graphs, node, upnode) {
 		var stmnode   = graphs.PDG.makeStm(node),
-		    scopeInfo = Ast.scopeInfo(node),
-			parent    = Ast.hoist(scopeInfo).parent(node, graphs.AST),
+			parent    = Ast.parent(node, graphs.AST),
 			/* returns true for entry node, if stm or for stm as parent */
 			hasEntryParent = upnode.isEntryNode ||
 					   esp_isIfStm(upnode.parsenode) ||
@@ -173,11 +177,11 @@ var Stip = (function () {
 		makePDGNode(graphs, node.left, hasEntryParent ? stmnode : upnode);
 		/* RIGHT expression */
 		makePDGNode(graphs, node.right, hasEntryParent ? stmnode : upnode);
-		if (parent && esp_isRetStm(parent)) {
-			stmnode.parsenode = parent;
-			form_out = handleFormalOutParameters(graphs, stmnode);
-			stmnode.addEdgeOut(form_out, EDGES.DATA);
-		}
+		//if (parent && esp_isRetStm(parent)) {
+		//	stmnode.parsenode = parent;
+		//	form_out = handleFormalOutParameters(graphs, stmnode);
+		//	stmnode.addEdgeOut(form_out, EDGES.DATA);
+		//}
 		if (hasEntryParent)
 			addToPDG(stmnode, upnode);
 	}
@@ -212,8 +216,7 @@ var Stip = (function () {
 	/* ARRAY EXPRESSION */
 	var handleArrayExpression = function (graphs, node, upnode) {
 		var stmnode   = graphs.PDG.makeStm(node),
-		    scopeInfo = Ast.scopeInfo(node),
-			parent    = Ast.hoist(scopeInfo).parent(node, graphs.AST),
+			parent    = Ast.parent(node, graphs.AST),
 			/* returns true for entry node, if stm or for stm as parent */
 			hasEntryParent = upnode.isEntryNode ||
 					   esp_isIfStm(upnode.parsenode) ||
@@ -225,11 +228,11 @@ var Stip = (function () {
 			makePDGNode(graphs, el, hasEntryParent ? stmnode : upnode)
 		})
 
-		if (parent && esp_isRetStm(parent)) {
-			stmnode.parsenode = parent;
-			form_out = handleFormalOutParameters(graphs, stmnode);
-			stmnode.addEdgeOut(form_out, EDGES.DATA);
-		}
+		//if (parent && esp_isRetStm(parent)) {
+		//	stmnode.parsenode = parent;
+		//	form_out = handleFormalOutParameters(graphs, stmnode);
+		//	stmnode.addEdgeOut(form_out, EDGES.DATA);
+		//}
 		if (hasEntryParent)
 			addToPDG(stmnode, upnode);
 	}
@@ -244,8 +247,10 @@ var Stip = (function () {
 					   esp_isIfStm(upnode.parsenode) ||
 					   esp_isForStm(upnode.parsenode);
 
+		if (hasEntryParent)
+			addToPDG(stmnode, upnode);
 		/* Will add data dependency to declaration node */
-		handleIdentifier(graphs, object, hasEntryParent ? stmnode : upnode);
+		makePDGNode(graphs, object, hasEntryParent ? stmnode : upnode);
 		/* Right-hand side */
 		makePDGNode(graphs, property, hasEntryParent ? stmnode : upnode);
 		/* Recheck dependent call nodes for dtype (could be wrong because assign. exp had
@@ -254,10 +259,35 @@ var Stip = (function () {
 			if (e.to.isCallNode && e.equalsType(EDGES.CONTROL))
 				e.to.dtype = stmnode.getdtype()
 		})
-		if (hasEntryParent)
-			addToPDG(stmnode, upnode);
 	}
 
+	/* PROPERTY */
+	var handleProperty = function (graphs, node, upnode) {
+		var stmnode = graphs.PDG.makeStm(node);
+		upnode.addEdgeOut(stmnode, EDGES.OBJMEMBER)
+		makePDGNode(graphs, node.value, stmnode);
+	}
+
+
+	/* THIS EXPRESSION */
+	var handleThisExpression = function (graphs, node, upnode) {
+		Ast.enclosingScope;
+	}
+
+
+	var handleObjectExpression = function (graphs, node, upnode) {
+		var objectentry = new ObjectEntryNode(graphs.PDG.ent_index++, node),
+			preventry   = graphs.PDG.entry_node;
+		graphs.PDG.changeEntry(objectentry);
+		if (esp_isVarDeclarator(upnode.parsenode))
+			addDataDep(upnode, objectentry)
+		else
+			addToPDG(objectentry, upnode);
+		node.properties.map(function (prop) {
+			makePDGNode(graphs, prop, objectentry)
+		})
+		graphs.PDG.reverseEntry(preventry);
+	}
 
 	/* CALL EXPRESSION */
 	var handleCallExpression = function (graphs, node, upnode) {
@@ -267,17 +297,18 @@ var Stip = (function () {
 			primitive = isPrimitiveCall(node),
 			callnode  = graphs.PDG.makeCall(node);
 		
-		callnode.name = parsenode.callee.name;
+		callnode.name = esp_getCalledName(parsenode);
 		if (primitive) {
 			callnode = PDG.makeCall(node);
 			callnode.cnt = callcnt;
-			callnode.name = node.callee.name;
+			callnode.name = esp_getCalledName(parsenode);
 			handleActualParameters(graphs, parsenode, callnode);
 			return [contnode, callnode]
 		}
 		else {
 			var preventry = graphs.PDG.entry_node,
-				entry     = graphs.PDG.getEntryNode(callnode.name, node),
+				calledf   = Pdg.functionsCalled(node, graphs.AST).values(),
+				entry     = graphs.PDG.getEntryNode(calledf[0]),
 				formals   = entry.getFormalIn();
 			
 			/* Add call edge to entry node 
@@ -295,7 +326,7 @@ var Stip = (function () {
 				var a = callnode.getActualIn()[i],
 				    f = formals[i];
 				// actual-in parameter -> formal-in parameter
-				if (!a.equalsdtype(f) ||
+				if (!a.equalsdtype(f) || 
 					!a.isSharedNode() ||
 					!f.isSharedNode())
 					a.addEdgeOut(f, EDGES.REMOTEPARIN)
@@ -368,12 +399,10 @@ var Stip = (function () {
 	 * a path between the corresponding formal_in to formal_out exists */
 	var handleSummaryEdges = function (callnode, entrynode) {
 		var actual_ins = callnode.getActualIn(),
-			actual_out = callnode.getActualOut(),
+			actual_out = callnode.getActualOut()[0],
 			formal_ins = entrynode.getFormalIn(),
-			formal_out = entrynode.getFormalOut();
-		if(actual_out.length > 0 && formal_out.length > 0) {
-			formal_out = formal_out[0];
-			actual_out = actual_out[0];
+			formal_out = entrynode.getFormalOut()[0];
+		if(actual_out && formal_out) {
 			for(var i = 0; i < actual_ins.length; i++) {
 				var actual_in = actual_ins[i],
 				formal_in = formal_ins[i];
@@ -398,40 +427,76 @@ var Stip = (function () {
 	      		return handleArrayExpression(graphs, node, upnode);
 	      	case 'MemberExpression' :
 	      		return handleMemberExpression(graphs, node, upnode);
+	      	case 'ThisExpression' :
+	      		return handleThisExpression(graphs, node, upnode);
 	      	case 'NewExpression' :
-	      		return handleNewExp(graphs, node, upnode, toadd);
+	      		return handleNewExp(graphs, node, upnode);
+	      	case 'Property' :
+	      		return handleProperty(graphs, node, upnode);
+	      	case 'ObjectExpression' :
+	      		return handleObjectExpression(graphs, node, upnode)
 	     }
 	}
 
 	var handleIdentifier = function (graphs, node, upnode) {
-		var declaration = Pdg.declarationOf(node, graphs.AST),
-			stm 		= graphs.PDG.makeStm(node),
-			formp 		= graphs.PDG.entry_node.getFormalIn(),
-			scopeInfo   = Ast.scopeInfo(node),
-			parent      = Ast.hoist(scopeInfo).parent(node, graphs.AST),
-			stm_node;
-		
-		if (parent && esp_isRetStm(parent)) {
-			form_out = handleFormalOutParameters(graphs, upnode);
-			upnode.addEdgeOut(form_out, EDGES.DATA);
+		var parent      = Ast.parent(node, graphs.AST),
+			formp       = graphs.PDG.entry_node.getFormalIn(),
+			declaration = Pdg.declarationOf(node, graphs.AST);
+		/* Accessing object */
+		if (esp_isMemberExpression(parent)) {
+			var objectentry = upnode.enclosingObjectEntry(),
+				memberstm   = objectentry ? objectentry.getMember(node)[0] : false;
+			if (memberstm) 
+				memberstm.addEdgeOut(upnode, EDGES.DATA);
+			else if (declaration) {
+				var pdg_nodes   = graphs.ATP.getNode(declaration),
+					objectentry = pdg_nodes[0].getOutEdges(EDGES.DATA)
+									.map(function (e) {return e.to})
+									.filter(function (n) {return n.isObjectEntry})[0];
+				//if (objectentry)
+				//	objectentry.addEdgeOut(upnode, EDGES.DATA);
+			} else {
+				declaration = Pdg.declarationOf(parent.object, graphs.AST);
+				pdg_nodes   = graphs.ATP.getNode(declaration),
+				objectentry = pdg_nodes[0].getOutEdges(EDGES.DATA)
+									.map(function (e) {return e.to})
+									.filter(function (n) {return n.isObjectEntry})[0],
+				memberstm = objectentry ? objectentry.getMember(node)[0] : false;
+				if (memberstm)
+					memberstm.addEdgeOut(upnode, EDGES.DATA);
+			}
 		}
-		formp = formp.filter( function (f) {
-			return f.name === node.name;
-		});
-		if (formp.length > 0) 
-			addDataDep(formp[0], upnode)
-		else if (declaration) {
+		else if (esp_isAssignmentExp(Ast.parent(parent, graphs.AST))) {
+			var stm 		= graphs.PDG.makeStm(node),
+				
+				parent      = Ast.parent(node, graphs.AST),
+				stm_node;
+			
+
+		}
+		else {
+			if (declaration) {
 			var PDG_nodes = graphs.ATP.getNode(declaration);
-			if (PDG_nodes && PDG_nodes.length > 0 && upnode) 
-				PDG_nodes.map( function (vardecl) {
-					addDataDep(vardecl, upnode)
-				})
+				if (PDG_nodes && PDG_nodes.length > 0 && upnode) 
+					PDG_nodes.map( function (vardecl) {
+						addDataDep(vardecl, upnode)
+					})
+		
+			}	
+			//if (parent && esp_isRetStm(parent)) {
+			//	var formout = graphs.PDG.entry_node.getFormalOut()[0];
+			//	upnode.addEdgeOut(formout, EDGES.DATA);
+			//}
+			formp = formp.filter( function (f) {
+				return f.name === node.name;
+			});
+			if (formp.length > 0) 
+				addDataDep(formp[0], upnode)
 		}
 	}
 
 	var handleLiteral = function (graphs, node, upnode) {
-		var scopeInfo = Ast.scopeInfo(node),
-			parent    = Ast.hoist(scopeInfo).parent(node, graphs.AST);
+		var parent    = Ast.parent(node, graphs.AST);
 		if (parent && esp_isRetStm(parent)) {
 			var stm_node = graphs.PDG.makeStm(parent);
 			stm_node.addEdgeOut(upnode, EDGES.CONTROL)
@@ -565,8 +630,12 @@ var Stip = (function () {
 				return handleExpressionStatement(graphs, node, upnode);
 			case 'ArrayExpression' :
 				return handleExpressionStatement(graphs, node, upnode);
+			case 'ObjectExpression' :
+				return handleExpressionStatement(graphs, node, upnode);
 			case 'MemberExpression' :
 				return handleMemberExpression(graphs, node, upnode);
+			case 'Property' :
+				return handleExpressionStatement(graphs, node, upnode);
 			case 'ReturnStatement' :
 				return handleReturnStatement(graphs, node, upnode);
 			case 'ThisExpression' :
@@ -600,8 +669,7 @@ var Stip = (function () {
 		return res;
 	}
 
-	function Graphs (DSG, AST, src) {
-		this.JG   = DSG;
+	function Graphs (AST, src) {
 		this.AST  = AST;
 		this.PDG  = new PDG();
 		this.ATP  = new ASTToPDGMap();

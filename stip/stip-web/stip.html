@@ -14,30 +14,28 @@
 	<!-- Le javascript-->
 	<!-- Jipda -->
 	<script type="text/javascript" src="../lib/esprima.js"></script>
-	<script type="text/javascript" src="../../Jipda/common.js"></script>
-	<script type="text/javascript" src="../../Jipda/ast.js"></script>
-	<script type="text/javascript" src="../../Jipda/agc.js"></script>
-	<script type="text/javascript" src="../../Jipda/lattice.js"></script>
-	<script type="text/javascript" src="../../Jipda/abstLattice1-2.js"></script>
-	<script type="text/javascript" src="../../Jipda/concLattice.js"></script>
-	<script type="text/javascript" src="../../Jipda/countingStore.js"></script>
-	<script type="text/javascript" src="../../Jipda/graph.js"></script>
-	<script type="text/javascript" src="../../Jipda/jsCesk.js"></script>
-	<script type="text/javascript" src="../../Jipda/concreteAg.js"></script>
-	<script type="text/javascript" src="../../Jipda/tagAg.js"></script>
-	<script type="text/javascript" src="../../Jipda/benv.js"></script>
-	<script type="text/javascript" src="../../Jipda/object.js"></script>
-	<script type="text/javascript" src="../../Jipda/purityAnalysis.js"></script>
-	<script type="text/javascript" src="../../Jipda/protopurity.js"></script>
-	<script type="text/javascript" src="../../Jipda/lib/web/jquery-2.1.1.min.js"></script>
-	<script type="text/javascript" src="../../Jipda/lib/web/jquery-ui-1.11.1/jquery-ui.min.js"></script>
-	<script type="text/javascript" src="../../Jipda/lib/web/codemirror/codemirror.js"></script>
-	<script type="text/javascript" src="../../Jipda/lib/web/codemirror/hint/show-hint.js"></script>
-	<script type="text/javascript" src="../../Jipda/lib/web/codemirror/hint/anyword-hint.js"></script>
-	<script type="text/javascript" src="../../Jipda/lib/web/codemirror/mode/javascript/javascript.js"></script>
-	<script type="text/javascript" src="../../Jipda/lib/web/d3.min.js"></script>
-	<script type="text/javascript" src="../../Jipda/lib/web/dagre-d3.min.js"></script>
-	<script type="text/javascript" src="../../Jipda/lib/web/dagregraphs.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/common.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/ast.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/agc.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/lattice.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/abstLattice1-2.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/concLattice.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/countingStore.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/graph.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/jsCesk.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/concreteAg.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/tagAg.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/benv.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/object.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/lib/web/jquery-2.1.1.min.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/lib/web/jquery-ui-1.11.1/jquery-ui.min.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/lib/web/codemirror/codemirror.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/lib/web/codemirror/hint/show-hint.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/lib/web/codemirror/hint/anyword-hint.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/lib/web/codemirror/mode/javascript/javascript.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/lib/web/d3.min.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/lib/web/dagre-d3.min.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/lib/web/dagregraphs.js"></script>
 	<script type="text/javascript" src="../../jipda-pdg/pdg/pdg.js"></script>
 
 	<!--/end Jipda -->
@@ -109,18 +107,8 @@
       		console.log(preanalysis);
 			var src = editor.getSession().getValue(),
 		    	ast = Ast.createAst(preanalysis, {loc:true, owningComments: true});
-		    var gc = true;
-		    cesk = jsCesk({a: createConcAg(), l: new ConcLattice(), gc: gc, ae: false})
-		    var system      = cesk.explore(ast);
-      		var states      = system.states,
-      			transitions = system.graph.edges(),
-      			emptySet    = ArraySet.empty(),
-      			//meta = result.ss.entries().reduce(function (acc, entry) {return acc.put(entry.key, {ss:entry.value})}, HashMap.empty()),
-      			element     = $("#graph"),
-      			nodes       = [],
-      			frames      = [];
       		$("#graph").empty();
-      		graphs = new Stip.Graphs(system.graph, ast, src);
+      		graphs = new Stip.Graphs(ast, src);
       		Stip.start(graphs);
       		var g = createPDGGraph(graphs.PDG);
 

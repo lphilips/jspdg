@@ -51,18 +51,21 @@ var Nodeify = (function () {
 	var nodeifyVarDecl = function (sliced) {
 	  	var node 	= sliced.node,
 	  		slicedn = sliced.nodes,
-	  		entry 	= node.getOutEdges(EDGES.DATA).filter(function (e) {
+	  		entry 	= node.getOutEdges(EDGES.DATA)
+	  		              .filter(function (e) {
 							return e.to.isEntryNode;
 					}),
-	  		call 	= node.getOutEdges(EDGES.CONTROL).filter(function (e) {
+	  		call 	= node.getOutEdges(EDGES.CONTROL)
+	  		              .filter(function (e) {
 	  						return e.to.isCallNode;
 	  				}),
 	  		transformer = makeTransformer(sliced.option);
-
+	  	if (esp_isVarDeclarator(node.parsenode))
+	  		node.parsenode = NodeParse.createVarDecl(node.parsenode);
 	  	/* Outgoing data dependency to entry node? -> Function Declaration */
 		if (entry.length > 0) {
 			var entry = entry[0].to,
-	     	    f = toNode(cloneSliced(sliced, slicedn, entry));
+	     	    f     = toNode(cloneSliced(sliced, slicedn, entry));
 	     	if (entry.isServerNode() && entry.clientCalls > 0) {
 	     		/* set the name of the method */
 	     		f.method.setName(node.parsenode.declarations[0].id);
@@ -111,8 +114,7 @@ var Nodeify = (function () {
 			form_outs = node.getFormalOut(),
 		    parsenode = node.parsenode,
 		    params    = parsenode.params,
-		    scopeInfo = Ast.scopeInfo(parsenode),
-		    parent 	  = Ast.hoist(scopeInfo).parent(parsenode, graphs.AST),
+		    parent 	  = Ast.parent(parsenode, graphs.AST),
 		    transformer = makeTransformer(sliced.option);
 		/* Formal in parameters */
 		if(form_ins.length > 0) {
@@ -181,8 +183,7 @@ var Nodeify = (function () {
 		var node 		= sliced.node,
 			actual_ins  = node.getActualIn(),
 			actual_outs = node.getActualOut(),	
-			scopeInfo 	= Ast.scopeInfo(node.parsenode),
-		    parent 		= Ast.hoist(scopeInfo).parent(node.parsenode,graphs.AST),
+		    parent 		= Ast.parent(node.parsenode,graphs.AST),
 		    entryNode 	= node.getEntryNode()[0],
 		    transformer = makeTransformer(sliced.option);
 		actual_ins.map(function (a_in) {
@@ -196,7 +197,7 @@ var Nodeify = (function () {
 			return nodeifyPrimitive(sliced, actual_ins)
 		}
 		/* Perform cloud types transformations on arguments */
-		node.parsenode.arguments = CTTransform.transformArguments(node.parsenode.arguments, sliced.cloudtypes);
+		//node.parsenode.arguments = CTTransform.transformArguments(node.parsenode.arguments, sliced.cloudtypes);
 		if (entryNode.isServerNode()) {
 			/* CASE 2 */
 			if (node.isClientNode()) {
@@ -245,8 +246,7 @@ var Nodeify = (function () {
 		var node 		= sliced.node,
 			name 		= node.name,
 			parsenode 	= node.parsenode,
-			scopeInfo 	= Ast.scopeInfo(node.parsenode),
-		    parent 		= Ast.hoist(scopeInfo).parent(node.parsenode,graphs.AST)
+		    parent 		= Ast.parent(node.parsenode,graphs.AST)
 
 		switch (name) {
 			case 'print':
@@ -312,9 +312,9 @@ var Nodeify = (function () {
 		nodes = nodes.remove(node);
 		nodes.map(function (n) {
 			if(n.parsenode) {
-			var scopeInfo = Ast.scopeInfo(n.parsenode),
-			    parent = Ast.hoist(scopeInfo).parent(n.parsenode,graphs.AST);
-			if(n.isCallNode && (n.parsenode === node.parsenode || parent === node.parsenode)) {
+			var parent = Ast.parent(n.parsenode,graphs.AST);
+			if( n.isCallNode && 
+			   (n.parsenode === node.parsenode || parent === node.parsenode)) {
 				callnode = n
 			}
 		}
@@ -334,8 +334,7 @@ var Nodeify = (function () {
 	/* Main function */
 	var toNode = function (sliced) {
 		var node = sliced.node,
-		    scopeInfo = Ast.scopeInfo(node.parsenode),
-		    parent = Ast.hoist(scopeInfo).parent(node.parsenode,graphs.AST);
+		    parent = Ast.parent(node.parsenode, graphs.AST);
 		if(parent && esp_isRetStm(parent)) {
 			node.parsenode = parent
 		}
@@ -350,8 +349,10 @@ var Nodeify = (function () {
 		}
 		console.log("NODE("+node.parsenode.type+") " + node.parsenode);
 		switch (node.parsenode.type) {
-	      case 'VariableDeclaration': 
+	      case 'VariableDeclarator': 
 			return nodeifyVarDecl(sliced);
+		  case 'VariableDeclaration':
+		  	return nodeifyVarDecl(sliced);
 		  case 'FunctionExpression':
 		    return nodeifyFunExp(sliced);
 		  case 'FunctionDeclaration':
@@ -365,7 +366,7 @@ var Nodeify = (function () {
 		  		return nodeifyVarDecl(sliced)
 		  	if(esp_isExpStm(node.parsenode) && esp_isBinExp(node.parsenode.expression))
 				return nodeifyBinExp(sliced)
-			CTTransform.transformExpression(node, sliced.cloudtypes)
+			//CTTransform.transformExpression(node, sliced.cloudtypes)
 			sliced.parsednode = node.parsenode;
 		    return sliced;
 		  

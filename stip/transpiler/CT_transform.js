@@ -69,10 +69,9 @@
  	/* Returns the corresponding cloud type of a Jipda Lattice */
  	var getCloudType = function (vardecl) {
  		var value;
- 		if (vardecl.konts[0]) {
- 			value = vardecl.konts[0].value
- 		}
- 		else {
+ 		Ast.augmentAst(graphs.AST); /* AST can be changed at this moment, so augment it to be sure */
+ 		value = Pdg.values(vardecl, graphs.AST);
+ 		/*else {
  			value = graphs.etg().nodes().filter(function (node) {
  		 		return isEval(node) && node.node === vardecl.parsenode
  		 	}).flatMap(function (node) {
@@ -83,7 +82,7 @@
  		}
  		if (value.prim.Num) {
  			return 'CInt'
- 		}
+ 		}*/
  	}
 
 

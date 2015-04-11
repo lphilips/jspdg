@@ -30,42 +30,60 @@ var JSify = (function () {
 
 	/* Variable declaration  + Assignment Expression */
 	var sliceVarDecl = function (slicednodes, node, cps) {
-	  	var entry = node.edges_out.filter(function (e) {
-				return e.equalsType(EDGES.DATA) &&
-		       	e.to.isEntryNode;
-			}),
-	  		call = node.edges_out.filter(function (e) {
-	  			return e.equalsType(EDGES.CONTROL) &&
-	  			e.to.isCallNode;
-	  		}),
-	        slicedn = slicednodes;
+	  	var entry = node.getOutEdges(EDGES.DATA)
+	  					.filter(function (e) {
+							return e.to.isEntryNode;
+					    })
+					    .map(function (e) { return e.to }),
+	  		call = node.getOutEdges(EDGES.CONTROL)
+	  		           .filter(function (e) {
+	  		           	  return e.to.isCallNode;
+	  		           })
+	  		           .map(function (e) { return e.to }),
+	  		object = node.getOutEdges(EDGES.DATA)
+	  		             .filter(function (e) {
+	  		             	return e.to.isObjectEntry;
+	  		              })
+	  		             .map(function (e) {return e.to});
 	    /* Outgoing data dependency to entry node? */
-		if(entry.length > 0) {
-	     	var f = toJavaScript(slicednodes,entry[0].to, cps);
+		if (entry.length > 0) {
+	     	var f = toJavaScript(slicednodes, entry[0], cps);
 	     	if (esp_isVarDecl(node.parsenode))
 		 		node.parsenode.declarations[0].init = f.parsednode;
-		 	else if (esp_isExpStm(node.parsenode) && esp_isAssignmentExp(node.parsenode.expression))
+		 	else if (esp_isExpStm(node.parsenode) && 
+		 		     esp_isAssignmentExp(node.parsenode.expression))
 		 		node.parsenode.right = f.parsednode; 
-		 	slicedn = f.nodes;
+		 	slicednodes = f.nodes;
+		}
+		/* Outgoing data dependency to object entry node? */
+		if (object.length > 0) {
+			var obj = toJavaScript(slicednodes, object[0], cps);
+			if (esp_isVarDecl(node.parsenode))
+		 		node.parsenode.declarations[0].init = obj.parsednode;
+		 	else if (esp_isExpStm(node.parsenode) && 
+		 		     esp_isAssignmentExp(node.parsenode.expression))
+		 		node.parsenode.right = obj.parsednode; 
+		 	slicednodes = obj.nodes;
 		}
 		/* Has call nodes in value? */
-		if(call.length > 0) {
+		if (call.length > 0) {
 			var transformer = makeTransformer(cps),
-				cpsvar		= CPSTransform.transformExp(node, slicedn, transformer)
+				cpsvar		= CPSTransform.transformExp(node, slicednodes, transformer)
 			if (cpsvar[1])
 				return new Sliced(cpsvar[0], node, cpsvar[1].parsenode)
 			else 
-				return new Sliced(slicedn, node, node.parsenode)
+				return new Sliced(slicednodes, node, node.parsenode)
 		}
-		return new Sliced(slicedn, node, node.parsenode);
+		return new Sliced(slicednodes, node, node.parsenode);
 	}
 
 
 	/* Binary expression */
 	var sliceBinExp = function (slicednodes, node, cps) {
-		var call = node.getOutEdges(EDGES.CONTROL).filter(function (e) {
-						return e.to.isCallNode
-				   });
+		var call = node.getOutEdges(EDGES.CONTROL)
+		               .filter(function (e) {
+						  return e.to.isCallNode
+				       });
 		if (call.length > 0) {
 			var transformer = makeTransformer(cps),
 				cpsvar		= CPSTransform.transformExp(node, slicednodes, transformer)
@@ -81,8 +99,7 @@ var JSify = (function () {
 		var form_ins  = node.getFormalIn(),
 			form_outs = node.getFormalOut(),
 		    parsenode = node.parsenode,
-		    params    = parsenode.params,
-			sliced    = slicednodes;
+		    params    = parsenode.params;
 		// Formal in parameters
 		if(form_ins.length > 0) {
 			// Remove parameters that are not in slicednodes
@@ -92,43 +109,43 @@ var JSify = (function () {
 				if(!slicedContains(slicednodes,fp)) {
 					params.splice(i,1);
 				}
-				sliced = sliced.remove(fp);
+				slicednodes = slicednodes.remove(fp);
 			}
 			parsenode.params = params;
 		};
 		// Formal out parameters
 		form_outs.map(function (f_out) {
-			sliced = sliced.remove(f_out)
+			slicednodes = slicednodes.remove(f_out)
 		})
 		// Body
 		var body = [],
-		    bodynodes = node.edges_out.filter(function (e) {
-				return e.equalsType(EDGES.CONTROL) &&
-				       e.to.isStatementNode || e.to.isCallNode;
-		    }).map(function (e) {return e.to});
+		    bodynodes = node.getOutEdges(EDGES.CONTROL)
+		                    .filter(function (e) {
+				              return e.to.isStatementNode || e.to.isCallNode;
+		                    })
+		                    .map(function (e) { return e.to });
 		bodynodes.map(function (n) {
-			var bodynode = toJavaScript(sliced, n, cps);
-			if(slicedContains(sliced,n)) {
+			var bodynode = toJavaScript(slicednodes, n, cps);
+			if(slicedContains(slicednodes, n)) {
 				body = body.concat(bodynode.parsednode);
 			}
-			sliced = removeNode(bodynode.nodes,n);
+			slicednodes = removeNode(bodynode.nodes,n);
 			
 			});
-		sliced = sliced.remove(node);
+		slicednodes = slicednodes.remove(node);
 		parsenode.body.body = body;
 		if (cps) {
 			var transformer = makeTransformer(cps),
-				cpsfun      = CPSTransform.transformFunction(node, sliced, transformer);
+				cpsfun      = CPSTransform.transformFunction(node, slicednodes, transformer);
 			return new Sliced(cpsfun[0], node, cpsfun[1].parsenode)
 		}
-		return new Sliced(sliced, node, parsenode);
+		return new Sliced(slicednodes, node, parsenode);
 	}
 
 	var sliceCallExp = function (slicednodes, node, cps) {
 		var actual_ins  = node.getActualIn(),
 			actual_outs = node.getActualOut(),	
-			scopeInfo 	= Ast.scopeInfo(node.parsenode),
-		    parent 		= Ast.hoist(scopeInfo).parent(node.parsenode,graphs.AST);
+		    parent 		= Ast.parent(node.parsenode,graphs.AST);
 		actual_ins.map(function (a_in) {
 			slicednodes = slicednodes.remove(a_in)
 		})
@@ -144,9 +161,10 @@ var JSify = (function () {
 	}
 
 	var sliceRetStm = function (slicednodes, node, cps) {
-		var call = node.getOutEdges(EDGES.CONTROL).filter(function (e) {
+		var call = node.getOutEdges(EDGES.CONTROL)
+		               .filter(function (e) {
 						return  e.to.isCallNode
-				   });
+				       });
 		if (call.length > 0) {
 			var transformer = makeTransformer(cps),
 				cpsvar		= CPSTransform.transformExp(node, slicednodes, transformer)
@@ -158,21 +176,38 @@ var JSify = (function () {
 
 	var sliceBlockStm = function (slicednodes, node, cps) {
 		var body = [],
-			sliced = slicednodes,
 			parsenode = node.parsenode,
-		    bodynodes = node.edges_out.filter(function (e) {
-			  return e.equalsType(EDGES.CONTROL)
-				}).map(function (e) {return e.to});
+		    bodynodes = node.getOutEdges(EDGES.CONTROL)
+		    			    .map(function (e) {return e.to});
 		bodynodes.map(function (n) {
-			var bodynode = toJavaScript(sliced,n, cps);
-			if(slicedContains(sliced,n)) {
+			var bodynode = toJavaScript(slicednodes, n, cps);
+			if (slicedContains(slicednodes, n)) {
 					body = body.concat(bodynode.parsednode)
 			}
-			sliced = removeNode(bodynode.nodes,n);	
+			slicednodes = removeNode(bodynode.nodes, n);	
 			});
-		sliced = sliced.remove(node);
+		slicednodes = slicednodes.remove(node);
 		parsenode.body = body;
-		return new Sliced(sliced, node, parsenode);
+		return new Sliced(slicednodes, node, parsenode);
+	}
+
+	var sliceObjExp = function (slicednodes, node, cps) {
+		var prop = node.getOutEdges(EDGES.OBJMEMBER)
+					   .map(function (e) {
+							return e.to
+						}),
+			properties = [],
+			parsenode  = node.parsenode;
+		prop.map(function (property) {
+			if (slicedContains(slicednodes, property)) {
+				var propnode = toJavaScript(slicednodes, property, cps);
+				properties = properties.concat(propnode.parsednode);
+				slicednodes = removeNode(propnode.nodes, property)
+			}
+		});
+		slicednodes = slicednodes.remove(node);
+		parsenode.properties = properties;
+		return new Sliced(slicednodes, node, parsenode);
 	}
 
 	var removeNode = function (nodes, node, cps) {
@@ -180,8 +215,7 @@ var JSify = (function () {
 		var callnode = false;
 		nodes.map(function (n) {
 			if(n.parsenode) {
-			var scopeInfo = Ast.scopeInfo(n.parsenode),
-			    parent = Ast.hoist(scopeInfo).parent(n.parsenode,graphs.AST);
+			var parent = Ast.parent(n.parsenode,graphs.AST);
 			if(n.isCallNode && (n.parsenode === node.parsenode || parent === node.parsenode)) {
 				callnode = n
 			}
@@ -208,8 +242,7 @@ var JSify = (function () {
 		if(node.isActualPNode || node.isFormalNode) {
 			return new Sliced(slicednodes, node, false);
 		}
-		var scopeInfo = Ast.scopeInfo(node.parsenode),
-		    parent = Ast.hoist(scopeInfo).parent(node.parsenode,graphs.AST);
+		var parent = Ast.parent(node.parsenode,graphs.AST);
 		if(parent && esp_isRetStm(parent)) {
 			node.parsenode = parent
 		}
@@ -232,6 +265,8 @@ var JSify = (function () {
 		  	return sliceCallExp(slicednodes, node, cps);
 		  case 'BinaryExpression':
 		  	return sliceBinExp(slicednodes, node, cps);
+		  case 'ObjectExpression':
+		  	return sliceObjExp(slicednodes, node, cps);
 		  default: 
 		  	if (esp_isRetStm(node.parsenode) && 
 		  		node.getOutEdges(EDGES.CONTROL).filter(function (e) {

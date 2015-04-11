@@ -68,31 +68,11 @@ PDG.prototype.changeEntry = function (node) {
 }
 
 /* Look for the entry node,
-   given its name and the current callnode      */
-PDG.prototype.getEntryNode = function (name, node) {
+   given its name and its parsenode */
+PDG.prototype.getEntryNode = function (parsenode) {
 	var entries  = this.nodes,
 		filtered = entries.filter(function (n) {
-		if(n.parsenode && n.parsenode.declarations) 
-			return n.parsenode.declarations[0].id.name === name;
-		else if (n.parsenode && n.parsenode.id)
-			return n.parsenode.id.name === name;
-		else {
-			var incoming = n.getInEdges(EDGES.DATA),
-			    innodes = incoming.filter(function (e) {
-				   return e.from.parsenode &&
-				   		  ((esp_isVarDecl(e.from.parsenode) &&
-				          e.from.parsenode.declarations[0].id.name === name) ||
-				          (esp_isVarDeclarator(e.from.parsenode) &&
-				          	e.from.parsenode.id.name === name));
-			   });
-		   if (innodes.length === 0 && node) {
-			    var pn = n.parsenode;
-				if(pn && node.fun && pn.tag === node.fun.tag)
-				  return true;
-			 	
-		   }
-		   return innodes.length !== 0;
-		}
+			return n.parsenode === parsenode
 	});
 
 	return filtered[0];
@@ -177,18 +157,15 @@ PDG.prototype.slice = function (node) {
   };
 
   var traverse_backward = function (nodes, set, ignore) {
-    for(var i = 0; i<nodes.length; i++) {  
-      var node 		= nodes[i],
- 		  tdtype 	= node.getdtype(true),
-          edges_in 	= node.edges_in,
+    nodes.map(function (node) {
+      var tdtype 	= node.getdtype(true),
       	  equal 	= function (id) {return function (n) {return n.id === id}};
       if(!(contains(equal(node.id), set))) {
         set.push(node);
-        for(var j = 0; j < edges_in.length; j++) {
-          var edge 		= edges_in[j],
-              from 		= edge.from,
-              fdtype 	= from.getdtype(true),
-              type_eq 	= function (t) {return edge.type.value === t.value};
+        node.edges_in.map(function (edge) {
+          var from 	   = edge.from,
+              fdtype   = from.getdtype(true),
+              type_eq  = function (t) {return edge.type.value === t.value};
 		  /* While traversing backward, don't follow edges from a formal parameter
 		     to a node contained in another distributed component 
 			 Also don't follow a remote call edge from the current call node*/
@@ -196,13 +173,15 @@ PDG.prototype.slice = function (node) {
               !(contains(type_eq, ignore)) &&
 			  //!(node.isFormalNode) &&  
 			  (fdtype && tdtype && 
-				(fdtype.value === DNODES.SHARED.value || tdtype.value === DNODES.SHARED.value || fdtype.value === tdtype.value)) &&
-			  !(from.isCallNode && edge.equalsType(EDGES.REMOTEC))) {
+				(fdtype.value === DNODES.SHARED.value || 
+				 tdtype.value === DNODES.SHARED.value || 
+				 fdtype.value === tdtype.value)) &&
+			    !(from.isCallNode && edge.equalsType(EDGES.REMOTEC))) {
  	    			traverse_backward([from],set,ignore);
           }  
-        }
+        })
       }
-    }
+    })
     return set;
   }
   /* two passes of the algorithm */

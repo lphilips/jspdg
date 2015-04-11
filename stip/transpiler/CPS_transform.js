@@ -21,8 +21,7 @@ var CPSTransform = (function () {
 			callback  	= transform.callbackF(cps_count),
 			slicednodes = nodes,
 			actual_ins  = call.getActualIn(),
-			scopeInfo 	= Ast.scopeInfo(call.parsenode),
-		    parent 		= Ast.hoist(scopeInfo).parent(call.parsenode, transform.AST),
+		    parent 		= Ast.parent(call.parsenode, transform.AST),
 		    callargs    = actual_ins.flatMap(function (a_in) {
 							return a_in.callArgument()		
 						}),
@@ -255,8 +254,7 @@ var CPSTransform = (function () {
 	var transformFunction = function (func, nodes, transform) {
 		var method    = transform.asyncFuncF(),
 			parsenode = func.parsenode,
-			scopeInfo = Ast.scopeInfo(parsenode),
-		    parent 	  = Ast.hoist(scopeInfo).parent(parsenode, transform.AST),
+		    parent 	  = Ast.parent(parsenode, transform.AST),
 			funcstr   = escodegen.generate(parent);
 			
 			/* Return statement in body should be replaced by callback call */
@@ -317,9 +315,11 @@ var CPSTransform = (function () {
 
 
 	var CPSgetExpStm = function (parsenode) {
-		if(esp_isVarDecl(parsenode))
+		if (esp_isVarDecl(parsenode))
 	      	return parsenode.declarations[0].init
-
+	    else if (esp_isVarDeclarator(parsenode)) {
+	    	return parsenode.init
+	    }
 	    else if (esp_isExpStm(parsenode)) {
 	    	var exp = parsenode.expression;
 	    	if (esp_isAssignmentExp(exp)) 
@@ -399,12 +399,11 @@ var CPSTransform = (function () {
 		var callnode = false;
 		nodes.map(function (n) {
 			if(n.parsenode) {
-			var scopeInfo = Ast.scopeInfo(n.parsenode),
-			    parent = Ast.hoist(scopeInfo).parent(n.parsenode,graphs.AST);
-			if(n.isCallNode && (n.parsenode === node.parsenode || parent === node.parsenode)) {
-				callnode = n
+				var parent = Ast.parent(n.parsenode,graphs.AST);
+				if(n.isCallNode && (n.parsenode === node.parsenode || parent === node.parsenode)) {
+					callnode = n
+				}
 			}
-		}
 		});
 		return nodes;
 	}

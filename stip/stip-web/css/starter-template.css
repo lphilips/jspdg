@@ -106,6 +106,12 @@ text {
   stroke-width: 1px;
 }
 
+.edge.object.member {
+  stroke: #000;
+  fill: none;
+  stroke-width: 1px;
+}
+
 .edge.remote.call {
   stroke: #A4E666;
   fill: none;

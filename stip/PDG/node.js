@@ -107,22 +107,22 @@ var contains = function (els,el) {
 
 
 PDG_Node.prototype.pathExistsTo = function (to) {
-	var out 	= this.edges_out.slice(),
+	var out 	= this.getOutEdges().slice(),
 	    visited = [],
 	    found 	= false;
-	while(out.length > 0) {
+	while (out.length > 0) {
 		var edge   = out.shift(),
 		    target = edge.to;
-		if(to.equals(target)) {
+		if (to.equals(target)) {
 			found = true;
 			break;
 		}
 		else {
 			var tout = target.edges_out;
 			tout.map(function(e) {
-				if(!(contains(visited,e))) {
-					visited = visited.concat([e]);
-					out = out.concat([e]);
+				if(!(contains(visited, e))) {
+					visited = visited.concat(e);
+					out = out.concat(e);
 				}
 			})
 		}
@@ -130,6 +130,27 @@ PDG_Node.prototype.pathExistsTo = function (to) {
 	return found;
 }
 
+PDG_Node.prototype.enclosingObjectEntry = function () {
+	var ins     = this.getInEdges(EDGES.CONTROL).slice(),
+		visited = [],
+		entry;
+	while (ins.length > 0) {
+		var edge  = ins.shift(),
+			from  = edge.from;
+		if (from.isObjectEntry) {
+			entry = from;
+			break;
+		} else {
+			var ups = from.getInEdges().map(function (edge) {
+				if (!(contains (visited, edge))) {
+					visited = visited.concat(edge);
+					ins = ins.concat(edge);
+				}
+			})
+		}
+	}
+	return entry;
+}
 
 PDG_Node.prototype.dataDependentNodes = function(crossTier, includeActualP) {
 	var set = [],
@@ -240,11 +261,25 @@ EntryNode.prototype.addCall = function (callnode) {
 }
 
 
-/* Prototype Entry nodes, denoted by "PE+index" */
-var ProEntryNode = function (id, parsenode) {
-	PDG_Node.call(this, 'PE'+id);
+/* Object Entry nodes, denoted by "OE+index" */
+var ObjectEntryNode = function (id, parsenode) {
+	EntryNode.call(this, 'o'+id);
 	this.parsenode = parsenode;
-	this.isPENode = true;
+	this.isObjectEntry = true;
+	this.isEntryNode = false;
+}
+
+ObjectEntryNode.prototype = new EntryNode();
+
+ObjectEntryNode.prototype.getMember = function (idnode) {
+	return this.getOutEdges(EDGES.OBJMEMBER)
+				.map(function (edge) {
+					return edge.to
+				})
+				.filter(function (node) {
+					return  esp_isProperty(node.parsenode) &&
+							node.parsenode.key.name === idnode.name
+				})
 }
 
 
@@ -424,7 +459,12 @@ PDG_Node.prototype.getdtype = function (recheck) {
 		  return false
 		// Follow function declarations in form var x  = function () { }
 		else if (e.to.parsenode && esp_isFunExp(e.to.parsenode) &&
-		    e.from.parsenode && esp_isVarDecl(e.from.parsenode)) 
+		    e.from.parsenode && (esp_isVarDeclarator(e.from.parsenode) ||
+		    	esp_isVarDecl(e.from.parsenode) || esp_isProperty(e.from.parsenode))) 
+			return true
+		else if (e.to.parsenode && esp_isObjExp(e.to.parsenode) &&
+			e.from.parsenode && (esp_isVarDeclarator(e.from.parsenode) ||
+				esp_isVarDecl(e.from.parsenode) || esp_isProperty(e.from.parsenode)))
 			return true
 		// Follow edge from argument to its call node
 		else if (e.from.isActualPNode && e.to.isCallNode) 
@@ -434,10 +474,11 @@ PDG_Node.prototype.getdtype = function (recheck) {
 			return true
 	 	else 
 	 		// Else only follow control type edges
-		    return e.equalsType(EDGES.CONTROL)
+		    return e.equalsType(EDGES.CONTROL) ||
+		    	   e.equalsType(EDGES.OBJMEMBER)
 	};
 	/* If distributed type is already calculated, return it */
-	if(!recheck && this.dtype) 
+	if (!recheck && this.dtype) 
 	  return this.dtype
 	else {
 		/* recursively traverse up the graph until a node with a 
@@ -448,7 +489,7 @@ PDG_Node.prototype.getdtype = function (recheck) {
 			var edge = incoming.shift();
 			node = edge.from;
 			if (node.dtype)
-			  break;
+				break;
 			var proceed = node.edges_in.filter(filterIncoming);
 			incoming = incoming.concat(proceed);
 		}
