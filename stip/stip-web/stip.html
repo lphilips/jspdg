@@ -58,31 +58,14 @@
 	<script src="js/transition.js"></script>
 	<script src="js/collapse.js"></script>
 	<script type="text/javascript" src="../aux.js"></script>
-	<script type="text/javascript" src="../edge.js"></script>
-	<script type="text/javascript" src="../node.js"></script>
-	<script type="text/javascript" src="../graph.js"></script>
+	<script type="text/javascript" src="../PDG/edge.js"></script>
+	<script type="text/javascript" src="../PDG/node.js"></script>
+	<script type="text/javascript" src="../PDG/graph.js"></script>
 	<script type="text/javascript" src="../pre-analysis.js"></script>
-	<script type="text/javascript" src="../../agc.js"></script>
-	<script type="text/javascript" src="../../lattice.js"></script>
-	<script type="text/javascript" src="../../lattice1.js"></script>
-	<script type="text/javascript" src="../../setLattice.js"></script>
-	<script type="text/javascript" src="../../address.js"></script>
-	<script type="text/javascript" src="../../jsEsprima.js"></script>
-	<script type="text/javascript" src="../../store.js"></script>
-	<script type="text/javascript" src="../../graph.js"></script>
-	<script type="text/javascript" src="../../Analysis.js"></script>
-	<script type="text/javascript" src="../../pushdown.js"></script>
-	<script type="text/javascript" src="../../jsCesk.js"></script>
-	<script type="text/javascript" src="../../tagAg.js"></script>
-	<script type="text/javascript" src="../../defaultBenv.js"></script>
-	<script type="text/javascript" src="../jipda.js"></script>
-	<script type="text/javascript" src="../../jipdatool.js"></script>
+	<script type="text/javascript" src="../jipdatool.js"></script>
 	<script type="text/javascript" src="js/esprimatool.js"></script>
 	<script type="text/javascript" src="lib/jslint.js"></script>
 	<script type="text/javascript" src="js/jslinttool.js"></script>
-	<script type="text/javascript" src="../../lib/web/jquery-1.7.2.min.js"></script>
-	<script type="text/javascript" src="../../lib/web/ace/ace.js"></script>
-	<script type="text/javascript" src="../../lib/web/viz.js"></script>
 	<script type="text/javascript" src="../stip.js"></script>
 	<script type="text/javascript" src="../stip2.js"></script>
 	<script type="text/javascript" src="../transpiler/CPS_transform.js"></script>
@@ -111,13 +94,14 @@
 
 	function doIt () {
 		try {
+
 			$("#graph").empty();
 			$("#error").empty();
 			var src = editor.getSession().getValue(),
 			// First parse and create again via escodegen
 				ast = Ast.createAst(src, {loc:true, owningComments: true, comment: true});
 			src = escodegen.generate(escodegen.attachComments(ast, ast.comments, ast.tokens), {comment: true});
-		
+
 			/* Pre analysis step */
       		var preanalysis = pre_analyse(src);
       		console.log(preanalysis);

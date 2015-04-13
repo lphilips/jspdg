@@ -49,19 +49,23 @@ var Nodeify = (function () {
 
 	/* Variable Declaration */
 	var nodeifyVarDecl = function (sliced) {
-	  	var node 		= sliced.node,
-	  		slicedn 	= sliced.nodes,
-	  		entry 		= node.edges_out.filter(function(e) {
-				return e.equalsType(EDGES.DATA) &&
-		       	e.to.isEntryNode;
-			}),
-	  		call 		= node.edges_out.filter(function(e) {
-	  			return e.equalsType(EDGES.CONTROL) &&
-	  			e.to.isCallNode;
-	  		});
-	  	/* Outgoing data dependency to entry node? -> function declaration */
-		if(entry.length > 0) {
-	     	var f = toNode(cloneSliced(sliced, slicedn, entry[0].to));
+	  	var node 	= sliced.node,
+	  		slicedn = sliced.nodes,
+	  		entry 	= node.getOutEdges(EDGES.DATA)
+	  		              .filter(function (e) {
+							return e.to.isEntryNode;
+					}),
+	  		call 	= node.getOutEdges(EDGES.CONTROL)
+	  		              .filter(function (e) {
+	  						return e.to.isCallNode;
+	  				}),
+	  		transformer = makeTransformer(sliced.option);
+	  	if (esp_isVarDeclarator(node.parsenode))
+	  		node.parsenode = NodeParse.createVarDecl(node.parsenode);
+	  	/* Outgoing data dependency to entry node? -> Function Declaration */
+		if (entry.length > 0) {
+			var entry = entry[0].to,
+	     	    f     = toNode(cloneSliced(sliced, slicedn, entry));
 	     	if (entry.isServerNode() && entry.clientCalls > 0) {
 	     		/* set the name of the method */
 	     		f.method.setName(node.parsenode.declarations[0].id);

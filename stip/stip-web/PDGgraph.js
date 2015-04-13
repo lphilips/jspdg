@@ -1,11 +1,11 @@
 function drawLinks (PDG, element, ww,slicededitor) {
   var edges = [];
   var nodes = [];
-  for(var i = 0; i < PDG.nodes.length; i++) {
+  for (var i = 0; i < PDG.nodes.length; i++) {
     var node = PDG.nodes[i];
     var to_nodes = [];
     var add = function(n) {
-      var sourceIndex = Arrays.indexOf(n, nodes, Eq.equals);
+      var sourceIndex = Arrays.indexOf(n, nodes);
       if (sourceIndex < 0)
       {
         sourceIndex = nodes.length;
@@ -15,7 +15,7 @@ function drawLinks (PDG, element, ww,slicededitor) {
     var add_edges = function(n) {
       if(n.edges_out) {
         var to_edges = n.edges_out.filter(function(e) {
-         return Arrays.indexOf(e,edges,Eq.equals) < 0;
+         return Arrays.indexOf(e, edges) < 0;
        });
         edges = edges.concat(to_edges);
         to_nodes = to_nodes.concat(to_edges.map(function(e) {
@@ -106,8 +106,7 @@ function drawLinks (PDG, element, ww,slicededitor) {
       var $editor = ww.document.getElementById("slicededitor");
       var nodeIndex = $("title", $this).text();
       var node = nodes.filter(function (n) {return n.id === nodeIndex})[0];
-      $this.dblclick(function ()
-      {
+      $this.dblclick(function () {
         slicededitor.setValue("");
         var sliced = PDG.slice(node);
         var sorted = sliced.slice(0);
