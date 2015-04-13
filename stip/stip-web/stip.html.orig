@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+
+	<link rel='shortcut icon' type='image/x-icon' href='favicon.ico' />
+
+	<link rel="stylesheet" href="css/bootstrap.css"> 
+	<link rel="stylesheet" href="css/starter-template.css">
+	<link rel="stylesheet" href="protopurity.css" type="text/css" media="all"/> 
+
+	<title>STiP.js</title>
+	<!-- Le javascript-->
+	<!-- Jipda -->
+	<script type="text/javascript" src="../lib/esprima.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/common.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/ast.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/agc.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/lattice.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/abstLattice1-2.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/concLattice.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/countingStore.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/graph.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/jsCesk.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/concreteAg.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/tagAg.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/benv.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/object.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/lib/web/jquery-2.1.1.min.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/lib/web/jquery-ui-1.11.1/jquery-ui.min.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/lib/web/codemirror/codemirror.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/lib/web/codemirror/hint/show-hint.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/lib/web/codemirror/hint/anyword-hint.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/lib/web/codemirror/mode/javascript/javascript.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/lib/web/d3.min.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/lib/web/dagre-d3.min.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/lib/web/dagregraphs.js"></script>
+	<script type="text/javascript" src="../../jipda-pdg/pdg/pdg.js"></script>
+
+	<!--/end Jipda -->
+
+	<script type="text/javascript" src="examples.js"></script>
+	<script src="../lib/esprima.js"></script>
+	<script src="../lib/falafel_esprima.js"></script>
+	<script src="../lib/estraverse.js"></script>
+	<script src="../lib/escope.js"></script>
+	<script src="../lib/esrefactor.js"></script>
+	<script src="../lib/json2.js"></script>
+	<script src="../lib/beautifier.js"></script>
+	<script src="lib/ace/ace.js"></script>
+	<script type="text/javascript" src="../lib/falafel.js"></script>
+	<script src="https://code.jquery.com/jquery.js"></script>
+	<script src="http://yui.yahooapis.com/3.9.0/build/yui/yui-min.js"></script>
+	<script src="js/bootstrap.min.js"></script>
+	<script src="js/prettify.js"></script>
+	<script src="js/tab.js"></script>
+	<script src="js/transition.js"></script>
+	<script src="js/collapse.js"></script>
+	<script type="text/javascript" src="../aux.js"></script>
+	<script type="text/javascript" src="../PDG/edge.js"></script>
+	<script type="text/javascript" src="../PDG/node.js"></script>
+	<script type="text/javascript" src="../PDG/graph.js"></script>
+	<script type="text/javascript" src="../pre-analysis.js"></script>
+	<script type="text/javascript" src="../jipdatool.js"></script>
+	<script type="text/javascript" src="js/esprimatool.js"></script>
+	<script type="text/javascript" src="lib/jslint.js"></script>
+	<script type="text/javascript" src="js/jslinttool.js"></script>
+	<script type="text/javascript" src="../stip.js"></script>
+	<script type="text/javascript" src="../stip2.js"></script>
+	<script type="text/javascript" src="../transpiler/CPS_transform.js"></script>
+	<script type="text/javascript" src="../transpiler/Promise_transform.js"></script>
+	<script type="text/javascript" src="../transpiler/CT_transform.js"></script>
+	<script type="text/javascript" src="../transpiler/JS_parse.js"></script>
+	<script type="text/javascript" src="../transpiler/Meteor_parse.js"></script>
+	<script type="text/javascript" src="../transpiler/Node_parse.js"></script>
+	<script type="text/javascript" src="../transpiler/JSify.js"></script>
+	<script type="text/javascript" src="../transpiler/Meteorify.js"></script>
+	<script type="text/javascript" src="../transpiler/Nodeify.js"></script>
+	<script type="text/javascript" src="../transpiler/CT_parse.js"></script>
+	<script type="text/javascript" src="../transpiler/slice.js"></script>
+	<script type="text/javascript" src="../annotations.js"></script>
+	<script type="text/javascript" src="../lib/escodegen.browser.js"></script>
+	<script type="text/javascript" src="PDGgraph.js"></script>
+<<<<<<< HEAD
+	<script type="text/javascript" src="pdgGraphs.js"></script>
+	<script type="text/javascript" src="lib/viz.js"></script>
+=======
+	<script type="text/javascript" src="../CT_parse.js"></script>
+	<script type="text/javascript" src="../CT_transform.js"></script>
+>>>>>>> refs/heads/master
+	<script type="text/javascript" src="js/jquery.panzoom.js"></script>
+
+	<script type="text/javascript">
+
+	// define print method for JIPDA
+	var print = function () { console.log(Array.prototype.slice.call(arguments).join(" ")) },		
+		editor, slicededitor, result, PDGg;
+
+	function doIt () {
+		try {
+
+			$("#graph").empty();
+			$("#error").empty();
+			var src = editor.getSession().getValue(),
+			// First parse and create again via escodegen
+				ast = Ast.createAst(src, {loc:true, owningComments: true, comment: true});
+			src = escodegen.generate(escodegen.attachComments(ast, ast.comments, ast.tokens), {comment: true});
+
+			/* Pre analysis step */
+<<<<<<< HEAD
+      		var preanalysis = pre_analyse(src);
+      		console.log(preanalysis);
+			var src = editor.getSession().getValue(),
+		    	ast = Ast.createAst(preanalysis, {loc:true, owningComments: true});
+=======
+      		var preanalysis = pre_analyse(src),
+      			src2 = preanalysis[0].ast;
+      		src2.body = preanalysis[2].concat(src2.body).concat(preanalysis[1]).concat(preanalysis[3]);
+      		console.log(escodegen.generate(src2));
+      		
+      		var ast  = Ast.createAst(src), //escodegen.generate(src),{loc:true});
+				lat  = new Lattice1(),
+      			//var lat = new SetLattice(3);
+      			cesk = jsCesk({a:tagAg, p:lat});
+      		result = new Pushdown().analyze(ast, cesk);
+
+      		var etgEdges = result.etg.edges(),
+      			emptySet = ArraySet.empty(),
+      			meta = result.ss.entries().reduce(function (acc, entry) {return acc.put(entry.key, {ss:entry.value})}, HashMap.empty()),
+      			element = $("#graph"),
+      			nodes = [],
+      			frames = [],
+      			graphs;
+>>>>>>> refs/heads/master
+      		$("#graph").empty();
+      		graphs = new Stip.Graphs(ast, src);
+      		Stip.start(graphs);
+      		var g = createPDGGraph(graphs.PDG);
+
+    		drawPDGGraph(g[0], g[1], g[2]);
+      		return graphs; 
+      	} catch (err) {
+      		console.log(err.message);
+      		$("#error").empty();
+      		$("#error").append(err.stack);
+      	}
+      }
+
+      function split () { 
+      	try {
+      		var graphs  = doIt(),
+      			PDG 	= graphs.PDG;
+      		PDGg = graphs;
+      		slicededitor.setValue("");
+      		//$('.collapse').collapse();
+      		var slicedc = PDG.sliceDistributedNode(PDG.dclient),
+      		    sliceds = PDG.sliceDistributedNode(PDG.dserver),
+      			sortedc = slicedc.slice(0),
+      			sorteds = sliceds.slice(0),
+      			program,
+      			printCode = function (nodes, option) {
+      				nodes.sort(function (n1, n2) {
+      					return n1.cnt - n2.cnt;
+      				})
+<<<<<<< HEAD
+      				var target 	= $('#target').val(),
+      					asyncomm = $('#asyncomm').val(),
+      					program = constructProgram(nodes, {target: target, tier: option, asynccomm : asyncomm}),
+      					parsed 	= escodegen.generate(program);
+      				slicededitor.setValue(slicededitor.getValue() + parsed + "\n");
+=======
+      				var target 	= $('#tocode').val();
+      				if (program && program.cloudtypes)
+      					program = constructProgram(nodes, {target: target, tier: option, cloudtypes: program.cloudtypes});
+      				else
+      					program = constructProgram(nodes, {target: target, tier: option});
+       				slicededitor.setValue(slicededitor.getValue() + escodegen.generate(program) + "\n");
+>>>>>>> refs/heads/master
+      			};
+      		slicededitor.setValue(slicededitor.getValue() + "/* CLIENT */ \n");
+      		printCode(sortedc, "client");
+
+      		slicededitor.setValue(slicededitor.getValue() + "/* SERVER */ \n");
+      		printCode(sorteds, "server");
+      	} catch (err) {
+      		console.log(err.stack);
+      		$("#error").append(err.message);
+      	}
+      }
+
+
+      function cpstransform () {
+      	try {
+      		slicededitor.setValue("");
+      		var graphs  = doIt(),
+      		 	PDG     = graphs.PDG,
+      		 	program = constructProgram(PDG.getAllNodes(), {target: 'normal', cps : true});
+      		slicededitor.setValue(escodegen.generate(program));
+      	} catch (err) {
+      		console.log(err.stack);
+      		$("#error").append(err.message);
+      	}
+      }
+
+
+      $(function () {
+      	editor = ace.edit("editor");
+      	editor.getSession().setUseWorker(false);
+      	editor.getSession().setMode("ace/mode/javascript");
+      	slicededitor = ace.edit("slicededitor");
+      	slicededitor.getSession().setUseWorker(false);
+      	slicededitor.getSession().setMode("ace/mode/javascript");
+
+      	editor.setValue(Examples.tiersplitexs[0]);
+      })
+
+      function fillSnippets(){
+      	var list = document.getElementById('snippets'),
+      	    split = 'Tier-splitting',
+      	    normal = 'JavaScript',
+      	    head = document.createElement('li'),
+      	    i = 0;
+      	head.appendChild(document.createTextNode(split));
+      	list.appendChild(head);
+      	Examples.tiersplittxt.map(function (txt) {
+      		var li = document.createElement('li'),
+      		    a = document.createElement('a');
+      		a.appendChild(document.createTextNode(txt));
+      		a.setAttribute('data-value', i);
+      		a.setAttribute('role', 'menuitem')
+      		i++;
+      		li.appendChild(a);
+      		li.setAttribute('role', 'presentation')
+      		list.appendChild(li);
+      	});
+      	head = document.createElement('li');
+      	head.appendChild(document.createTextNode(normal));
+      	list.appendChild(head);
+      	Examples.slicetxt.map(function (txt) {
+      		var li = document.createElement('li'),
+      		    a = document.createElement('a');
+      		a.appendChild(document.createTextNode(txt));
+      		a.setAttribute('data-value', i);
+      		i++;
+      		li.appendChild(a);
+      		list.appendChild(li);
+      	});
+      };
+
+  </script>
+</head>
+
+<body>
+	<div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+		<div class="container">
+			<div class="navbar-header">
+				<button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">         
+					<span class="sr-only">Toggle navigation</span>          
+					<span class="icon-bar"></span>          
+					<span class="icon-bar"></span>          
+					<span class="icon-bar"></span>        
+				</button>
+				<a class="navbar-brand" href="stip.html">STiP.js</a>
+			</div>
+			<div class="collapse navbar-collapse">
+				<ul class="nav navbar-nav">
+					<li><a href="stip.html">Home</a></li>
+					<li><a href="howto.html">How to</a></li>
+					<li><a href="about.html">About</a></li>
+				</ul>
+			</div><!--/.nav-collapse -->
+		</div> <!--/.container -->
+	</div> <!-- /.navbar -->
+	<div class="container theme-showcase" role="main">
+		<div class="jumbotron" >
+			<img src="imgs/stip.png"/>
+			<p class="lead">Slicing Tierless Programs in JavaScript </p>
+			<p class="small"> This is a first prototype of the tier splitting tool Stip.js. 
+				(tested on Chrome and Firefox)</p>
+			</div> <!-- /.jumbotron -->
+			<div id= "code">
+				<div class="well">
+					<div style="width:47%; margin-right: 2%; float:left"> 
+						<h4 style="float:left;">Your JavaScript code:</h4>
+						<div class="dropdown" style="float: right;">
+							<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" 
+									id="dropdownSnippets" style="float:right;">
+								Snippets
+								<span class="caret"></span>
+							</button>
+							<ul id="snippets" aria-labelledby="dropdownSnippets" class="dropdown-menu" role="menu"></ul>
+						</div>
+						<div id="editor" style="height: 350px; width:100%"></div>
+					</div>
+					<div >
+						<h4>Sliced code:</h4>
+						<div id="slicededitor" style="height: 350px;"></div>
+					</div>
+				</div>
+
+				<div class="well">
+					<!-- Tool tabs -->
+					<ul class="nav nav-tabs">
+						<li class="active"><a href="#stip" data-toggle="tab">STiP</a></li>
+						<li><a href="#jipda" data-toggle="tab">Jipda</a></li>
+						<li><a href="#esprima" data-toggle="tab">Esprima</a></li>
+						<li><a href="#jslint" data-toggle="tab">JSLint</a></li>
+					</ul>  
+					<!-- ./ Tool tabs-->
+
+					<div class="tab-content">
+						<!-- Stip -->
+						<div class="tab-pane active" id="stip">
+							<div class="container">
+								<div id="manip" style="margin-top: 1%;">
+									<button id="eval" name="eval" onClick="doIt()" class="btn btn-lg btn-success" 
+											style="float: left;	margin-right: 10px">Eval</button> 
+									<p style="float: left; margin-right: 10px; padding-top:1%"> or </p>
+									<button id="cpstransform" name="cpstransform" onClick="cpstransform()" class="btn btn-lg btn-success" 
+											style="float: left; margin-right: 10px">Transform CPS</button> 
+									<p style="float: left; margin-right: 10px; padding-top:1%"> or </p>
+									<button id="split" name="split"  class="btn btn-lg btn-success" 
+											data-toggle="collapse" data-target="#splitconfig" aria-expanded="false"
+											aria-controls="splitconfig"
+											style="float: left; margin-right: 10px">Tier split</button> 
+									<div class="collapse" id="splitconfig" style="float:left">
+										<div class="well">
+					
+												<div class="form-group">
+												    <label for="target">Target</label>
+												    <select class="form-control" id="target">
+												    	<option>meteor</option>
+												    	<option>node.js</option>
+												    </select>
+												</div>
+												<div class="form-group">
+												    <label for="asyncomm">Asynchronous Communication</label>
+												    <select class="form-control" id="asyncomm">
+												    	<option>callbacks</option>
+												    	<option>promises</option>
+												    </select>
+												</div>
+											  <button onClick="split()" class="btn btn-default">Split!</button>
+									
+										</div>
+									</div>
+								</div> <!-- /.manip -->
+								<!-- <p id="error" style="float:left;"></p> -->
+							</div> <!-- /.container -->
+							
+							 <div id="error" style="color: #ff0606;"> </div>
+							 <div id="graphcont">
+								<div><!-- id="graph" class="container panzoom"> -->
+									
+											<svg>
+												<defs>
+												
+												</defs>	
+												<g> </g>
+											</svg>
+											<div class="fixed tooltip"></div>
+
+								</div>
+							</div>
+						</div> <!-- ./stip -->
+
+						<!-- Jipda -->
+						<div class="tab-pane" id="jipda">
+							<div class="container">
+								<button id="jipdaeval" name="jipdaeval" onClick="jipdaIt()" class="btn btn-lg btn-success" 
+										style="float: left; margin-right: 10px; margin-top: 1%;">Eval</button>
+								<span id="resultValue"></span>
+									<div id="meta">
+										<div id="output"></div>
+										<div id="input"></div>
+									</div>
+									<div id="right" class="container">
+										<div id="graphjipda" class="container">
+											<svg>
+												<defs>
+													<marker id="highlightarrowhead" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="strokeWidth" markerWidth="8" markerHeight="5" orient="auto">
+														<path d="M 0 0 L 10 5 L 0 10 z"></path>
+													</marker>
+												</defs>	
+									    	<g transform="translate(20,20)"/>
+											</svg>
+										</div>
+									</div>
+									<!-- /.right -->
+							</div>
+						</div> <!-- ./jipda -->
+
+						<!-- Esprima -->
+						<div class="tab-pane" id="esprima">
+							<div class="container">
+								<button id="esprimaparse" name="esprimaparse" onClick="esprimaparse()" class="btn btn-lg btn-success" 
+										style="float: left; margin-right: 10px;margin-top: 1%;">Parse</button>
+								<div style="float:left">
+									<h4>Syntax</h4>
+									<textarea id="syntax" rows="30" cols="60" readonly></textarea> 
+								</div>
+								<div style="margin-top:1%">
+									<h4>Tree view </h4>
+									<div id="treeview"></div>
+								</div>
+							</div>
+						</div> <!--./esprima -->
+
+						<!-- JSLint -->
+						<div class="tab-pane" id="jslint">
+							<div class="container">
+								<div style="float: left; margin-top: 1%;">
+									<button id="jslintbtn" name="jslint" onClick="jslint()" class="btn btn-lg btn-success" 
+											style="float: left; margin-right: 10px">JSLint</button>
+								</div>
+								<ul class="nav nav-tabs" id="jslinttab">
+									<li class="active"><a href="#jslinterrors" data-toggle="tab">Error report</a></li>
+									<li><a href="#jslintfunction" data-toggle="tab">Function report</a></li>
+									<li><a href="#jslintproperties" data-toggle="tab">Properties report</a></li>
+								</ul>  
+								<div class="tab-content" style="margin-top: 2%;">
+									<div class="tab-pane active" id="jslinterrors"></div>
+									<div class="tab-pane" id="jslintfunction"></div>
+									<div class="tab-pane" id="jslintproperties"></div>
+								</div>
+							</div>
+						</div> <!-- jslint -->
+
+					</div> <!--./tabcontent -->   	
+				</div> <!-- ./well -->
+			</div>	<!-- ./code -->     
+		</div> <!-- ./main container -->
+
+
+	</body>
+	<script type="text/javascript">
+	      fillSnippets();
+	      $(".dropdown-menu li a").click(function () {
+     			var value = $(this).data('value'),
+	                nr_splits = Examples.tiersplitexs.length,
+	                text = '',
+	                editor = ace.edit("editor");
+	          	if(value >= nr_splits) 
+	          		text = Examples.sliceexs[value - nr_splits];
+	        	else
+	        		text = Examples.tiersplitexs[value];
+	        	editor.setValue(text);
+
+    	 })
+	</script>
+    <script src="js/jquery.panzoom//test/libs/jquery.js"></script>
+    <script src="js/jquery.panzoom/dist/jquery.panzoom.js"></script>
+    <script src="js/jquery.panzoom/test/libs/jquery.mousewheel.js"></script>
+
+
+	</html>
+
