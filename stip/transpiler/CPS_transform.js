@@ -254,9 +254,15 @@ var CPSTransform = (function () {
 	var transformFunction = function (func, nodes, transform) {
 		var method    = transform.asyncFuncF(),
 			parsenode = func.parsenode,
+			/* Take parent, because falafel can't handle an anonymous function */
 		    parent 	  = Ast.parent(parsenode, transform.AST),
 			funcstr   = escodegen.generate(parent);
 			
+			/* If parent is an object property, transform it into var decl + function (for falafel) */
+			if (esp_isProperty(parent)) {
+				funcstr = parent.key.toString() + "=" + parsenode.toString();
+			}
+
 			/* Return statement in body should be replaced by callback call */
 			func = falafel(funcstr, function (n) {
 				// TODO check parent (don't transform return statement in nested function def)

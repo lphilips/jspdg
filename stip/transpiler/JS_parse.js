@@ -8,6 +8,14 @@ var JSParse = (function () {
 
 	var module = {};
 
+	var createVarDecl = function (declarator) {
+		return {
+			type 			: 'VariableDeclaration',
+			declarations 	: [ declarator ],
+			kind			: 'var'
+		}
+	}
+
 
 	/*  Representation of a callback function :
 	 *    callback(errx, resx) {}
@@ -139,9 +147,10 @@ var JSParse = (function () {
 	} 
 
 
-	module.callback = callback;
-	module.RPC      = RPC;
-	module.asyncFun = asyncFun;
+	module.callback        = callback;
+	module.RPC             = RPC;
+	module.asyncFun        = asyncFun;
+	module.createVarDecl   = createVarDecl;
 
 	return module;
 

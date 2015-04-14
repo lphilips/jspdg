@@ -297,7 +297,7 @@ var Stip = (function () {
 			primitive = isPrimitiveCall(node),
 			callnode  = graphs.PDG.makeCall(node);
 		
-		callnode.name = esp_getCalledName(parsenode);
+		callnode.name = parsenode.callee.toString();
 		if (primitive) {
 			callnode = PDG.makeCall(node);
 			callnode.cnt = callcnt;

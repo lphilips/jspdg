@@ -57,6 +57,11 @@ var pre_analyse = function (src) {
                             "type": "Literal",
                             "value": true,
                         }
+            case "Obj":
+                return {
+                            "type": "ObjectExpression",
+                            "properties": []
+                       }
             default:
             	return null
             }
@@ -115,7 +120,7 @@ var pre_analyse = function (src) {
  		    assumesS, assumesA;
  		if (string.search(regexp >= 0)) {
  			assumesS = string.match(regexp)[0].slice(1,-1);
- 			assumesA = assumesS.split(",");
+ 			assumesA = assumesS.split(";");
  			assumesA.map(function (assume) {
  				var type, args, name;
  				regexp = /\:.*/;

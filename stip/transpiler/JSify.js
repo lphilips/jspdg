@@ -45,6 +45,8 @@ var JSify = (function () {
 	  		             	return e.to.isObjectEntry;
 	  		              })
 	  		             .map(function (e) {return e.to});
+	    if (esp_isVarDeclarator(node.parsenode))
+	  		node.parsenode = JSParse.createVarDecl(node.parsenode);
 	    /* Outgoing data dependency to entry node? */
 		if (entry.length > 0) {
 	     	var f = toJavaScript(slicednodes, entry[0], cps);
@@ -210,6 +212,27 @@ var JSify = (function () {
 		return new Sliced(slicednodes, node, parsenode);
 	}
 
+
+	var sliceProperty = function (slicednodes, node, cps) {
+		var entries = node.getOutEdges(EDGES.DATA)
+						  .map( function (e) {return e.to})
+						  .filter( function (n) { return n.isEntryNode}),
+			calls   = node.getOutEdges(EDGES.CONTROL)
+						  .map( function (e) { return e.to})
+						  .filter( function (n) { return n.isCallNode});
+		entries.map(function (entry) {
+			var entrynode = toJavaScript(slicednodes, entry, cps);
+			node.parsenode.value = entrynode.parsednode;
+			slicednodes = removeNode(entrynode.nodes, entry)
+		});
+		calls.map(function (call) {
+			var callnode   = toJavaScript(slicednodes, entry, cps);
+			slicednodes = removeNode (callnode.nodes, entry);
+		})
+		slicednodes = slicednodes.remove(node);
+		return new Sliced(slicednodes, node, node.parsenode);
+	}
+
 	var removeNode = function (nodes, node, cps) {
 		nodes = nodes.remove(node);
 		var callnode = false;
@@ -249,6 +272,9 @@ var JSify = (function () {
 		if(parent && esp_isExpStm(parent) && !(esp_isCallExp(node.parsenode))) {
 			node.parsenode = parent
 		}
+		if (esp_isExpStm(node.parsenode) && esp_isCallExp(node.parsenode.expression)) {
+			node.parsenode = node.parsenode.expression
+		}
 		console.log('SLICE(' + node.parsenode.type + ') ' + node.parsenode);
 		switch (node.parsenode.type) {
 	      case 'VariableDeclaration': 
@@ -267,15 +293,17 @@ var JSify = (function () {
 		  	return sliceBinExp(slicednodes, node, cps);
 		  case 'ObjectExpression':
 		  	return sliceObjExp(slicednodes, node, cps);
+		  case 'Property':
+		  	return sliceProperty(slicednodes, node, cps);
 		  default: 
 		  	if (esp_isRetStm(node.parsenode) && 
 		  		node.getOutEdges(EDGES.CONTROL).filter(function (e) {
 		  				return e.to.isCallNode
 		  			}).length > 0)
 		  		return sliceRetStm(slicednodes, node, cps)
-		  	if(esp_isExpStm(node.parsenode) && esp_isAssignmentExp(node.parsenode.expression))
+		  	if (esp_isExpStm(node.parsenode) && esp_isAssignmentExp(node.parsenode.expression))
 		  		return sliceVarDecl(slicednodes, node, cps)
-		  	if(esp_isExpStm(node.parsenode) && esp_isBinExp(node.parsenode.expression))
+		  	if (esp_isExpStm(node.parsenode) && esp_isBinExp(node.parsenode.expression))
 				return sliceBinExp(slicednodes, node, cps)
 		    return new Sliced(slicednodes, node, node.parsenode);
 	    }
