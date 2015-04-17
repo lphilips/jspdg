@@ -90,7 +90,7 @@
 
 	// define print method for JIPDA
 	var print = function () { console.log(Array.prototype.slice.call(arguments).join(" ")) },		
-		editor, slicededitor, result, PDGg;
+		editor, slicededitor, result, PDGg, assumes;
 
 	function doIt () {
 		try {
@@ -104,9 +104,10 @@
 
 			/* Pre analysis step */
       		var preanalysis = pre_analyse(src);
-      		console.log(preanalysis);
+      		console.log(preanalysis.src);
+      		assumes = preanalysis.assumes;
 			var src = editor.getSession().getValue(),
-		    	ast = Ast.createAst(preanalysis, {loc:true, owningComments: true});
+		    	ast = Ast.createAst(preanalysis.src, {loc:true, owningComments: true});
       		$("#graph").empty();
       		graphs = new Stip.Graphs(ast, src);
       		Stip.start(graphs);
@@ -132,6 +133,8 @@
       		    sliceds = PDG.sliceDistributedNode(PDG.dserver),
       			sortedc = slicedc.slice(0),
       			sorteds = sliceds.slice(0),
+      			removes  = [],
+      			assumesnames = assumes.map(function (ass) {return ass.declarations[0].id.name.trim()}),
       			program,
       			printCode = function (nodes, option) {
       				nodes.sort(function (n1, n2) {
@@ -143,6 +146,39 @@
       					parsed 	= escodegen.generate(program);
       				slicededitor.setValue(slicededitor.getValue() + parsed + "\n");
       			};
+      		/* Filter out nodes that were added by the assumes statement */
+      		sortedc = sortedc.filter(function (pdgnode) {
+      			if (pdgnode.parsenode)
+      				if (esp_isVarDecl(pdgnode.parsenode) &&
+      				    assumesnames.indexOf(pdgnode.parsenode.declarations[0].id.name) > -1) {
+      					removes = removes.concat(pdgnode)
+      					return false
+      				} else
+      					return true
+      			else
+      				return true
+      		});
+      		sorteds = sorteds.filter(function (pdgnode) {
+      			if (pdgnode.parsenode)
+      				if (esp_isVarDecl(pdgnode.parsenode) &&
+      				    assumesnames.indexOf(pdgnode.parsenode.declarations[0].id.name) > -1) {
+      					removes = removes.concat(pdgnode)
+      					return false
+      				} else
+      					return true
+      			else
+      				return true
+      		});
+      		removes.map(function (node) {
+      			var entry  = node.getOutEdges(EDGES.DATA)
+      							.map( function (edge) {return edge.to})
+      							.filter (function (node) {return node.isEntryNode})[0],
+      				params = entry.getFormalIn().concat(entry.getFormalOut()),
+      				body   = entry.getBody();
+      			sorteds = sorteds.remove(entry); sortedc = sortedc.remove(entry);
+      			params.map(function (param) {sorteds = sorteds.remove(param); sortedc = sortedc.remove(param)})
+      			body.map(function (bodynode) {sorteds = sorteds.remove(bodynode); sortedc = sortedc.remove(bodynode)})
+      		})
       		slicededitor.setValue(slicededitor.getValue() + "/* CLIENT */ \n");
       		printCode(sortedc, "client");
 

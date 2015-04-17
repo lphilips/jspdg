@@ -179,5 +179,8 @@ var pre_analyse = function (src) {
  		src = escodegen.generate(assume).concat(src)
  	})
 
-	return src;
+	return  { 
+        src      :   src,
+        assumes  : assumes
+    };
 }

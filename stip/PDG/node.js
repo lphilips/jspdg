@@ -226,7 +226,7 @@ var EntryNode = function (id,parsenode) {
 EntryNode.prototype = new PDG_Node();
 
 EntryNode.prototype.getFormalIn = function () {
-    var edges = this.edges_out.filter(function(e) {
+    var edges = this.edges_out.filter(function (e) {
 		return e.to.isFormalNode &&
 		       e.to.direction === 1
 	});
@@ -236,7 +236,7 @@ EntryNode.prototype.getFormalIn = function () {
 }
 
 EntryNode.prototype.getFormalOut = function () {
-	var edges = this.edges_out.filter(function(e) {
+	var edges = this.edges_out.filter(function (e) {
 		return e.to.isFormalNode &&
 		       e.to.direction === -1
 	});
@@ -246,10 +246,17 @@ EntryNode.prototype.getFormalOut = function () {
 }
 
 EntryNode.prototype.hasBody = function () {
-	var edges = this.edges_out.filter(function(e) {
+	var edges = this.edges_out.filter(function (e) {
 		return e.to.isStatementNode
 	});
 	return edges.length > 0
+}
+
+EntryNode.prototype.getBody = function () {
+	return this.edges_out.filter(function (e) {
+		return e.to.isStatementNode || e.to.isCallNode
+	}).map(function (edge) {return edge.to})
+	
 }
 
 EntryNode.prototype.addCall = function (callnode) {
