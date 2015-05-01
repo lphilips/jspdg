@@ -1,21 +1,21 @@
 /* * * * * * * * * * * * * * *
- * 			CLIENT 			 *
+ *          CLIENT           *
  * * * * * * * * * * * * * * */
 
 var NodeParse = (function () {
 
-	var module = {};
+    var module = {};
 
 
-	var createVarDecl = function (declarator) {
-		return {
-			type 			: 'VariableDeclaration',
-			declarations 	: [ declarator ],
-			kind			: 'var'
-		}
-	}
-	   
-	 /*  Representation of a callback function :
+    var createVarDecl = function (declarator) {
+        return {
+            type            : 'VariableDeclaration',
+            declarations    : [ declarator ],
+            kind            : 'var'
+        }
+    }
+       
+     /*  Representation of a callback function :
      *    callback(errx, resx) {}
      */
     var callback = function (cnt) {
@@ -56,7 +56,7 @@ var NodeParse = (function () {
          }
     }
 
- 	/* Representation of a remote procedurecall from client -> server:
+    /* Representation of a remote procedurecall from client -> server:
      *   client.rpcCall(fname, args, callback(err, res) {})
      */
 
@@ -124,7 +124,7 @@ var NodeParse = (function () {
     }
 
 
- 	/* 
+    /* 
      * Representation of an async function (takes an extra argument callback)
      *   
      */
@@ -176,19 +176,19 @@ var NodeParse = (function () {
 
 
     var createServer = function () {
-    	return esprima.parse('var server = new ServerRpc(serverHttp, {})').body[0];
+        return esprima.parse('var server = new ServerRpc(serverHttp, {})').body[0];
     }
 
     var createClient = function () {
-    	return esprima.parse("var client = new ClientRpc('http://127.0.0.1:8080');").body[0];
+        return esprima.parse("var client = new ClientRpc('http://127.0.0.1:8080');").body[0];
     }
 
     var methodsServer = function () {
-    	return esprima.parse('server.expose({})').body[0]; 
+        return esprima.parse('server.expose({})').body[0]; 
     }
 
     var methodsClient = function () {
-    	return esprima.parse('{}').body[0];
+        return esprima.parse('{}').body[0];
     }
 
 
@@ -202,6 +202,6 @@ var NodeParse = (function () {
     module.createServer   = createServer;
     module.createClient   = createClient;
 
-	return module;
+    return module;
 
 })();

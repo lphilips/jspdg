@@ -115,13 +115,14 @@ text {
 .edge.remote.call {
   stroke: #A4E666;
   fill: none;
-  stroke-width: 1px;
+  stroke-width: 2px;
 }
 
 
 .edge.remote.par-in {
   fill: none;
   stroke: #A4E666;
+  stroke-width: 2px;
 }
 
 .edge.par-in {
