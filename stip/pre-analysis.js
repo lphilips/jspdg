@@ -142,7 +142,7 @@ var pre_analyse = function (src) {
                 { comment : true, tokens: true},
                 function (node) {
                  
-                  if (node.type === "Block" && isAssumesAnnotated(node.value)) {
+                  if (node.type === "Block" && Comments.isAssumesAnnotated(node.value)) {
                     extractAssumes(node.value)
                   }
 
@@ -163,6 +163,7 @@ var pre_analyse = function (src) {
                     }
                 }
             }).toString();
+
     anonfs.map(function (func) {
         src = escodegen.generate(func).concat(src)
     })

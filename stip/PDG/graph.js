@@ -16,23 +16,23 @@
 
 
 function PDG () {
-  this.entry_node;
-  this.curr_body_node;
+  this.entryNode;
+  this.currBodyNode;
   this.initial;
   // Distributed
   this.dclient;
   this.dserver;
-  this.current_index = 0; 
-  this.ent_index     = 0;
-  this.stm_index     = 0;
-  this.cal_index     = 0;
-  this.fun_index     = 0;
-  this.pro_index     = 0;
+  this.currentIndex = 0; 
+  this.entIndex     = 0;
+  this.stmIndex     = 0;
+  this.calIndex     = 0;
+  this.funIndex     = 0;
+  this.proIndex     = 0;
   this.nodes         = [];
 }
 
 PDG.prototype.reverseEntry = function (node) {
-    this.entry_node = node;     
+    this.entryNode = node;     
 }
 
 PDG.prototype.addNode = function (node) {
@@ -44,27 +44,27 @@ PDG.prototype.addNode = function (node) {
 }
 
 PDG.prototype.makeStm = function (node) {
-    return new StatementNode(++this.stm_index, node);
+    return new StatementNode(++this.stmIndex, node);
 }
 
 PDG.prototype.decrStm = function () {
-    this.stm_index--;
+    this.stmIndex--;
 }
 
 PDG.prototype.makeCall = function (node) {
-    return new CallNode(++this.cal_index, node);
+    return new CallNode(++this.calIndex, node);
 }
 
 PDG.prototype.makeObjEntry = function (node) {
-    return new ObjectEntryNode(++this.pro_index, node);
+    return new ObjectEntryNode(++this.proIndex, node);
 }
 
 PDG.prototype.changeEntry = function (node) {
-  this.entry_node = node;
-  this.curr_body_node = node;
+  this.entryNode = node;
+  this.currBodyNode = node;
   this.addNode(node);
-  this.current_index = this.nodes.length - 1;
-  this.ent_index++;
+  this.currentIndex = this.nodes.length - 1;
+  this.entIndex++;
 }
 
 /* Look for the entry node,
@@ -184,7 +184,7 @@ PDG.prototype.slice = function (node) {
     })
     return set;
   }
-  
+
   /* two passes of the algorithm */
   var first_pass    = traverse_backward([node],[], [EDGES.PAROUT, EDGES.REMOTEPAROUT, EDGES.REMOTEPARIN]),
       second_pass   = traverse_backward(first_pass,[],[EDGES.PARIN, EDGES.REMOTEPARIN, EDGES.REMOTEPAROUT, EDGES.CALL]);

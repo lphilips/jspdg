@@ -13,8 +13,8 @@ var addPrimitives = function (option) {
     switch (option) {
         case 'normal':
             // TODO'
-            return[];
-        case "meteor":
+            return [];
+        case 'meteor':
             return meteorPrimitives();
     }
 }
