@@ -93,9 +93,14 @@ var transformBody = function (option, slicing, body, methods) {
  * This function also adds header and footer code, depending on the choosen output
  */
 var constructProgram = function (nodes, option) {
-    var program = { 'type' : 'Program',
-                    'body' : [] 
-                  },
+    var createProgram = function (body) { 
+            return {
+                'type' : 'Program',
+                'body' : body ? body : [] 
+                }
+            },
+        program = createProgram(),
+        nosetup = createProgram(),
         slicing, 
         methods = [];
     //program.body = addPrimitives(option);
@@ -115,6 +120,7 @@ var constructProgram = function (nodes, option) {
     addHeader(option, slicing);
     addFooter(option, slicing);
     program.body = transformBody(option, slicing, program.body, methods);
+    nosetup.body = program.body;
     program.body = slicing.setup.concat(program.body).concat(slicing.footer);
     console.log(program);
 
@@ -122,7 +128,11 @@ var constructProgram = function (nodes, option) {
         program.cloudtypes = slicing.cloudtypes;
     }
 
-    return program;
+    return {
+        program : program,
+        setup   : createProgram(slicing.setup),
+        nosetup : nosetup
+    }
 }
 
 var Sliced = function (nodes, node, parsednode) {

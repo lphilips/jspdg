@@ -24,25 +24,24 @@ body {
   border-right: 1px solid #e5e5e5;
   border-left: 1px solid #e5e5e5;
   border-top: 1px solid #e5e5e5;
-  padding-left: 15px;
-  padding-right: 15px;
+  padding-left: 10px;
+  padding-right: 10px;
 }
 .jumbotron .btn {
   font-size: 21px;
   padding: 14px 24px;
 }
 
+
 .container .jumbotron {
     border-bottom-left-radius: 6px;
     border-bottom-right-radius: 6px;
     border-top-left-radius: 6px;
     border-top-right-radius: 6px;
-    margin-top: 20px;
+    margin-top: 10px;
+
 }
 
-.container .well {
-   padding-left: 0px;
-}
 
 /* Everything but the jumbotron gets side spacing for mobile first views */
 .header,
