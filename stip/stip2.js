@@ -705,6 +705,11 @@ var Stip = (function () {
             parsetype = node.type,
             pdgnode;
             console.log("PDG(" + parsetype + ")" + node);
+
+        if (node.leadingComment) {
+            Comments.handleBeforeComment(node.leadingComment, node)
+        }
+
         switch (parsetype) {
             case 'Program':
                 pdgnode = handleProgram(graphs, node);
@@ -769,8 +774,9 @@ var Stip = (function () {
         }
 
         if (node.leadingComment) {
-            Comments.handleComment(node.leadingComment, pdgnode)
+            Comments.handleAfterComment(node.leadingComment, pdgnode)
         }
+        
         return pdgnode
     }
 

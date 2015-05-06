@@ -6,7 +6,8 @@ var Comments = (function () {
 
     var module = {};
 
-    var handlers = [];
+    var beforeHandlers = [];
+    var afterHandlers  = [];
 
     // Client
     var client_annotation = "@client";
@@ -36,16 +37,26 @@ var Comments = (function () {
                 isClientAnnotated(node.leadingComment))
     }
 
-    var registerHandler = function (handler) {
-        handlers.push(handler)
+    var registerBeforeHandler = function (handler) {
+        beforeHandlers.push(handler)
+    }
+
+    var registerAfterHandler = function (handler) {
+        afterHandlers.push(handler)
     }
     
-    var handleComment = function (comment, pdgNode) {
-        handlers.map(function (handler) {
-            handler(comment, pdgNode)
+    /*  Before handlers are called right before the parsenode is turned into a pdg node */
+    var handleBeforeComment = function (comment, parsenode) {
+        beforeHandlers.map(function (handler) {
+            handler(comment, parsenode)
         })
     }
 
+    var handleAfterComment = function (comment, pdgNode) {
+        afterHandlers.map(function (handler) {
+            handler(comment, pdgNode)
+        })
+    }
 
     var handleBlockComment = function (comment, pdgNodes) {
         pdgNodes.map(function (pdgNode) {
@@ -58,12 +69,14 @@ var Comments = (function () {
         })
     }
 
-    registerHandler(handleBlockComment);
+    registerAfterHandler(handleBlockComment);
 
-    module.handleComment      = handleComment;
-    module.registerHandler    = registerHandler;
-    module.isAssumesAnnotated = isAssumesAnnotated;
-    module.isTierAnnotated    = isTierAnnotated;
+    module.handleBeforeComment   = handleBeforeComment;
+    module.handleAfterComment    = handleAfterComment;
+    module.registerBeforeHandler = registerBeforeHandler;
+    module.registerAfterHandler  = registerAfterHandler;
+    module.isAssumesAnnotated    = isAssumesAnnotated;
+    module.isTierAnnotated       = isTierAnnotated;
 
     return module
 
