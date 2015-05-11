@@ -83,6 +83,21 @@ var esp_isObjExp = function (node) {
     return node.type === 'ObjectExpression'
 }
 
+var esp_isThrowStm = function (node) {
+  return node.type === 'ThrowStatement'
+}
+
+var esp_isTryStm = function (node) {
+  return node.type === 'TryStatement'
+}
+
+var esp_isCatchStm = function (node) {
+  return node.type === 'CatchClause'
+}
+
+var esp_isProgram = function (node) {
+  return node.type === 'Program'
+}
 
 var esp_getCalledName = function (callnode) {
     if (esp_isMemberExpression(callnode.callee)) 
@@ -91,18 +106,15 @@ var esp_getCalledName = function (callnode) {
         return callnode.callee.name
 }
 
-var esp_isConstructorF = function (constr) {
-    var name, func, body;
-    if (esp_isVarDecl(constr)) {
-       name = constr.declarations[0].id.name;
-       func = constr.declarations[0].init;
-    }
-    else if (esp_isFunDecl(constr)) {
-       name = constr.id.name;
-       func = constr;
-    }
-    /* Name is capitalized */
-    return name.charAt(0) === name.charAt(0).toUpperCase() 
+var esp_inTryStatement = function (ast, node) {
+  var parent = Ast.parent(node, ast);
+  while (!esp_isProgram(parent)) {
+    if (esp_isTryStm(parent))
+      break;
+    parent = Ast.parent(parent, ast)
+
+  }
+  return parent
 }
 
 /*  Predicates on type of eval node (Jipda nodes) */

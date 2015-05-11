@@ -221,6 +221,7 @@ var EntryNode = function (id,parsenode) {
   this.clientCalls   = 0;
   this.serverCalls   = 0;
   this.isConstructor = false;
+  this.excExits      = [];
 }
 
 EntryNode.prototype = new PDG_Node();
@@ -236,13 +237,24 @@ EntryNode.prototype.getFormalIn = function () {
 }
 
 EntryNode.prototype.getFormalOut = function () {
-    var edges = this.edges_out.filter(function (e) {
-        return e.to.isFormalNode &&
-               e.to.direction === -1
-    });
-    return edges.map(function(e) {
+    var form_outs = this.edges_out.filter(function (e) {
+        return (e.to.isFormalNode &&
+               e.to.direction === -1) 
+    }).map(function (e) {
         return e.to
+    });
+    var exit_outs = this.excExits.flatMap(function (excExit) {
+        return excExit.getOutEdges().map(function (e) {
+            return e.to
+        }).filter(function (node) {
+            return node.isFormalNode
+        })
     })
+    return form_outs.concat(exit_outs)
+}
+
+EntryNode.prototype.addExcExit = function (node) {
+    this.excExits.push(node)
 }
 
 EntryNode.prototype.hasBody = function () {
@@ -311,13 +323,27 @@ CallNode.prototype.getActualIn = function () {
 }
 
 CallNode.prototype.getActualOut = function () {
-    var edges = this.edges_out.filter(function(e) {
-        return e.to.isActualPNode &&
-                e.to.direction === -1
-    })
-    return edges.map(function(e) {
+    var actual_outs = this.edges_out.filter(function (e) {
+            return (e.to.isActualPNode &&
+                   e.to.direction === -1) 
+        }).map(function (e) {
+            return e.to
+    });
+    var exit_outs = this.edges_out.map(function (e) {
         return e.to
+        }).filter(function (node) {
+            return node.isExitNode
+        }).flatMap(function (node) {
+            return node.edges_out.map(function (e) {return e.to})
+        })
+    var catch_out = this.edges_out.map(function (e) {
+        return e.to
+    }).filter( function (node) {
+        node.isStatementNode && esp_isCatchStm(node.parsenode)
+    }).flatMap(function (n) {
+        return n.edges_out.map(function (e) {return e.to})
     })
+    return actual_outs.concat(exit_outs).concat(catch_out);
 }
 
 CallNode.prototype.getEntryNode = function () {
@@ -409,6 +435,16 @@ ActualPNode.prototype.getCall = function () {
     })
 }
 
+
+/* Normal / exception exit nodes */
+var ExitNode = function (id, parsenode, exception) {
+  PDG_Node.call(this, 'ex'+id);
+  this.parsenode  = parsenode;
+  this.isExitNode = true;
+  this.exception  = exception
+}
+
+ExitNode.prototype = new PDG_Node(); 
 
 //////////////////////////////////////////
 //          Distributed nodes           //

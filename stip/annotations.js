@@ -69,7 +69,7 @@ var Comments = (function () {
         })
     }
 
-    registerAfterHandler(handleBlockComment);
+   // registerAfterHandler(handleBlockComment);
 
     module.handleBeforeComment   = handleBeforeComment;
     module.handleAfterComment    = handleAfterComment;
@@ -77,6 +77,8 @@ var Comments = (function () {
     module.registerAfterHandler  = registerAfterHandler;
     module.isAssumesAnnotated    = isAssumesAnnotated;
     module.isTierAnnotated       = isTierAnnotated;
+    module.isServerAnnotated     = isServerAnnotated;
+    module.isClientAnnotated     = isClientAnnotated;
 
     return module
 

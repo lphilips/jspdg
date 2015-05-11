@@ -85,6 +85,15 @@ var Stip = (function () {
         func_node.body.body.map(function (exp) {
             makePDGNode(graphs, exp, entryNode)
         })
+        /* Exception Exit nodes added along the way should be connected to formal out */
+        entryNode.getFormalOut().map(function (form_out) {
+            var returns = form_out.getInEdges().map(function (e) {return e.from})
+              .filter(function (n) {return esp_isRetStm(n.parsenode)})
+            returns.map(function (returnnode) {
+                  handleFormalOutParameters(graphs, returnnode, entryNode, false);
+            })
+        })
+
         graphs.PDG.reverseEntry(prev_entry);
         return [entryNode];        
     }
@@ -167,6 +176,8 @@ var Stip = (function () {
             stmNode    = PDG.makeStm(node);
     
         addToPDG(stmNode, upnode);
+        /* TEST */
+        makePDGNode(graphs, node.test, stmNode);
         /* CONSEQUENT */
         makePDGNode(graphs, consequent, stmNode)
         /* ALTERNATE */
@@ -184,7 +195,7 @@ var Stip = (function () {
         var stmNode = graphs.PDG.makeStm(node),
             formout;
         addToPDG(stmNode, upnode);
-        formout = handleFormalOutParameters(graphs, stmNode);   
+        formout = handleFormalOutParameters(graphs, stmNode, graphs.PDG.currBodyNode, true);   
         stmNode.addEdgeOut(formout, EDGES.DATA);
         makePDGNode(graphs, node.argument, stmNode);
         return [stmNode];    
@@ -202,6 +213,42 @@ var Stip = (function () {
         return [stmNode];
     }
 
+
+    var handleThrowStatement = function (graphs, node, upnode) {
+        var stmNode   = graphs.PDG.makeStm(node),
+            entryNode = graphs.PDG.currBodyNode,
+            excExit   = graphs.PDG.makeExitNode(node.argument, true);
+        upnode.addEdgeOut(stmNode, EDGES.CONTROL);
+        stmNode.addEdgeOut(excExit, EDGES.CONTROL);
+        entryNode.addExcExit(excExit);
+        return [stmNode];
+    }
+
+    var handleTryStatement = function (graphs, node, upnode) {
+        var stmNode = graphs.PDG.makeStm(node),
+            catches = [];
+        addToPDG(stmNode, upnode);
+        graphs.ATP.addNodes(node, stmNode);
+        /* Catch clause */
+        node.handlers.map(function (handler) {
+            catches = catches.concat(handleCatchClause(graphs, handler, stmNode));
+        })
+        stmNode.catches = catches
+        /* Body of try  */
+        node.block.body.map(function (bodynode) {
+            makePDGNode(graphs, bodynode, stmNode)
+        });
+        return [stmNode];
+    }
+
+
+    var handleCatchClause = function (graphs, node, upnode) {
+        var stmNode   = graphs.PDG.makeStm(node);
+        node.body.body.map(function (bodynode) {
+            makePDGNode(graphs, bodynode, stmNode);
+        });
+        return [stmNode];
+    }
 
     /*       _________________________________ EXPRESSIONS _________________________________
      *
@@ -257,7 +304,7 @@ var Stip = (function () {
     var handleAssignmentExp = function (graphs, node, upnode) {
         var parsenode    = node.expression,
             ident        = esp_isIdentifier(parsenode.left) ? parsenode.left : parsenode.left.object ,
-            stmNode     = graphs.PDG.makeStm(node),
+            stmNode      = graphs.PDG.makeStm(node),
             declaration  = Pdg.declarationOf(ident, graphs.AST),
             pdg_nodes    = graphs.ATP.getNode(declaration);
 
@@ -417,7 +464,11 @@ var Stip = (function () {
                     a.addEdgeOut(f, EDGES.PARIN);
             }
             /* Actual out parameter */
-            if (!name.startsWith('anonf')) {
+            if (entry.excExits.length > 0) {
+                /* Call made in try/catch statement? */
+                handleCallwithCatch(graphs, callnode, entry, upnode)
+            }
+            else if (!name.startsWith('anonf')) {
                 entry.getFormalOut().map(function (formal_out) {
                 var actual_out = new ActualPNode(graphs.PDG.funIndex, -1);
                 if (!upnode.isEntryNode || upnode.isObjectEntry)
@@ -439,6 +490,7 @@ var Stip = (function () {
             /* Add summary edges between a_in and a_out */
             handleSummaryEdges(callnode, entry);
             postRemoteDep(callnode.getActualIn());
+
             if(!name.startsWith('anonf'))
                 entry.addCall(callnode);
         }
@@ -462,6 +514,46 @@ var Stip = (function () {
         }
     }
 
+    var handleCallwithCatch = function (graphs, callnode, entrynode, upnode) {
+        var excExits   = entrynode.excExits,
+            trystm     = esp_inTryStatement(graphs.AST, callnode.parsenode),
+            form_outs  = entrynode.getFormalOut().filter(function (f_out) {
+                return f_out.getInEdges().filter(function (e) {
+                    return e.from.isExitNode && !e.from.exception
+                }).length > 0
+            }),
+            normalExit = graphs.PDG.makeExitNode(undefined, false),
+            toUpnode   = function (actual_out) {
+                  if (!upnode.isEntryNode || upnode.isObjectEntry)
+                    addDataDep(actual_out, upnode)
+                  else
+                    addDataDep(actual_out, callnode)
+                },
+            trynode, a_out;
+        excExits.map(function (excExit) {
+            var form_out = excExit.getOutEdges()
+                            .map(function (e) {return e.to})
+                            .filter(function (n) {return n.isFormalNode})[0];
+            if (esp_isTryStm(trystm)) {
+                trynode = graphs.ATP.getNode(trystm)[0];
+                if (trynode) {
+                    trynode.catches.map(function (catchnode) {
+                        a_out = new ActualPNode(++graphs.PDG.funIndex, -1);
+                        addToPDG(catchnode, callnode)
+                        catchnode.addEdgeOut(a_out, EDGES.CONTROL)
+                        form_out.addEdgeOut(a_out, EDGES.PAROUT) // TODO remote par out as well
+                        toUpnode(a_out)
+                    })
+                }
+            }
+        })
+        a_out = new ActualPNode(++graphs.PDG.funIndex, -1);
+        normalExit.addEdgeOut(a_out, EDGES.CONTROL);
+        form_outs[0].addEdgeOut(a_out, EDGES.PAROUT);
+        callnode.addEdgeOut(normalExit, EDGES.CONTROL);
+        toUpnode(a_out);
+    }
+
     /* FORMAL PARAMETERS of a function definition.
      * This is handled on AST level (parsenode.params) */
     var handleFormalParameters = function (graphs, node, entry) {
@@ -470,18 +562,38 @@ var Stip = (function () {
             params    = entry.parsenode.params;
         for (var i = 0; i < nr_params; i++) {
             var param    = params[i],
-                fin_node = new FormalPNode(PDG.funIndex, param.name, 1);
-            PDG.funIndex++;
+                fin_node = graphs.PDG.makeFormalNode(param.name, 1);
             entry.addEdgeOut(fin_node, EDGES.CONTROL); 
         }
     }
 
-    var handleFormalOutParameters = function (graphs, stmNode) {
+    /* Function is called :
+     * 1. When formal_out parameter should be added (e.g. return statement)
+     * 2. When function has been evaluated and there were throw statements in there
+     *    In this case this function makes the former formal_out parameter a normal exit out parameter.
+     */
+    var handleFormalOutParameters = function (graphs, stmNode, entry, recheck) {
         var PDG      = graphs.PDG,
-            entry    = PDG.currBodyNode,
-            form_out = new FormalPNode(PDG.funIndex, stmNode.parsenode.toString(), -1);
-        PDG.funIndex++;
-        entry.addEdgeOut(form_out, EDGES.CONTROL);
+            form_out = graphs.PDG.makeFormalNode(stmNode.parsenode, -1),
+            normalExit;
+        /* If function has throw statements, normal exit node should  be added 
+           + formal out for every exception exit node as well */
+        if (entry.excExits.length > 0) {
+            entry.excExits.map(function (excExit) {
+                var form_out = graphs.PDG.makeFormalNode(stmNode.parsenode, -1);
+                excExit.addEdgeOut(form_out, EDGES.CONTROL);
+            })
+            /* If recheck, remove old formal_out parameter */
+            stmNode.edges_out = stmNode.edges_out.filter(function (e) {
+                return e.equalsType(EDGES.CONTROL) && !e.to.isFormalNode 
+            })
+            normalExit = graphs.PDG.makeExitNode(stmNode.parsenode, false);
+            normalExit.addEdgeOut(form_out, EDGES.CONTROL);
+            entry.excExits.push(normalExit);
+            stmNode.addEdgeOut(normalExit, EDGES.CONTROL);
+        }
+        else if (recheck)
+            entry.addEdgeOut(form_out, EDGES.CONTROL);
         return form_out;
     }
 
@@ -609,8 +721,17 @@ var Stip = (function () {
 
     /* Auxiliary Functions to add correct edges to nodes, etc. */
     var addToPDG = function (node, upnode) {
+        var comment;
+        if (esp_isBlockStm(node.parsenode) && Comments.isTierAnnotated(node.parsenode)) { 
+            comment = node.parsenode.leadingComment;
+            if (Comments.isClientAnnotated(comment)) 
+                graphs.PDG.addClientStm(node)
+            else if (Comments.isServerAnnotated(comment))
+                graphs.PDG.addServerStm(node)
+        }
+
         /* Block with tier annotation is handled separately */
-        if (!Comments.isTierAnnotated(node.parsenode)) { 
+        else {
             if (upnode.isObjectEntry)
                 upnode.addEdgeOut(node, EDGES.OBJMEMBER)
             else
@@ -660,9 +781,9 @@ var Stip = (function () {
     var postRemoteDep = function (params) {
         params.map( function (param) {
             var datadeps = param.getInEdges(EDGES.DATA).concat(param.getInEdges(EDGES.REMOTED)),
-                calldeps = param.edges_out.filter( function (e) {
-                    return e.to.isCallNode  
-                }).map( function (e) { return e.to});
+                calldeps = param.getInEdges().filter( function (e) {
+                    return e.from.isCallNode  
+                }).map( function (e) { return e.from});
 
             var paramtype = param.getdtype(true);   
 
@@ -688,8 +809,8 @@ var Stip = (function () {
                                 e.type = EDGES.CALL
                     });
                 /* perform post check recursively! */
-                var a_ins = n.getActualIn();
-                postRemoteDep(a_ins);
+               // var a_ins = n.getActualIn();
+                //postRemoteDep(a_ins);
             })
         })
     }
@@ -771,12 +892,21 @@ var Stip = (function () {
             case 'NewExpression' :
                 pdgnode = handleExpressionStatement(graphs, node, upnode);
                 break;
+            case 'ThrowStatement' :
+                pdgnode = handleThrowStatement(graphs, node, upnode);
+                break;
+            case 'TryStatement' :
+                pdgnode = handleTryStatement(graphs, node, upnode);
+                break;
+            case 'CatchClause' :
+                pdgnode = handleCatchClause(graphs, node, upnode);
+                break;
         }
 
         if (node.leadingComment) {
             Comments.handleAfterComment(node.leadingComment, pdgnode)
         }
-        
+
         return pdgnode
     }
 

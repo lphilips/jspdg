@@ -28,7 +28,8 @@ function PDG () {
   this.calIndex     = 0;
   this.funIndex     = 0;
   this.proIndex     = 0;
-  this.nodes         = [];
+  this.exiIndex     = 0;
+  this.nodes        = [];
 }
 
 PDG.prototype.reverseEntry = function (node) {
@@ -59,6 +60,14 @@ PDG.prototype.makeObjEntry = function (node) {
     return new ObjectEntryNode(++this.proIndex, node);
 }
 
+PDG.prototype.makeExitNode = function (node, exception) {
+  return new ExitNode(++this.exiIndex, node, exception);
+}
+
+PDG.prototype.makeFormalNode = function (node, direction) {
+  return new FormalPNode(++this.funIndex, node.toString(), direction);
+}
+
 PDG.prototype.changeEntry = function (node) {
   this.entryNode = node;
   this.currBodyNode = node;
@@ -74,7 +83,6 @@ PDG.prototype.getEntryNode = function (parsenode) {
         filtered = entries.filter(function (n) {
             return n.parsenode === parsenode
     });
-
     return filtered[0];
 }
 

@@ -59,15 +59,43 @@ body {
   margin-top: 28px;
 }
 
+.node.enter rect {
+  stroke: #5A5A5A;
+  stroke: #fff;
+}
+
 .node.enter.e rect {
-  fill: #00ffd0;
+  fill: #FFB90F;
+  fill-opacity: 0.2;
 }
 
 .node.enter.D rect {
   fill: #A4E666;
+  stroke: #fff;
+  fill-opacity: 0.2;
 }
+
+.node.enter.server rect {
+  stroke : #A4E666;
+}
+
+.node.enter.client rect {
+  stroke : #00ffd0;
+}
+
+.node.enter.D.client rect {
+  fill : #00ffd0;
+  fill-opacity: 0.2;
+}
+
 .node.sliced rect {
   fill: #FF4D0E;
+  fill-opacity: 0.2;
+}
+
+.node.enter.error rect {
+  fill: #FB0005;
+  fill-opacity: 0.2;
 }
 
 text {
@@ -75,9 +103,6 @@ text {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serf;
   font-size: 14px;
 }
-
-
-
 
 .edge.control {
   stroke: #000;
@@ -156,6 +181,7 @@ div.tooltip {
     min-height: 150px;
     white-space: pre;
 }
+
 div.fixed {
     position:fixed;
 }

@@ -31,10 +31,11 @@ function createPDGGraph (PDG)
       })
 
       var states = nodes.map( function (node, id) {
-          var label   = node.id,
-              parsed  = node.parsenode,
-              dtype   = node.getdtype && node.getdtype() ? node.getdtype().name : false,
-              tooltip = parsed ? parsed.toString() :  "";
+          var label    = node.id,
+              parsed   = node.parsenode,
+              dtype    = node.getdtype && node.getdtype() ? node.getdtype().name : false,
+              tooltip  = parsed ? parsed.toString() :  "",
+              cssclass = label.slice(0,1) + " " + dtype;
           if(node.isActualPNode) 
             node.value ? label += " " + node.value : label;
           if(node.isFormalNode)
@@ -45,11 +46,19 @@ function createPDGGraph (PDG)
             label += "[C]"
           if(dtype === "shared")
             label += "[Sh]"
-
           if(node.parsenode) 
               label += " " + ((parsed && parsed.toString().length > 10) ? parsed.toString().slice(0,10)+"..." : parsed) ;
-          
-          return {id: id, label: label, description: node.parsenode ? node.parsenode.toString() : ""}
+          if (node.isStatementNode && 
+            (esp_isThrowStm(node.parsenode) ||
+              esp_isTryStm(node.parsenode) ||
+              esp_isCatchStm(node.parsenode))) {
+            cssclass += " error"
+          }
+          node.cssclass = cssclass;
+          return {
+            id: id, 
+            label: label, 
+            description: node.parsenode ? node.parsenode.toString() : ""}
         })
     var edgeId = 0;
     var transitions = edges.map(function (edge) {
@@ -61,13 +70,15 @@ function createPDGGraph (PDG)
       return {id: edgeId++, source: Arrays.indexOf(edge.from, nodes), target: Arrays.indexOf(edge.to, nodes),
         label: label}
     });
-    var graph = new dagreD3.Digraph();
+
+    var graph = new dagreD3.Digraph({compound: true});
+
     states.forEach(function (node) {
       graph.addNode(node.id, {label: node.label, description : node.description})
     });
     transitions.forEach(function (edge) {
       graph.addEdge(edge.id, edge.source, edge.target, {label: edge.label})
-    });
+    }); 
     return [graph, nodes, edges];
    }
    
@@ -83,6 +94,7 @@ function createPDGGraph (PDG)
       var layout = dagreD3.layout()
                     .nodeSep(4)
                     .edgeSep(5)
+                    .rankSep(15)
                    // .rankDir("LR");
       renderer.layout(layout);
 
@@ -94,7 +106,7 @@ function createPDGGraph (PDG)
 
             var state = states[this.__data__ ];
 
-            $(this).attr("class", "node enter " + state.id.slice(0,1))
+            $(this).attr("class", "node enter " + state.cssclass)
               .attr("title" ,  state.parsenode ? state.parsenode.toString() : "")
               .on("mouseover", function () {
                   var tooltip = d3.selectAll(".tooltip:not(.css)");

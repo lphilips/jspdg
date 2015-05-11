@@ -239,6 +239,81 @@ var Nodeify = (function () {
         }
     }
 
+    var nodeifyIfStm = function (sliced) {
+        var node   = sliced.node,
+            conseq = node.getOutEdges(EDGES.CONTROL)
+                        .filter(function (e) {return e.label})
+                        .map(function (e) {return e.to}),
+            altern = node.getOutEdges(EDGES.CONTROL)
+                        .filter(function (e) {return !e.label})
+                        .map(function (e) {return e.to});
+        conseq.map(function (consnode) {
+            var toSlice = cloneSliced(sliced, sliced.nodes, consnode);
+            var jsnode = toNode(toSlice);
+            sliced.nodes = removeNode(jsnode.nodes, consnode);
+            node.parsenode.consequent = jsnode.parsednode;
+        })
+        altern.map(function (altnode) {
+            var toSlice = cloneSliced(sliced, sliced.nodes, altnode);
+            var jsnode = toNode(toSlice);
+            slicednodes = removeNode(jsnode.nodes, altnode);
+            node.parsenode.alternate = jsnode.parsednode;
+        })
+        sliced.nodes = slicednodes.remove(node);
+        return new Sliced(sliced.nodes, node, node.parsenode); 
+    }
+
+
+
+   var nodeifyTryStm = function (sliced) {
+      var block    = [],
+        node       = sliced.node,
+        blocknodes = node.getOutEdges(EDGES.CONTROL)
+                    .map(function (e) {return e.to});
+        calls      = blocknodes.filter(function (n) { return n.isCallNode}),
+        catches    = calls.flatMap(function (call) {
+                     return call.getOutEdges(EDGES.CONTROL)
+                        .map(function (e) {return e.to})
+                        .filter(function (n) {
+                            return ! n.isExitNode && 
+                              n.parsenode && 
+                              esp_isCatchStm(n.parsenode)});
+                    });
+        blocknodes.map(function (node) {
+            var toSlice = cloneSliced(sliced, sliced.nodes, node);
+            var blocknode = toNode(toSlice);
+            sliced.nodes = removeNode(blocknode.nodes, node);
+            block.push(blocknode.parsednode);
+        });
+        catches.map(function (node) {
+            var toSlice = cloneSliced(sliced, sliced.nodes, node);
+            var catchnode = toNode(toSlice);
+            sliced.nodes = removeNode(catchnode.nodes, node);
+        })
+
+        node.parsenode.block.body = block;
+        sliced.nodes = sliced.nodes.remove(node);
+        return new Sliced(sliced.nodes, node, node.parsenode);
+    }
+
+
+    var nodeifyThrowStm = function (sliced) {
+        var node    = sliced.node,
+            excexit = node.getOutEdges(EDGES.CONTROL)
+                        .map(function (e) {return e.to})
+                        .filter(function (n) {return n.isExitNode});
+        excexit.map(function (node) {
+            var toSlice = cloneSliced(sliced, sliced.nodes, node);
+            var exitnode = toNode(toSlice);
+            node.parsenode.argument = exitnode.parsednode;
+            sliced.nodes = removeNode(exitnode.nodes,node);    
+            sliced.methods = bodynode.methods;
+        }) 
+        sliced.nodes = sliced.nodes.remove(node);
+        return new Sliced(sliced.nodes, node, node.parsenode);
+    }
+
+
     /* Currently same primitive implementations as meteor */
     var nodeifyPrimitive = function (sliced, actual_ins) {
         var node        = sliced.node,
@@ -359,6 +434,12 @@ var Nodeify = (function () {
             return nodeifyBlockStm(sliced);
           case 'CallExpression':
             return nodeifyCallExp(sliced);
+          case 'IfStatement':
+            return nodeifyIfStm(sliced);
+          case 'ThrowStatement' :
+            return nodeifyThrowStm(sliced);
+          case 'TryStatement' :
+            return nodeifyTryStm(sliced);
           default: 
             if(esp_isExpStm(node.parsenode) && esp_isAssignmentExp(node.parsenode.expression))
                 return nodeifyVarDecl(sliced)

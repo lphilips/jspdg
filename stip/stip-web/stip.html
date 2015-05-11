@@ -88,7 +88,6 @@
     <script type="text/javascript" src="PDGgraph.js"></script>
     <script type="text/javascript" src="pdgGraphs.js"></script>
     <script type="text/javascript" src="lib/viz.js"></script>
-    <script type="text/javascript" src="js/jquery.panzoom.js"></script>
     <script type="text/javascript">
 
     // define print method for JIPDA
@@ -116,7 +115,7 @@
             Stip.start(graphs);
             var g = createPDGGraph(graphs.PDG);
 
-            drawPDGGraph(g[0], g[1], g[2]);
+            drawPDGGraph(g[0], g[1], g[2], g[3]);
             return graphs; 
         } catch (err) {
             console.log(err.message);
@@ -247,6 +246,7 @@
 
         editor.setValue(Examples.tiersplitexs[0]);
         editor.gotoLine(0);
+        editor.focus();
         editor.commands.addCommand({
             name: 'split',
             bindKey: {win: 'Ctrl-s', mac: 'Command-s'},
@@ -422,15 +422,10 @@
                          <div id="error" style="color: #ff0606;"> </div>
                          <div id="graphcont">
                             <div><!-- id="graph" class="container panzoom"> -->
-                                
-                                        <svg>
-                                            <defs>
-                                            
-                                            </defs> 
-                                            <g> </g>
-                                        </svg>
-                                        <div class="fixed tooltip"></div>
-
+                                <svg>
+                                    <g transform="translate(20,20)"/>
+                                </svg>
+                                <div class="fixed tooltip"></div>
                             </div>
                         </div>
                     </div> <!-- ./stip -->
