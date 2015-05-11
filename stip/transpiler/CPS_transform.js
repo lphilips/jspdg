@@ -60,7 +60,9 @@ var CPSTransform = (function () {
                     vardecls  = node.edges_in.filter(function (e) {
                                 return  e.equalsType(EDGES.DATA) && e.from.parsenode && 
                                         e.from.cnt !== upnode.cnt &&
-                                        esp_isVarDecl(e.from.parsenode) //TODO : assignment?
+                                        ( esp_isVarDecl(e.from.parsenode) ||
+                                          esp_isVarDeclarator(e.from.parsenode) ||
+                                          esp_isAssignmentExp(e.from.parsenode)) 
                             }).map(function (e) { return e.from });
 
                     datadep = datadep.concat(calldeps);
