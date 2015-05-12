@@ -262,7 +262,8 @@ var Stip = (function () {
             /* returns true for entry node, if stm or for stm as parent */
             hasEntryParent = upnode.isEntryNode ||
                        (upnode.parsenode && (esp_isIfStm(upnode.parsenode) ||
-                       esp_isForStm(upnode.parsenode))),
+                       esp_isForStm(upnode.parsenode) || esp_isCatchStm(upnode.parsenode) ||
+                       esp_isThrowStm(upnode.parsenode))),
             form_out;
 
         /* LEFT expression */
@@ -534,9 +535,9 @@ var Stip = (function () {
             var form_out = excExit.getOutEdges()
                             .map(function (e) {return e.to})
                             .filter(function (n) {return n.isFormalNode})[0];
-            if (esp_isTryStm(trystm)) {
+            if (esp_isTryStm(trystm) && excExit.exception) {
                 trynode = graphs.ATP.getNode(trystm)[0];
-                if (trynode) {
+                if (trynode && trynode.catches) {
                     trynode.catches.map(function (catchnode) {
                         a_out = new ActualPNode(++graphs.PDG.funIndex, -1);
                         addToPDG(catchnode, callnode)
@@ -578,7 +579,7 @@ var Stip = (function () {
             normalExit;
         /* If function has throw statements, normal exit node should  be added 
            + formal out for every exception exit node as well */
-        if (entry.excExits.length > 0) {
+        if (entry.excExits.length > 0 && !recheck) {
             entry.excExits.map(function (excExit) {
                 var form_out = graphs.PDG.makeFormalNode(stmNode.parsenode, -1);
                 excExit.addEdgeOut(form_out, EDGES.CONTROL);

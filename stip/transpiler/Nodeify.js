@@ -106,6 +106,21 @@ var Nodeify = (function () {
         return sliced;
     }
 
+    /* Binary Expression */
+    var nodeifyBinExp = function (sliced) {
+        var node = sliced.node,
+            call = node.getOutEdges(EDGES.CONTROL)
+                       .filter(function (e) {
+                        return e.to.isCallNode
+                       });
+        if (call.length > 0) {
+            var transformer = makeTransformer(sliced.option),
+                cpsvar       = CPSTransform.transformExp(node, sliced.nodes, transformer);
+            return new Sliced(cpsvar[0], node, cpsvar[1].parsenode)
+        }
+        return new Sliced(slicednodes, node, node.parsenode)
+    }
+
     /* Function expression */
     var nodeifyFunExp = function (sliced) {
         /* Formal parameters */
@@ -265,20 +280,21 @@ var Nodeify = (function () {
 
 
 
-   var nodeifyTryStm = function (sliced) {
-      var block    = [],
-        node       = sliced.node,
-        blocknodes = node.getOutEdges(EDGES.CONTROL)
-                    .map(function (e) {return e.to});
-        calls      = blocknodes.filter(function (n) { return n.isCallNode}),
-        catches    = calls.flatMap(function (call) {
-                     return call.getOutEdges(EDGES.CONTROL)
-                        .map(function (e) {return e.to})
-                        .filter(function (n) {
-                            return ! n.isExitNode && 
-                              n.parsenode && 
-                              esp_isCatchStm(n.parsenode)});
-                    });
+    var nodeifyTryStm = function (sliced) {
+        var block      = [],
+            node       = sliced.node,
+            blocknodes = node.getOutEdges(EDGES.CONTROL)
+                             .map(function (e) {return e.to}),
+            calls      = blocknodes.filter(function (n) { return n.isCallNode}),
+            catches    = calls.flatMap(function (call) {
+                            return call.getOutEdges(EDGES.CONTROL)
+                                      .map(function (e) {return e.to})
+                                      .filter(function (n) {
+                                         return ! n.isExitNode && 
+                                           n.parsenode && 
+                                           esp_isCatchStm(n.parsenode)})
+                        }),
+            handler;
         blocknodes.map(function (node) {
             var toSlice = cloneSliced(sliced, sliced.nodes, node);
             var blocknode = toNode(toSlice);
@@ -288,12 +304,36 @@ var Nodeify = (function () {
         catches.map(function (node) {
             var toSlice = cloneSliced(sliced, sliced.nodes, node);
             var catchnode = toNode(toSlice);
+            handler = catchnode.parsednode;
             sliced.nodes = removeNode(catchnode.nodes, node);
         })
-
+        node.parsenode.handler = handler;
         node.parsenode.block.body = block;
         sliced.nodes = sliced.nodes.remove(node);
         return new Sliced(sliced.nodes, node, node.parsenode);
+    }
+
+    var nodeifyCatchStm = function (sliced) {
+        var node      = sliced.node,
+            bodynodes = node.getOutEdges(EDGES.CONTROL)
+                        .map(function (e) {
+                            return e.to
+                        }).filter( function (n) {
+                            return  !n.isActualPNode
+                        }),
+            body      = [];
+        bodynodes.map(function (n) {
+            var toSlice = cloneSliced(sliced, sliced.nodes, n);
+            var bodynode = toNode(toSlice);
+            if( slicedContains(sliced.nodes, n) ) {
+                    body.push(bodynode.parsednode)
+            }
+            sliced.nodes = removeNode(bodynode.nodes,n);    
+            sliced.methods = bodynode.methods;
+        })
+
+        node.parsenode.body.body = body;
+        return new Sliced(sliced.nodes, node, node.parsenode)
     }
 
 
@@ -307,7 +347,7 @@ var Nodeify = (function () {
             var exitnode = toNode(toSlice);
             node.parsenode.argument = exitnode.parsednode;
             sliced.nodes = removeNode(exitnode.nodes,node);    
-            sliced.methods = bodynode.methods;
+            sliced.methods = exitnode.methods;
         }) 
         sliced.nodes = sliced.nodes.remove(node);
         return new Sliced(sliced.nodes, node, node.parsenode);
@@ -440,6 +480,8 @@ var Nodeify = (function () {
             return nodeifyThrowStm(sliced);
           case 'TryStatement' :
             return nodeifyTryStm(sliced);
+          case 'CatchClause' :
+            return nodeifyCatchStm(sliced);
           default: 
             if(esp_isExpStm(node.parsenode) && esp_isAssignmentExp(node.parsenode.expression))
                 return nodeifyVarDecl(sliced)
