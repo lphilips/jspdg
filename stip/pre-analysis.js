@@ -181,7 +181,8 @@ var pre_analyse = function (src) {
     })
 
     return  { 
-        src      :   src,
-        assumes  : assumes
+        src        :   src,
+        assumes    : assumes,
+        primitives : ["$", "jQuery", "console"]
     };
 }

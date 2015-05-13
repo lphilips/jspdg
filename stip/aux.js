@@ -221,16 +221,6 @@ var declarations = function (graph, s, name) {
 
 }
 
-/*  Tierless primitives */
-var primitives = ['read', 'print', 'broadcast', 'subscribe', 'installL'];
-var isPrimitiveCall = function (node) {
-    var checkName = function (name) {
-        return  contains(primitives, name)
-    }
-    return  (node.isCallNode &&  checkName(node.name)) || 
-            (node.node && node.node.type === "CallExpression" && checkName(node.node.callee.name)) 
-}
-
 Array.prototype.memberAt =
     function (x)
     {

@@ -208,8 +208,9 @@ var Nodeify = (function () {
             sliced.nodes = sliced.nodes.remove(a_out)
         });
 
-        if(isPrimitiveCall(node)) {
-            return nodeifyPrimitive(sliced, actual_ins)
+        if(graphs.ATP.isPrimitive(node.parsenode.callee)) {
+            sliced.parsednode = parent;
+            return sliced;
         }
         /* Perform cloud types transformations on arguments */
         //node.parsenode.arguments = CTTransform.transformArguments(node.parsenode.arguments, sliced.cloudtypes);

@@ -72,7 +72,6 @@
     <script type="text/javascript" src="lib/jslint.js"></script>
     <script type="text/javascript" src="js/jslinttool.js"></script>
     <script type="text/javascript" src="../stip.js"></script>
-    <script type="text/javascript" src="../stip2.js"></script>
     <script type="text/javascript" src="../transpiler/CPS_transform.js"></script>
     <script type="text/javascript" src="../transpiler/Promise_transform.js"></script>
     <script type="text/javascript" src="../transpiler/CT_transform.js"></script>
@@ -111,7 +110,7 @@
             var src = editor.getSession().getValue(),
                 ast = Ast.createAst(preanalysis.src, {loc:true, owningComments: true});
             $("#graph").empty();
-            graphs = new Stip.Graphs(ast, src);
+            graphs = new Stip.Graphs(ast, src, preanalysis.primitives);
             Stip.start(graphs);
             var g = createPDGGraph(graphs.PDG);
 

@@ -425,88 +425,76 @@ var Stip = (function () {
         // Handle actual parameters of this call
         var callcnt   = ++cnt,
             parsenode = node.expression ? node.expression : node,
-            primitive = graphs.ATP.isPrimitive(parsenode.callee),
+            primitive = isPrimitiveCall(node),
             callnode  = graphs.PDG.makeCall(node);
         
         callnode.name = parsenode.callee.toString();
         if (primitive) {
+            callnode = PDG.makeCall(node);
+            callnode.cnt = callcnt;
             callnode.name = esp_getCalledName(parsenode);
-            upnode.addEdgeOut(callnode, EDGES.CONTROL);
             handleActualParameters(graphs, parsenode, callnode);
-            upnode.primitive = true;
-            return [callnode]
+            return [contnode, callnode]
         }
-        // Callee = member expression en de left hand side, declaration = primitive set
-        /*
-         *  TODO
-         */
-        if (esp_isMemberExpression(parsenode.callee)) {
-             var declaration = Pdg.declarationOf(parsenode.callee.object, graphs.AST),
-                 PDG_node = graphs.ATP.getNode(declaration)[0];
-            if (PDG_node && PDG_node.primitive) {
-                callnode.name = esp_getCalledName(parsenode);
+        else {
+            var preventry = graphs.PDG.entryNode,
+                calledf   = Pdg.functionsCalled(node, graphs.AST).values(),
+                entry     = graphs.PDG.getEntryNode(calledf[0]),
+                formals   = entry.getFormalIn();
+            
+            /* Add call edge to entry node 
+               Anonymous function created for callback arguments 
+               are only called to evaluate their body. This should not
+               be reflected in the pdg, so no edge to their
+               entry node */
+            if (!callnode.name.startsWith('anonf')) {
                 upnode.addEdgeOut(callnode, EDGES.CONTROL);
-                handleActualParameters(graphs, parsenode, callnode);
-                return [callnode]
-            }
-        }
-        var preventry = graphs.PDG.entryNode,
-            calledf   = Pdg.functionsCalled(node, graphs.AST).values(),
-            entry     = graphs.PDG.getEntryNode(calledf[0]),
-            formals   = entry.getFormalIn();
-        
-        /* Add call edge to entry node 
-           Anonymous function created for callback arguments 
-           are only called to evaluate their body. This should not
-           be reflected in the pdg, so no edge to their
-           entry node */
-        if (!callnode.name.startsWith('anonf')) {
-            upnode.addEdgeOut(callnode, EDGES.CONTROL);
-            addCallDep(callnode, entry);
-        }   
-        handleActualParameters(graphs, parsenode, callnode);
-        /* Bind the actual and formal parameters */
-        for (var i = 0; i < callnode.getActualIn().length; i++) {
-            var a = callnode.getActualIn()[i],
-                f = formals[i];
-            // actual-in parameter -> formal-in parameter
-            if (!a.equalsdtype(f) || 
-                !a.isSharedNode() ||
-                !f.isSharedNode())
-                a.addEdgeOut(f, EDGES.REMOTEPARIN)
-            else
-                a.addEdgeOut(f, EDGES.PARIN);
-        }
-        /* Actual out parameter */
-        if (entry.excExits.length > 0) {
-            /* Call made in try/catch statement? */
-            handleCallwithCatch(graphs, callnode, entry, upnode)
-        }
-        else if (!name.startsWith('anonf')) {
-            entry.getFormalOut().map(function (formal_out) {
-            var actual_out = new ActualPNode(graphs.PDG.funIndex, -1);
-            if (!upnode.isEntryNode || upnode.isObjectEntry)
-                addDataDep(actual_out, upnode)
-            else
-                addDataDep(actual_out, callnode)
-            graphs.PDG.funIndex++;
-            /* Formal-out parameter -> actual-out parameter */
-            if (!actual_out.equalsdtype(formal_out) || 
-                !actual_out.isSharedNode() ||
-                !formal_out.isSharedNode () )
-                    formal_out.addEdgeOut(actual_out, EDGES.REMOTEPAROUT); 
+                addCallDep(callnode, entry);
+            }   
+            handleActualParameters(graphs, parsenode, callnode);
+            /* Bind the actual and formal parameters */
+            for (var i = 0; i < callnode.getActualIn().length; i++) {
+                var a = callnode.getActualIn()[i],
+                    f = formals[i];
+                // actual-in parameter -> formal-in parameter
+                if (!a.equalsdtype(f) || 
+                    !a.isSharedNode() ||
+                    !f.isSharedNode())
+                    a.addEdgeOut(f, EDGES.REMOTEPARIN)
                 else
-                    formal_out.addEdgeOut(actual_out, EDGES.PAROUT);
-            callnode.addEdgeOut(actual_out, EDGES.CONTROL);  
-            })
+                    a.addEdgeOut(f, EDGES.PARIN);
+            }
+            /* Actual out parameter */
+            if (entry.excExits.length > 0) {
+                /* Call made in try/catch statement? */
+                handleCallwithCatch(graphs, callnode, entry, upnode)
+            }
+            else if (!name.startsWith('anonf')) {
+                entry.getFormalOut().map(function (formal_out) {
+                var actual_out = new ActualPNode(graphs.PDG.funIndex, -1);
+                if (!upnode.isEntryNode || upnode.isObjectEntry)
+                    addDataDep(actual_out, upnode)
+                else
+                    addDataDep(actual_out, callnode)
+                graphs.PDG.funIndex++;
+                /* Formal-out parameter -> actual-out parameter */
+                if (!actual_out.equalsdtype(formal_out) || 
+                    !actual_out.isSharedNode() ||
+                    !formal_out.isSharedNode () )
+                        formal_out.addEdgeOut(actual_out, EDGES.REMOTEPAROUT); 
+                    else
+                        formal_out.addEdgeOut(actual_out, EDGES.PAROUT);
+                callnode.addEdgeOut(actual_out, EDGES.CONTROL);  
+                })
+    
+            }
+            /* Add summary edges between a_in and a_out */
+            handleSummaryEdges(callnode, entry);
+            postRemoteDep(callnode.getActualIn());
 
+            if(!name.startsWith('anonf'))
+                entry.addCall(callnode);
         }
-        /* Add summary edges between a_in and a_out */
-        handleSummaryEdges(callnode, entry);
-        postRemoteDep(callnode.getActualIn());
-
-        if(!name.startsWith('anonf'))
-            entry.addCall(callnode);
         return [callnode]
     }
 
@@ -675,48 +663,44 @@ var Stip = (function () {
     var handleIdentifier = function (graphs, node, upnode) {
         var parent      = Ast.parent(node, graphs.AST),
             formp       = graphs.PDG.entryNode.getFormalIn(),
-            isPrimitive = graphs.ATP.isPrimitive(node),
-            declaration;
-        if (!isPrimitive) {
             declaration = Pdg.declarationOf(node, graphs.AST);
-            /* Accessing object */
-            if (esp_isMemberExpression(parent)) {
-                var objectentry = upnode.enclosingObjectEntry(),
-                    memberstm   = objectentry ? objectentry.getMember(node) : false;
-                if (memberstm) 
-                    memberstm.addEdgeOut(upnode, EDGES.DATA);
-            }
-            /* Identifier in left or righ-hand side of assignment */
-            else if (esp_isAssignmentExp(parent)) {
-                /* Currently handling constructor function */
-                if (graphs.PDG.entryNode.isConstructor && esp_isMemberExpression(parent.left)) {
-                    formp = formp.filter( function (f) {
-                        return f.name === node.name
-                    })
-                    formp.map(function (f_in) {
-                        addDataDep(f_in, upnode)
-                    })
-                }
-                /* right-hand side */
-                if (upnode.isObjectEntry && esp_isMemberExpression(parent.left)) {
-                    upnode.addMember( parent.left.property.name, graphs.PDG.makeStm(node));
-                }
-            }
-            else {
-                if (declaration) {
-                var PDG_nodes = graphs.ATP.getNode(declaration);
-                    if (PDG_nodes && PDG_nodes.length > 0 && upnode) 
-                        PDG_nodes.map( function (vardecl) {
-                            addDataDep(vardecl, upnode)
-                        })
-                }   
+        /* Accessing object */
+        if (esp_isMemberExpression(parent)) {
+            var objectentry = upnode.enclosingObjectEntry(),
+                memberstm   = objectentry ? objectentry.getMember(node) : false;
+            if (memberstm) 
+                memberstm.addEdgeOut(upnode, EDGES.DATA);
+        }
+        /* Identifier in left or righ-hand side of assignment */
+        else if (esp_isAssignmentExp(parent)) {
+            /* Currently handling constructor function */
+            if (graphs.PDG.entryNode.isConstructor && esp_isMemberExpression(parent.left)) {
                 formp = formp.filter( function (f) {
-                    return f.name === node.name;
-                });
+                    return f.name === node.name
+                })
                 formp.map(function (f_in) {
                     addDataDep(f_in, upnode)
                 })
             }
+            /* right-hand side */
+            if (upnode.isObjectEntry && esp_isMemberExpression(parent.left)) {
+                upnode.addMember( parent.left.property.name, graphs.PDG.makeStm(node));
+            }
+        }
+        else {
+            if (declaration) {
+            var PDG_nodes = graphs.ATP.getNode(declaration);
+                if (PDG_nodes && PDG_nodes.length > 0 && upnode) 
+                    PDG_nodes.map( function (vardecl) {
+                        addDataDep(vardecl, upnode)
+                    })
+            }   
+            formp = formp.filter( function (f) {
+                return f.name === node.name;
+            });
+            formp.map(function (f_in) {
+                addDataDep(f_in, upnode)
+            })
         }
     }
 
@@ -928,6 +912,8 @@ var Stip = (function () {
     }
 
 
+
+
     /* Graph */
     function ASTToPDGMap () {
         this._nodes = HashMap.empty(131);
@@ -949,16 +935,12 @@ var Stip = (function () {
         return res;
     }
 
-    ASTToPDGMap.prototype.isPrimitive = function (identifier) {
-        return this.primitives.indexOf(identifier.name) >= 0;
-    }
-
     function Graphs (AST, src, primitives) {
-        this.AST            = AST;
-        this.PDG            = new PDG();
-        this.ATP            = new ASTToPDGMap();
-        this.src            = src;
-        this.ATP.primitives = primitives;
+        this.AST        = AST;
+        this.PDG        = new PDG();
+        this.ATP        = new ASTToPDGMap();
+        this.src        = src;
+        this.primitives = primitives;
     }
 
     /* Create the program dependency graph */
