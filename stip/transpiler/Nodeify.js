@@ -286,7 +286,13 @@ var Nodeify = (function () {
             node       = sliced.node,
             blocknodes = node.getOutEdges(EDGES.CONTROL)
                              .map(function (e) {return e.to}),
-            calls      = blocknodes.filter(function (n) { return n.isCallNode}),
+            /* Nodes that are calls are have calls in them */
+            callnodes  = blocknodes.filter(function (n) { return esp_hasCallStm(n.parsenode)}),
+            /* Get the actual calls */
+            calls      = callnodes.flatMap(function (cn) { 
+                            if (cn.isCallNode) 
+                                return cn;
+                            else return cn.findCallNodes();  }),
             catches    = calls.flatMap(function (call) {
                             return call.getOutEdges(EDGES.CONTROL)
                                       .map(function (e) {return e.to})
@@ -297,16 +303,20 @@ var Nodeify = (function () {
                         }),
             handler;
         blocknodes.map(function (node) {
-            var toSlice = cloneSliced(sliced, sliced.nodes, node);
-            var blocknode = toNode(toSlice);
-            sliced.nodes = removeNode(blocknode.nodes, node);
-            block.push(blocknode.parsednode);
+            if (slicedContains(sliced.nodes, node)) {
+                var toSlice = cloneSliced(sliced, sliced.nodes, node);
+                var blocknode = toNode(toSlice);
+                sliced.nodes = removeNode(blocknode.nodes, node);
+                block.push(blocknode.parsednode);
+            }
         });
         catches.map(function (node) {
-            var toSlice = cloneSliced(sliced, sliced.nodes, node);
-            var catchnode = toNode(toSlice);
-            handler = catchnode.parsednode;
-            sliced.nodes = removeNode(catchnode.nodes, node);
+            if (slicedContains(sliced.nodes, node)) {
+                var toSlice = cloneSliced(sliced, sliced.nodes, node);
+                var catchnode = toNode(toSlice);
+                handler = catchnode.parsednode;
+                sliced.nodes = removeNode(catchnode.nodes, node);
+            }
         })
         node.parsenode.handler = handler;
         node.parsenode.block.body = block;
@@ -332,7 +342,7 @@ var Nodeify = (function () {
             sliced.nodes = removeNode(bodynode.nodes,n);    
             sliced.methods = bodynode.methods;
         })
-
+        sliced.nodes = sliced.nodes.remove(node);
         node.parsenode.body.body = body;
         return new Sliced(sliced.nodes, node, node.parsenode)
     }

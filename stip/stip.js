@@ -34,7 +34,8 @@ var Stip = (function () {
             stmNode.name = decl.id.name;
             addToPDG(stmNode, upnode);
             /* Make (if necessary) PDG nodes of init expression */
-            makePDGNode(graphs, decl.init, stmNode);
+            if (decl.init !== null)
+                makePDGNode(graphs, decl.init, stmNode);
             graphs.ATP.addNodes(decl, stmNode);
             stmNodes.push(stmNode)
         })
@@ -134,17 +135,21 @@ var Stip = (function () {
     /* GENERAL FUNCTION for DECLARATIONS */
     var handleDeclarator = function (graphs, node, upnode) {
         var declaratortype = node.type;
-        switch (declaratortype) {
-            case 'VariableDeclaration':
-                if (esp_isFunExp(node.declarations[0].init)) 
+        if (node.declarations[0].init !== null) {
+            switch (declaratortype) {
+                case 'VariableDeclaration':
+                    if (esp_isFunExp(node.declarations[0].init)) 
+                        return handleAnonFuncDeclaration(graphs, node, upnode);
+                    else 
+                        return handleVarDecl(graphs, node, upnode);
+                case 'FunctionDeclaration':
+                    return handleFuncDeclaration(graphs, node, upnode);
+                case 'FunctionExpression':
                     return handleAnonFuncDeclaration(graphs, node, upnode);
-                else 
-                    return handleVarDecl(graphs, node, upnode);
-            case 'FunctionDeclaration':
-                return handleFuncDeclaration(graphs, node, upnode);
-            case 'FunctionExpression':
-                return handleAnonFuncDeclaration(graphs, node, upnode);
+            }
         }
+        else
+            return handleVarDecl(graphs, node, upnode)
     }
 
     /*        _________________________________ STATEMENTS _________________________________
@@ -231,9 +236,10 @@ var Stip = (function () {
         graphs.ATP.addNodes(node, stmNode);
         /* Catch clause */
         node.handlers.map(function (handler) {
-            catches = catches.concat(handleCatchClause(graphs, handler, stmNode));
+            var catchclause = handleCatchClause(graphs, handler, stmNode, upnode.getdtype());
+            catches = catches.concat(catchclause);
         })
-        stmNode.catches = catches
+        stmNode.catches = catches;
         /* Body of try  */
         node.block.body.map(function (bodynode) {
             makePDGNode(graphs, bodynode, stmNode)
@@ -242,8 +248,9 @@ var Stip = (function () {
     }
 
 
-    var handleCatchClause = function (graphs, node, upnode) {
+    var handleCatchClause = function (graphs, node, upnode, dtype) {
         var stmNode   = graphs.PDG.makeStm(node);
+        stmNode.dtype = dtype;
         node.body.body.map(function (bodynode) {
             makePDGNode(graphs, bodynode, stmNode);
         });
@@ -461,7 +468,7 @@ var Stip = (function () {
            be reflected in the pdg, so no edge to their
            entry node */
         if (!callnode.name.startsWith('anonf')) {
-            upnode.addEdgeOut(callnode, EDGES.CONTROL);
+            addToPDG(callnode, upnode);
             addCallDep(callnode, entry);
         }   
         handleActualParameters(graphs, parsenode, callnode);
@@ -552,10 +559,10 @@ var Stip = (function () {
                 if (trynode && trynode.catches) {
                     trynode.catches.map(function (catchnode) {
                         a_out = new ActualPNode(++graphs.PDG.funIndex, -1);
-                        addToPDG(catchnode, callnode)
-                        catchnode.addEdgeOut(a_out, EDGES.CONTROL)
-                        form_out.addEdgeOut(a_out, EDGES.PAROUT) // TODO remote par out as well
-                        toUpnode(a_out)
+                        addToPDG(catchnode, callnode);
+                        catchnode.addEdgeOut(a_out, EDGES.CONTROL);
+                        form_out.addEdgeOut(a_out, EDGES.PAROUT); // TODO remote par out as well
+                        toUpnode(a_out);
                     })
                 }
             }

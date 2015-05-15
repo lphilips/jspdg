@@ -152,6 +152,19 @@ PDG_Node.prototype.enclosingObjectEntry = function () {
     return entry;
 }
 
+PDG_Node.prototype.findCallNodes = function () {
+    var outs  = this.getOutEdges(EDGES.CONTROL),
+        calls = [];
+    while (outs.length > 0) {
+        var edge = outs.shift(),
+            to   = edge.to;
+        if (to.isCallNode)
+            calls.push(to)
+        outs = outs.concat(to.getOutEdges(EDGES.CONTROL))
+    }
+    return calls;
+}
+
 PDG_Node.prototype.dataDependentNodes = function(crossTier, includeActualP) {
     var set = [],
         data_out = this.edges_out.slice().filter(function (e) {
@@ -213,7 +226,7 @@ PDG_Node.prototype.dataDependentNodes = function(crossTier, includeActualP) {
 }
 
 /* Entry nodes, denoted by "e+index". (Entry) */
-var EntryNode = function (id,parsenode) {
+var EntryNode = function (id, parsenode) {
   PDG_Node.call(this,'e'+id);
   this.parsenode     = parsenode;
   this.isEntryNode   = true;

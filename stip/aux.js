@@ -117,108 +117,16 @@ var esp_inTryStatement = function (ast, node) {
   return parent
 }
 
-/*  Predicates on type of eval node (Jipda nodes) */
-var isEval = function (node) {
-    return node.type === 'eval'
-}
+var esp_hasCallStm = function (node) {
+  var src  = escodegen.generate(node),
+      call = false;
 
-var isKont = function (node) {
-    return node.type === 'kont'
-}
+  falafel(src, function (node) {
+    if (esp_isCallExp(node)) 
+      call = true;
+  })
 
-var isApply = function (node) {
-    return node.type === 'apply'
-}
-
-var isFunExp = function (graphs, node) {
-    return  isEval(node) && esp_isFunExp(node.node)
-}
-var isVarDecl = function (graphs, node) {
-    return  isEval(node) && esp_isVarDecl(node.node)
-}
-
-var isFunDecl = function (graphs, node) {
-    return  isEval(node) && esp_isFunDecl(node.node)
-}
-
-var isIdentifier = function (graphs, node) {
-    return  isEval(node) && esp_isIdentifier(node.node)
-}
-
-var isRetStm = function (graphs, node) {
-    return esp_isRetStm(node.node)
-}
-
-var isBinExp = function (graphs, node) {
-    return  isEval(node) && esp_isBinExp(node.node)
-}
-
-var isLiteral = function (graphs, node) {
-    return  isEval(node) && esp_isLiteral(node.node)
-}
-
-var isCallExp = function (graphs, node) {
-    return  isEval(node) && esp_isCallExp(node.node)
-}
-
-var isExpStm = function (graphs, node) {
-    return  isEval(node) && esp_isExpStm(node.node)
-}
-
-var isAssignmentExp = function (graphs, node) {
-    return  isEval(node) && esp_isAssignmentExp(node.node)
-}
-
-var isBlockStm = function (graphs, node) {
-    return  isEval(node) && esp_isBlockStm(node.node)
-}
-
-var isIfStm = function (graphs, node) {
-    return  isEval(node) && esp_isIfStm(node.node)
-}
-
-
-var isOperandKont = function (edge) {
-    return  edge.g && edge.g.frame && edge.g.frame.node && 
-            edge.g.frame.node.type === 'CallExpression' &&
-            edge.g.frame.operandValues;
-}
-
-var isReturnKont = function (kont) {
-    return kont.completion &&
-           kont.completion === "return"
-}
-
-var declarations = function (graph, s, name) {
-  var targets = HashSet.empty();
-  var visited = HashSet.empty();
-  var todo = [s];
-  while (todo.length > 0)
-  {
-    var q = todo.shift();
-    if (visited.contains(q))
-    {
-      continue;
-    }
-    visited = visited.add(q);
-    if (q.node && q.node.type === "VariableDeclaration" && q.node.declarations[0].id.name === name)
-    {
-      targets = targets.add(q);
-      continue;
-    }
-    var incoming = graph.incoming(q);
-    todo = incoming.reduce(
-      function (todo, e)
-      {
-        if (e.g && e.g.isPop && e.g.frame.isMarker)
-        {
-          return todo.concat(Pushdown.framePredecessors(q, e.g.frame, ecg));
-        }
-        return todo.addLast(e.source);
-      }, todo);
-  }
-  return targets.values();
-
+  return call;
 }
 
 Array.prototype.memberAt =
