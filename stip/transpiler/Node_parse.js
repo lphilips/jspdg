@@ -15,6 +15,14 @@ var NodeParse = (function () {
         }
     }
        
+
+    var createExp = function (exp) {
+        return {
+            type           : 'ExpressionStatement',
+            expression     : exp 
+        }
+    }
+
      /*  Representation of a callback function :
      *    callback(errx, resx) {}
      */
@@ -130,34 +138,34 @@ var NodeParse = (function () {
      */
 
     var asyncFun = function () {
-        return {
-            parsenode :  {
-                "type": "ObjectExpression",
-                "properties": [
-                    {
-                        "type": "Property",
-                        "key": {
-                            "type": "Literal",
-                            // Name must be set by vardecl
-                            "value": "",
-                        },
-                        "value": {
-                            "type": "FunctionExpression",
-                            "id": null,
-                            "params": [],
-                            "defaults": [],
-                            "body": {
-                                "type": "BlockStatement",
-                                "body": []
+        return  {
+                parsenode :  {
+                    "type": "ObjectExpression",
+                    "properties": [
+                        {
+                            "type": "Property",
+                            "key": {
+                                "type": "Literal",
+                                // Name must be set by vardecl
+                                "value": "",
                             },
-                            "rest": null,
-                            "generator": false,
-                            "expression": false
-                        },
-                        "kind": "init"
-                    }
-                ]
-          }, 
+                            "value": {
+                                "type": "FunctionExpression",
+                                "id": null,
+                                "params": [],
+                                "defaults": [],
+                                "body": {
+                                    "type": "BlockStatement",
+                                    "body": []
+                                },
+                                "rest": null,
+                                "generator": false,
+                                "expression": false
+                            },
+                            "kind": "init"
+                        }
+                    ]
+              }, 
 
             setBody : function (body) {
                 this.parsenode.properties[0].value.body.body = body 
@@ -173,6 +181,84 @@ var NodeParse = (function () {
         }
     }
 
+    var asyncReplyC = function () {
+        return {
+            parsenode : {
+                "type"      : "ExpressionStatement",
+                "expression": {
+                    "type"      : "CallExpression",
+                    "callee"    : {
+                        "type"      : "MemberExpression",
+                        "computed"  : false,
+                        "object"    : {
+                            "type"  : "Identifier",
+                            "name"  : "this"
+                                },
+                        "property"  : {
+                            "type"  : "Identifier",
+                            "name"  : "rpcCall"
+                        }
+                    },
+                    "arguments" : [
+                        {
+                            "type"  : "Literal",
+                            "value" : ""
+                        }]
+                }
+            },
+
+            setName : function (name) {
+                this.parsenode.expression.arguments[0].value = name;
+            },
+
+            addArgs : function (args) {
+                this.parsenode.expression.arguments = this.parsenode.expression.arguments.concat(args);
+            }
+
+        }
+    }
+
+
+    var broadcast = function () {
+        return {
+                parsenode :  {
+                "type": "ExpressionStatement",
+                "expression": {
+                    "type": "CallExpression",
+                    "callee": {
+                        "type": "MemberExpression",
+                        "computed": false,
+                        "object": {
+                            "type": "Identifier",
+                            "name": "server"
+                        },
+                        "property": {
+                            "type": "Identifier",
+                            "name": "rpc"
+                        }
+                    },
+                    "arguments": [
+                        {
+                            "type": "Identifier",
+                            "name": ""
+                        },
+                        {
+                            "type": "ArrayExpression",
+                            "elements": []
+                        }
+                    ]
+                }
+            }, 
+ 
+            addArgs : function (args) {
+                this.parsenode.expression.arguments[1].elements = args;
+            },
+
+            setName : function (name) {
+                this.parsenode.expression.arguments[0].name = name;
+            }
+        }
+    }
 
 
     var createServer = function () {
@@ -188,19 +274,21 @@ var NodeParse = (function () {
     }
 
     var methodsClient = function () {
-        return esprima.parse('{}').body[0];
+        return esprima.parse('client.expose({})').body[0];
     }
 
 
-
-    module.createVarDecl  = createVarDecl;
-    module.callback       = callback;
-    module.RPC            = RPC;
-    module.asyncFun       = asyncFun;
-    module.methodsClient  = methodsClient;
-    module.methodsServer  = methodsServer; 
-    module.createServer   = createServer;
-    module.createClient   = createClient;
+    module.createVarDecl   = createVarDecl;
+    module.createExp       = createExp;
+    module.callback        = callback;
+    module.RPC             = RPC;
+    module.asyncFun        = asyncFun;
+    module.methodsClient   = methodsClient;
+    module.methodsServer   = methodsServer; 
+    module.createServer    = createServer;
+    module.createClient    = createClient;
+    module.createBroadcast = broadcast;
+    module.asyncReplyC     = asyncReplyC;
 
     return module;
 

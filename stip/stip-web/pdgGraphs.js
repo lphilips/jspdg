@@ -158,13 +158,13 @@ function createPDGGraph (PDG)
       slicededitor.setValue("");
       var sliced = graphs.PDG.slice(node);
       var sorted = sliced.slice(0);
-      sorted.sort(function(n1,n2) { 
+      sorted.sort(function (n1, n2) { 
           return n1.cnt - n2.cnt;
       });
       while(sorted.length > 0) {
         var n = sorted.shift();
         if(n.parsenode) {
-          var slicing = toCode({target: 'normal'},sorted,n);
+          var slicing = toCode({target: 'normal'}, sorted, n);
           if(slicing.parsednode) {
             var parsed = escodegen.generate(slicing.parsednode);
             slicededitor.setValue(slicededitor.getValue() + parsed + "\n");

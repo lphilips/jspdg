@@ -162,27 +162,33 @@
             PDGg = graphs;
             slicededitor.setValue("");
             //$('.collapse').collapse();
-            var slicedc = PDG.sliceDistributedNode(PDG.dclient),
-                sliceds = PDG.sliceDistributedNode(PDG.dserver),
-                sortedc = slicedc.slice(0),
-                sorteds = sliceds.slice(0),
-                removes  = [],
-                assumesnames = assumes.map(function (ass) {return ass.declarations[0].id.name.trim()}),
+            var slicedc      = PDG.sliceDistributedNode(PDG.dclient),
+                sliceds      = PDG.sliceDistributedNode(PDG.dserver),
+                sortedc      = slicedc.slice(0),
+                sorteds      = sliceds.slice(0),
+                removes      = [],
+                assumesnames = assumes.map(function (ass) {return ass.id.name.trim()}),
                 program,
                 splitCode = function (nodes, option) {
                     nodes.sort(function (n1, n2) {
                         return n1.cnt - n2.cnt;
                     })
-                    var target  = $('#target').val(),
+                    var target   = $('#target').val(),
                         asyncomm = $('#asyncomm').val(),
-                        program = constructProgram(nodes, {target: target, tier: option, asynccomm : asyncomm});
+                        program  = constructProgram(nodes, {target: target, tier: option, asynccomm : asyncomm});
                     return program;
                 };
+            sortedc.sort(function (n1, n2) { 
+                return n1.cnt - n2.cnt;
+            }); 
+            sorteds.sort(function (n1, n2) { 
+                return n1.cnt - n2.cnt;
+            });
             /* Filter out nodes that were added by the assumes statement */
             sortedc = sortedc.filter(function (pdgnode) {
                 if (pdgnode.parsenode)
-                    if (esp_isVarDecl(pdgnode.parsenode) &&
-                        assumesnames.indexOf(pdgnode.parsenode.declarations[0].id.name) > -1) {
+                    if (esp_isFunDecl(pdgnode.parsenode) &&
+                        assumesnames.indexOf(pdgnode.parsenode.id.name) > -1) {
                         removes = removes.concat(pdgnode)
                         return false
                     } else
@@ -192,8 +198,8 @@
             });
             sorteds = sorteds.filter(function (pdgnode) {
                 if (pdgnode.parsenode)
-                    if (esp_isVarDecl(pdgnode.parsenode) &&
-                        assumesnames.indexOf(pdgnode.parsenode.declarations[0].id.name) > -1) {
+                    if (esp_isFunDecl(pdgnode.parsenode) &&
+                        assumesnames.indexOf(pdgnode.parsenode.id.name) > -1) {
                         removes = removes.concat(pdgnode)
                         return false
                     } else
@@ -201,11 +207,8 @@
                 else
                     return true
             });
-            removes.map(function (node) {
-                var entry  = node.getOutEdges(EDGES.DATA)
-                                .map( function (edge) {return edge.to})
-                                .filter (function (node) {return node.isEntryNode})[0],
-                    params = entry.getFormalIn().concat(entry.getFormalOut()),
+            removes.map(function (entry) {
+                var params = entry.getFormalIn().concat(entry.getFormalOut()),
                     body   = entry.getBody();
                 sorteds = sorteds.remove(entry); sortedc = sortedc.remove(entry);
                 params.map(function (param) {sorteds = sorteds.remove(param); sortedc = sortedc.remove(param)})

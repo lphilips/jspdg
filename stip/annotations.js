@@ -10,9 +10,11 @@ var Comments = (function () {
     var afterHandlers  = [];
 
     // Client
-    var client_annotation = "@client";
-    var server_annotation = "@server";
-    var assumes_annotation = "@assumes"
+    var client_annotation    = "@client";
+    var server_annotation    = "@server";
+    var assumes_annotation   = "@assumes";
+    var reply_annotation     = "@reply";
+    var broadcast_annotation = "@broadcast";
 
 
     // Client annotations is @client in comment
@@ -27,6 +29,14 @@ var Comments = (function () {
 
     var isAssumesAnnotated = function (string) {
     	return string.indexOf(assumes_annotation) != -1;
+    }
+
+    var isReplyAnnotated = function (comment) {
+        return comment.value.indexOf(reply_annotation) != -1;
+    }
+
+    var isBroadcastAnnotated = function (comment) {
+        return comment.value.indexOf(broadcast_annotation) != -1;
     }
 
 
@@ -69,6 +79,40 @@ var Comments = (function () {
         })
     }
 
+    var handleReplyComment = function (comment, pdgNodes) {
+        pdgNodes.map(function (pdgNode) {
+            var callnodes;
+            if (isReplyAnnotated(comment)) {
+                if (pdgNode.isCallNode) 
+                    pdgNode.arity = ARITY.ONE;
+                else {
+                    callnodes = pdgNode.findCallNodes();
+                    callnodes.map(function (callNode) {
+                        callNode.arity = ARITY.ONE
+                    })
+                }
+            }
+        })
+    }
+
+    var handleBroadcastComment = function (comment, pdgNodes) {
+        pdgNodes.map(function (pdgNode) {
+            var callnodes;
+            if (isBroadcastAnnotated(comment)) {
+                if (pdgNode.isCallNode) 
+                    pdgNode.arity = ARITY.ALL;
+                else {
+                    callnodes = pdgNode.findCallNodes();
+                    callnodes.map(function (callNode) {
+                        callNode.arity = ARITY.ALL;
+                    })
+                }
+            }
+        })
+    }
+
+    registerAfterHandler(handleReplyComment);
+    registerAfterHandler(handleBroadcastComment);
    // registerAfterHandler(handleBlockComment);
 
     module.handleBeforeComment   = handleBeforeComment;

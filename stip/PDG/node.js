@@ -134,23 +134,55 @@ PDG_Node.prototype.enclosingObjectEntry = function () {
     var ins     = this.getInEdges(EDGES.CONTROL).slice(),
         visited = [],
         entry;
+    if (this.objectEntry) 
+        return this.objectEntry;
     while (ins.length > 0) {
         var edge  = ins.shift(),
             from  = edge.from;
         if (from.isObjectEntry) {
             entry = from;
+            this.objectEntry = from;
             break;
-        } else {
+        } 
+        else if (from.parsenode.objectentry) {
+            this.objectEntry = from.parsenode.objectentry;
+            entry = this.objectEntry;
+            break;
+        }
+        else {
             var ups = from.getInEdges().map(function (edge) {
                 if (!(contains (visited, edge))) {
-                    visited = visited.concat(edge);
-                    ins = ins.concat(edge);
+                    visited.push(edge);
+                    ins.push(edge);
                 }
             })
         }
     }
     return entry;
 }
+
+PDG_Node.prototype.enclosingEntry = function () {
+    var ins     = this.getInEdges(EDGES.CONTROL).slice(),
+        visited = [],
+        entry;
+    while(ins.length > 0) {
+        var edge = ins.shift(),
+            from = edge.from;
+        if (from.isEntryNode) {
+            entry = from;
+            break;
+        } else {
+            from.getInEdges(EDGES.CONTROL).map(function (edge) {
+                if (!(contains(visited, edge))) {
+                    visited.push(edge);
+                    ins.push(edge);
+                }
+            })
+        }
+    }   
+    return entry;
+}
+
 
 PDG_Node.prototype.findCallNodes = function () {
     var outs  = this.getOutEdges(EDGES.CONTROL),
@@ -278,10 +310,20 @@ EntryNode.prototype.hasBody = function () {
 }
 
 EntryNode.prototype.getBody = function () {
-    return this.edges_out.filter(function (e) {
-        return e.to.isStatementNode || e.to.isCallNode
-    }).map(function (edge) {return edge.to})
-    
+    var outs = this.getOutEdges(EDGES.CONTROL),
+        body = [];
+    while (outs.length > 0)  {
+        var out    = outs.shift(),
+            target = out.to;
+        if (target.isStatementNode ||
+            target.isCallNode      ||
+            target.isObjectEntry ) {
+            body.push(target);
+            outs = outs.concat(target.getOutEdges(EDGES.CONTROL));
+        }
+
+    }
+    return body;
 }
 
 EntryNode.prototype.addCall = function (callnode) {
@@ -300,14 +342,20 @@ var ObjectEntryNode = function (id, parsenode) {
     this.isObjectEntry = true;
     this.isEntryNode   = false;
     this.members       = {};
+    this.constructorNode;
 }
 
 ObjectEntryNode.prototype = new EntryNode();
 
 ObjectEntryNode.prototype.getMember = function (id) {
+    var found = this.members[id];
     if (id.name)
         id = id.name
-    return this.members[id];
+    found =  this.members[id];
+    if (found) {
+
+    }
+    return found;
 }
 
 ObjectEntryNode.prototype.addMember = function (name, member) {
@@ -469,7 +517,16 @@ var DNODES = {
     SHARED : {value: 2, name: "shared"}
 }
 
+var ARITY = {
+    ONE   : {value: 0, name: "one"},
+    ALL   : {value: 1, name: "all"}
+}
+
 var dtypeEquals = function (type1, type2) {
+    return type1.value === type2.value
+}
+
+var arityEquals = function (type1, type2) {
     return type1.value === type2.value
 }
 
@@ -516,12 +573,32 @@ PDG_Node.prototype.getdtype = function (recheck) {
           return false
         // Follow function declarations in form var x  = function () { }
         else if (e.to.parsenode && esp_isFunExp(e.to.parsenode) &&
-            e.from.parsenode && (esp_isVarDeclarator(e.from.parsenode) ||
-                esp_isVarDecl(e.from.parsenode) || esp_isProperty(e.from.parsenode))) 
-            return true
-        else if (e.to.parsenode && (esp_isObjExp(e.to.parsenode) || esp_isNewExp(e.to.parsenode) )&&
                  e.from.parsenode && (esp_isVarDeclarator(e.from.parsenode) ||
-                esp_isVarDecl(e.from.parsenode) || esp_isProperty(e.from.parsenode)))
+                 esp_isVarDecl(e.from.parsenode) || esp_isProperty(e.from.parsenode))) 
+            return true
+        else if (e.to.parsenode &&
+                ( esp_isObjExp(e.to.parsenode) || 
+                  esp_isNewExp(e.to.parsenode) ) &&
+                e.from.parsenode &&
+                esp_isVarDeclarator(e.from.parsenode))
+            if (e.from.parsenode.init === e.to.parsenode)
+                return true
+            else 
+                return false
+
+        else if (e.to.parsenode && 
+                 ( esp_isObjExp(e.to.parsenode) || 
+                   esp_isNewExp(e.to.parsenode) ) &&
+                 e.from.parsenode && 
+                 ( esp_isVarDeclarator(e.from.parsenode) ||
+                   esp_isVarDecl(e.from.parsenode) || 
+                   esp_isProperty(e.from.parsenode)))
+            return true
+        
+
+        else if (e.to.isObjectEntry && e.from.parsenode 
+                 && esp_isVarDeclarator(e.from.parsenode) &&
+                 e.from.parsenode.init === e.to.parsenode)
             return true
         // Follow edge from argument to its call node
         else if (e.from.isActualPNode && e.to.isCallNode) 
@@ -534,9 +611,13 @@ PDG_Node.prototype.getdtype = function (recheck) {
             return e.equalsType(EDGES.CONTROL) ||
                    e.equalsType(EDGES.OBJMEMBER)
     };
+
     /* If distributed type is already calculated, return it */
     if (!recheck && this.dtype) 
       return this.dtype
+    else if (this.isDistributedNode) {
+        return this.dtype
+    }
     else {
         /* recursively traverse up the graph until a node with a 
          * distributed type is encountered, or none is found */
@@ -550,8 +631,9 @@ PDG_Node.prototype.getdtype = function (recheck) {
             var proceed = node.edges_in.filter(filterIncoming);
             incoming = incoming.concat(proceed);
         }
-        if(node) 
-            if(node.dtype) {
+
+        if (node) 
+            if (node.dtype) {
                 this.dtype = node.dtype;
                 return node.dtype;
             }

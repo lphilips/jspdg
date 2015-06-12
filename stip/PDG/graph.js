@@ -185,7 +185,7 @@ PDG.prototype.slice = function (node) {
                  tdtype.value === DNODES.SHARED.value || 
                  fdtype.value === tdtype.value)) &&
                 !(from.isCallNode && edge.equalsType(EDGES.REMOTEC))) {
-                    traverse_backward([from],set,ignore);
+                    traverse_backward([from], set, ignore);
           }  
         })
       }
@@ -210,11 +210,12 @@ PDG.prototype.sliceDistributedNode = function (dnode) {
           while (out.length > 0) {
                 var edge = out.shift(),
                     target = edge.to,
-                    control_out = target.edges_out.filter(function (e) {
-                        return e.type.value === EDGES.CONTROL.value;
+                    control_out = target.getOutEdges(EDGES.CONTROL)
+                            .filter(function (e) {
+                              return e.to.getdtype().value === dnode.dtype.value
                     }),
-                    data_out = target.edges_out.filter(function (e) {
-                        return e.type.value === EDGES.DATA.value
+                    data_out = target.getOutEdges(EDGES.DATA).filter(function (e) {
+                        return e.to.getdtype().value === dnode.dtype.value
                     });
                     if( target.parsenode && 
                         target.parsenode.type === 'VariableDeclaration' &&

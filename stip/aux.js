@@ -11,6 +11,10 @@ var esp_isFunExp = function (node) {
     return node.type === 'FunctionExpression'
 }
 
+var esp_isFunDecl = function (node) {
+  return node.type === 'FunctionDeclaration'
+}
+
 var esp_isVarDecl = function (node) {
     return node.type === 'VariableDeclaration'
 }

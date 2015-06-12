@@ -3,9 +3,15 @@ var Examples =  (function () {
 
   var module = {};
 
+  var assumesval = "["
+
   var uncomment = function (fn){
     var multiline = fn.toString().split(/\/\*\n|\n\*\//g)[1];
-    return multiline.replace("@client", "/* @client */").replace("@server", "/* @server */")
+    return multiline
+      .replace("@client", "/* @client */")
+      .replace("@server", "/* @server */")
+      .replace("@assumes", "/* @assumes")
+      .replace("]\n/\*", "]\n")
   };
 
    
@@ -30,7 +36,29 @@ var b = 2;
 }
 */});
 
-
+var chatexample = uncomment (function () {/*
+@assumes [random():Num]
+@server 
+{
+  function broadcast(name, message) {
+      displayMessage(name, message);
+  }
+}
+    
+@client
+  {
+    var name = "user"  + random(),
+        btn  = $("#btn"),
+        text = $("#text");
+    btn.onClick( function () {
+        var msg = text.value();
+        broadcast(name, msg)
+    });
+    function displayMessage(name, message) {
+        text.value(name + ":said " + message)
+    }
+}
+*/})
 
   var example2 = uncomment (function (){/*
 var a = 1;
@@ -91,8 +119,8 @@ var add = 32;
 }
 */});
 
-  module.tiersplittxt = ['Basic', 'Temperature', 'Callback Hell'];
-  module.tiersplitexs = [example1, example3, example4];
+  module.tiersplittxt = ['Chat', 'Basic', 'Temperature', 'Callback Hell'];
+  module.tiersplitexs = [chatexample, example1, example3, example4];
   module.slicetxt = ['Data dependencies']
   module.sliceexs = [example2]
 
