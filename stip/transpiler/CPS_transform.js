@@ -36,6 +36,17 @@ var CPSTransform = (function () {
         })
 
 
+        if (isBlockingCall(call)) {
+            getRemainderStms(call).map(function (stm) {
+                if (slicedContains(slicednodes, stm)) {
+                    bodynode = transform.transformF(slicednodes, stm, transform.option); 
+                    slicednodes = bodynode.nodes;
+                    callbackstms = callbackstms.concat(bodynode);
+                }
+            })
+        }
+
+
         /* Upnode is given + of type var decl, assignment, etc */
         if(upnode && upnode.dataDependentNodes) {
             /* Put it in callback, together with all statements dependent on the variable */
@@ -80,6 +91,7 @@ var CPSTransform = (function () {
                         datadep = datadep.concat(callnode)
                 }
 
+
                 datadep.map( function (n) {
                     if (slicedContains(slicednodes, n) && transform.shouldTransform(call)) {
                         bodynode = transform.transformF(slicednodes, n, transform.option); 
@@ -113,8 +125,25 @@ var CPSTransform = (function () {
         if (transformargs[2] && esp_exp === orig_esp_exp) 
             esp_exp = transformargs[2];
 
+        
 
-        if (callargs.length < 1 && !transform.shouldTransform(call)) {
+        if (isBlockingCall(call)) {
+            if (bodynode) {
+                callbackstms.map(function (node) {
+                    /* Prevent data dependencies to be included double in nested callbacks.
+                       Does not apply for transformed call statements */
+                    if (slicedContains(slicednodes, node.node) || node.parsednode.cont || 
+                        node.node.edges_out.filter(function (e) {return e.to.isCallNode}).length > 0) {
+                        asyncCall.getCallback().addBodyStm(node.parsednode)
+                        slicednodes = removeNode(slicednodes, node.node)
+                    }
+                })
+            }
+            parsednode = asyncCall
+        }
+
+
+        else if (callargs.length < 1 && !transform.shouldTransform(call)) {
             if (esp_isExpStm(parent)) {
                 parent.expression = call.parsenode;
                 call.parsenode = parent;
@@ -122,11 +151,11 @@ var CPSTransform = (function () {
             return [slicednodes, call, false]
         }
 
-        if (!transform.shouldTransform(call) && !parsednode) {
+        else if (!transform.shouldTransform(call) && !parsednode) {
             return [slicednodes, call, false]
         }
 
-        if (!transform.shouldTransform(call) && parsednode) {
+        else if (!transform.shouldTransform(call) && parsednode) {
             if (bodynode) {
                 callbackstms.map( function (node) {
                     /* Prevent data dependencies to be included double in nested callbacks.
@@ -142,13 +171,13 @@ var CPSTransform = (function () {
             return [slicednodes, parsednode, esp_exp]
         }
 
-        if (transform.shouldTransform(call) && !parsednode ||
+        else if (transform.shouldTransform(call) && !parsednode ||
             transform.shouldTransform(call) && callargs.length < 1) {
             if (bodynode) {
                 callbackstms.map(function (node) {
                     /* Prevent data dependencies to be included double in nested callbacks.
                        Does not apply for transformed call statements */
-                    if (node.parsednode.cont || slicedContains(slicednodes, node.node)||
+                    if (slicedContains(slicednodes, node.node) || node.parsednode.cont || 
                         node.node.edges_out.filter(function (e) {return e.to.isCallNode}).length > 0) {
                         asyncCall.getCallback().addBodyStm(node.parsednode)
                         slicednodes = removeNode(slicednodes, node.node)
@@ -158,13 +187,15 @@ var CPSTransform = (function () {
             parsednode = asyncCall
         }
 
+
+
         else {
             /* Add data and call dependencies in returned callback body */
             if (bodynode) {
                 callbackstms.map(function (node) {
                     /* Prevent data dependencies to be included double in nested callbacks.
                        Does not apply for transformed call statements */
-                    if (node.parsednode.cont || slicedContains(slicednodes, node.node)||
+                    if (slicedContains(slicednodes, node.node)|| node.parsednode.cont || 
                         node.node.edges_out.filter(function (e) {return e.to.isCallNode}).length>0) {
                         asyncCall.getCallback().addBodyStm(node.parsednode)
                         slicednodes = removeNode(slicednodes, node.node)
@@ -282,13 +313,10 @@ var CPSTransform = (function () {
             parsenode = func.parsenode,
             /* Take parent, because falafel can't handle an anonymous function */
             parent    = Ast.parent(parsenode, transform.AST),
-            funcstr   = escodegen.generate(parent);
-            
             /* If parsenode is func decl (function foo() {}), then we don't need the parent.
                Only needed for cases var foo = function () {}) */
-            if (esp_isFunDecl(parsenode)) {
-                funcstr = escodegen.generate(parsenode)
-            }
+            funcstr   = esp_isFunDecl(parsenode) ? escodegen.generate(parsenode) : escodegen.generate(parent);
+        
             /* If parent is an object property, transform it into var decl + function (for falafel) */
             if (esp_isProperty(parent)) {
                 funcstr = parent.key.toString() + "=" + parsenode.toString();
@@ -296,10 +324,15 @@ var CPSTransform = (function () {
 
             /* Return statement in body should be replaced by callback call */
             func = falafel(funcstr, function (n) {
-                // TODO check parent (don't transform return statement in nested function def)
-                if (esp_isRetStm(n)) 
+                var enclosingFun = getEnclosingFunction(n),
+                    enclosingFunStr = escodegen.generate(enclosingFun);
+                /* Don't transform return statements of nested function declarations / expressions */
+                if (esp_isRetStm(n) && enclosingFunStr === escodegen.generate(func.parsenode)) 
                     /* First argument of callback is error */
-                    n.update('callback(null, ' + n.argument.source() + ')')
+                    if (n.argument)
+                        n.update('return callback(null, ' + n.argument.source() + ')');
+                    else
+                        n.update('return callback(null)');
             })
 
             if (esp_isFunDecl(parsenode)) {
@@ -314,6 +347,64 @@ var CPSTransform = (function () {
             return [nodes, method]
     }
 
+
+    /* Aux function, returns function (if any) of given statement (parse node) */
+    var getEnclosingFunction = function (parsenode) {
+        var parent = parsenode;
+        while(!esp_isProgram(parent)) {
+            if (esp_isFunDecl(parent) || esp_isFunExp(parent)) {
+                break;
+            } else {
+                parent = parent.parent;
+            }
+        }
+        return parent; 
+    }
+
+    /* Aux function, returns "remainder continuation statements" of current call (depending on where the call is located) */
+    var getRemainderStms = function (callnode) {
+        var ins     = callnode.getInEdges(EDGES.CONTROL).slice(),
+            visited = [],
+            passed = false,
+            remainder = [],
+            entry, body, remainder;
+        while(ins.length > 0) {
+            var edge = ins.shift(),
+                from = edge.from;
+            if (from.isEntryNode) {
+                entry = from;
+                break;
+            }  
+            else if (from.isDistributedNode) {
+                entry = from;
+                break;
+            }
+            else if (from.isStatementNode && esp_isTryStm(from.parsenode)) {
+                entry = from;
+                break;
+            }
+            else {
+                from.getInEdges(EDGES.CONTROL).map(function (edge) {
+                    if (!(contains(visited, edge))) {
+                        visited.push(edge);
+                        ins.push(edge);
+                    }   
+                })
+            }
+        }   
+        body = entry.getOutEdges(EDGES.CONTROL)
+            .map(function (e) {return e.to})
+            .filter(function (n) {return !n.isFormalNode});
+        body.map(function (bodynode) {
+            if (bodynode.equals(callnode) || esp_hasCallStm(bodynode.parsenode, callnode.parsenode)) {
+                passed = true;
+            }
+            else if (passed) {
+                remainder.push(bodynode)
+            }
+        })
+        return remainder
+    }
 
     /* Used to transform to a cps-form from server-> one client */
     var transformReplyCall = function (callnode, nodes, transform) {
@@ -463,6 +554,10 @@ var CPSTransform = (function () {
         parsed.range = toreplace.range;
 
         return parsed;
+    }
+
+    var  isBlockingCall = function (callnode) {
+        return callnode.parsenode.leadingComment && Comments.isBlockingAnnotated(callnode.parsenode.leadingComment)
     }
 
     var slicedContains = function (nodes,node) {

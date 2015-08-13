@@ -15,6 +15,7 @@ var Comments = (function () {
     var assumes_annotation   = "@assumes";
     var reply_annotation     = "@reply";
     var broadcast_annotation = "@broadcast";
+    var blocking_annotation  = "@blocking"
 
 
     // Client annotations is @client in comment
@@ -39,6 +40,10 @@ var Comments = (function () {
         return comment.value.indexOf(broadcast_annotation) != -1;
     }
 
+
+    var isBlockingAnnotated = function (comment) {
+        return comment.value.indexOf(blocking_annotation) != -1;
+    }
 
     var isTierAnnotated = function (node) {
         return node.leadingComment &&
@@ -111,8 +116,26 @@ var Comments = (function () {
         })
     }
 
+    var handleBlockingComment = function (comment, pdgNodes) {
+        pdgNodes.map(function (pdgNode) {
+            var callnodes;
+            if (isBlockingAnnotated(comment)) {
+                if (!esp_isCallExp(pdgNode.parsenode)) {
+                    callnodes = pdgNode.findCallNodes();
+                    callnodes.map(function (callNode) {
+                        callNode.parsenode.leadingComment = comment;
+                    })
+                } 
+                if (pdgNode.isCallNode && esp_isExpStm(pdgNode.parsenode)) {
+                    pdgNode.parsenode.expression.leadingComment = comment;
+                }
+            }
+        })
+    }
+
     registerAfterHandler(handleReplyComment);
     registerAfterHandler(handleBroadcastComment);
+    registerAfterHandler(handleBlockingComment);
    // registerAfterHandler(handleBlockComment);
 
     module.handleBeforeComment   = handleBeforeComment;
@@ -123,6 +146,7 @@ var Comments = (function () {
     module.isTierAnnotated       = isTierAnnotated;
     module.isServerAnnotated     = isServerAnnotated;
     module.isClientAnnotated     = isClientAnnotated;
+    module.isBlockingAnnotated   = isBlockingAnnotated;
 
     return module
 

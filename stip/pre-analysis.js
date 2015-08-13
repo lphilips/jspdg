@@ -1,7 +1,7 @@
 var pre_analyse = function (src) {
     var anonf_ct    = 0;
     var anonf_name  = 'anonf';
-    var primitives  = ["$"];
+    var primitives  = ["$", "proxy"];
     var anonfC      = [];
     var anonfS      = [];
     var anonfSh     = [];
@@ -191,7 +191,7 @@ var pre_analyse = function (src) {
        var parent = node,
             annotation;
         while(!esp_isProgram(parent)) {
-            if (esp_isBlockStm(parent)) {
+            if (esp_isBlockStm(parent) && parent.leadingComment) {
                 break;
             } else {
                 parent = parent.parent;
@@ -201,6 +201,18 @@ var pre_analyse = function (src) {
             return parent.leadingComment;
         }
         return;
+    }
+
+    var getCurrentBlock = function (node) {
+        var parent = node;
+        while(!esp_isProgram(parent)) {
+            if (esp_isBlockStm(parent)) {
+                break;
+            } else {
+                parent = parent.parent;
+            }
+        }
+        return parent;
     }
 
     var isAnnotated = function (node) {
@@ -228,30 +240,36 @@ var pre_analyse = function (src) {
 
                   if (esp_isBlockStm(node)) {
                     var comment = node.leadingComment,
-                        bodystr = node.source().slice(0,-1);
+                        bodystr = escodegen.generate(node).slice(0,-1);//node.source().slice(0,-1);
                     if (comment && Comments.isClientAnnotated(comment)) {
+                        //node.update(escodegen.generate(node));
                         /* Must be updated this way to keep annotations in the body */
-                        anonfC.map(function (anonf) {
-                            bodystr = bodystr.concat(escodegen.generate(anonf))
-                        })
-                        callC.map(function (callc) {
-                            bodystr = bodystr.concat(escodegen.generate(callc))
-                        })
-                        bodystr = bodystr.concat("}");
-                       node.update(bodystr);
+                        //anonfC.map(function (anonf) {
+                         //   bodystr = bodystr.concat(escodegen.generate(anonf))
+                           // node.body.push(anonf);
+                        //})
+                        //callC.map(function (callc) {
+                          //  bodystr = bodystr.concat(escodegen.generate(callc))
+                            //node.body.push(callc);
+                       // })
+                       // bodystr = bodystr.concat("}");
+                       // node.update(bodystr);
                     }
                     else if (comment && Comments.isServerAnnotated(comment)) {
-                        node.body = node.body.concat(anonfS.concat(callS));
-                        node.update(node.source());
+                        //node.body = node.body.concat(anonfS.concat(callS));
+                        //node.update(escodegen.generate(node));
+                        //node.update(node.source());
                         /* Must be updated this way to keep annotations in the body */
-                        anonfS.map(function (anonf) {
-                            bodystr = bodystr.concat(escodegen.generate(anonf))
-                        })
-                        callS.map(function (callc) {
-                            bodystr = bodystr.concat(escodegen.generate(callc))
-                        })
-                        bodystr = bodystr.concat("}");
-                       node.update(bodystr);
+                        //anonfS.map(function (anonf) {
+                         //  node.body.push(anonf)
+                          //  bodystr = bodystr.concat(escodegen.generate(anonf))
+                        //})
+                        //callS.map(function (callc) {
+                         //   node.body.push(callc);
+                          //  bodystr = bodystr.concat(escodegen.generate(callc))
+                       // })
+                        //bodystr = bodystr.concat("}");
+                        //node.update(bodystr);
                     }
                     
                   }
@@ -291,29 +309,40 @@ var pre_analyse = function (src) {
                     }
                     if (anonf.length > 0) {
                         var comment = isBlockAnnotated(node);
+                        var enclBlock = getCurrentBlock(node);
+                        var bodystr = "";
                         node.arguments = node.arguments.map(function (arg) {
                             if (esp_isFunExp(arg)) {
                                 var name = anonf_name + ++anonf_ct;
                                 var func = createFunDecl(name, arg.params);
+                                
+                                var call = createCall(name);
                                 func.body = arg.body;
+                                func.params.map(function (param) {
+                                    call.expression.arguments = call.expression.arguments.concat({
+                                            "type": "Literal",
+                                            "value": null
+                                        });
+                                });
                                 if (comment && Comments.isClientAnnotated(comment)) {
-                                    anonfC = anonfC.concat(func);
-                                    callC = callC.concat(createCall(name)); 
+                                    bodystr = escodegen.generate(func).concat(escodegen.generate(call)).concat(bodystr);
                                 }
                                 else if (comment && Comments.isServerAnnotated(comment)) {
-                                    anonfS = anonfS.concat(func);
-                                    callS = callS.concat(createCall(name)); 
+                                     
+                                     bodystr = escodegen.generate(func).concat(escodegen.generate(call)).concat(bodystr);
                                 } else {
                                     anonfSh = anonfSh.concat(func);
-                                    callSh = callSh.concat(createCall(name));
+                                    callSh = callSh.concat(call);
+                                    
                                 }
                                 return createIdentifier(name);
                                 
                             }
                             else
                                 return arg
-                        })
-                        node.update(escodegen.generate(node))
+                        });
+                        node.update(escodegen.generate(node));
+                        enclBlock.update("{" + bodystr + enclBlock.source().slice(1));
 
                     }
                 }

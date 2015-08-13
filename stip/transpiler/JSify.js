@@ -13,6 +13,8 @@ var JSify = (function () {
 
     var makeShouldTransform = function (cps) {
         return function (call) {
+                if (call.name === 'createServer')
+                    return false;
                 return cps
             }
         },
@@ -23,7 +25,8 @@ var JSify = (function () {
                   callbackF  : JSParse.callback, 
                   asyncCallF : JSParse.RPC, 
                   asyncFuncF : JSParse.asyncFun,
-                  shouldTransform : makeShouldTransform(cps) 
+                  shouldTransform : makeShouldTransform(cps) ,
+                  option     : cps
                 }
         },
         module = {};
@@ -96,6 +99,7 @@ var JSify = (function () {
 
     /* Function Expression */
     var sliceFunExp = function (slicednodes, node, cps) {
+        var parent    = Ast.parent(parsenode, graphs.AST);
         if (node.isObjectEntry) {
             return sliceFunConstructor(slicednodes, node, cps)
         }
@@ -138,10 +142,13 @@ var JSify = (function () {
                 });
             slicednodes = slicednodes.remove(node);
             parsenode.body.body = body;
-            if (cps) {
+            if (cps && !(parsenode.id && parsenode.id.name.startsWith('anonf'))) {
                 var transformer = makeTransformer(cps),
                     cpsfun      = CPSTransform.transformFunction(node, slicednodes, transformer);
-                return new Sliced(cpsfun[0], node, cpsfun[1].parsenode)
+                if (esp_isFunDecl(parsenode) && cpsfun[1].setName) {
+                    cpsfun[1].setName(parsenode.id.name);
+                }
+                return new Sliced(cpsfun[0], node, JSParse.createFunDecl(cpsfun[1].parsenode))
             }
             return new Sliced(slicednodes, node, parsenode);
         }
@@ -249,7 +256,7 @@ var JSify = (function () {
                     body = body.concat(bodynode.parsednode)
             }
             slicednodes = removeNode(bodynode.nodes, n);    
-            });
+        });
         slicednodes = slicednodes.remove(node);
         parsenode.body = body;
         return new Sliced(slicednodes, node, parsenode);
@@ -275,8 +282,6 @@ var JSify = (function () {
         })
         slicednodes = slicednodes.remove(node);
         return new Sliced(slicednodes, node, node.parsenode);
-
-
     }
 
     var sliceObjExp = function (slicednodes, node, cps) {

@@ -205,8 +205,8 @@ PDG.prototype.sliceDistributedNode = function (dnode) {
     var toslice,
         slicedset = [],
         getLeaves = function (node) {
-          leaves = [];
-          out = node.edges_out;
+          var leaves = [],
+               out = node.edges_out;
           while (out.length > 0) {
                 var edge = out.shift(),
                     target = edge.to,
@@ -214,8 +214,9 @@ PDG.prototype.sliceDistributedNode = function (dnode) {
                             .filter(function (e) {
                               return e.to.getdtype().value === dnode.dtype.value
                     }),
-                    data_out = target.getOutEdges(EDGES.DATA).filter(function (e) {
-                        return e.to.getdtype().value === dnode.dtype.value
+                    data_out = target.getOutEdges(EDGES.DATA)
+                            .filter(function (e) {
+                                return e.to.getdtype().value === dnode.dtype.value
                     });
                     if( target.parsenode && 
                         target.parsenode.type === 'VariableDeclaration' &&
@@ -223,7 +224,7 @@ PDG.prototype.sliceDistributedNode = function (dnode) {
                         data_out[0].to.parsenode && 
                         data_out[0].to.parsenode.type === 'FunctionExpression') 
                        out = out.concat(data_out);
-                    else if (control_out.length === 0 && !target.isFormalNode )//&& 
+                    else if (control_out.length === 0 )//&& //!target.isFormalNode )//&& 
                             //!(target.isActualPNode && target.direction === -1))
                             leaves = leaves.concat([target]);
                     else 

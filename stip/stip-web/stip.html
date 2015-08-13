@@ -229,8 +229,31 @@
             slicededitor.setValue("");
             var graphs  = doIt(),
                 PDG     = graphs.PDG,
-                program = constructProgram(PDG.getAllNodes(), {target: 'normal', cps : true});
-            slicededitor.setValue(escodegen.generate(program));
+                nodes   = PDG.getAllNodes(),
+                assumesnames = assumes.map(function (ass) {return ass.id.name.trim()}),
+                removes = [],
+                program;
+
+            nodes.map(function (pdgnode) {
+                if (pdgnode.parsenode)
+                    if (esp_isFunDecl(pdgnode.parsenode) &&
+                        assumesnames.indexOf(pdgnode.parsenode.id.name) > -1) {
+                        removes = removes.concat(pdgnode);
+                        return false
+                    } else
+                        return true
+                else
+                    return true
+            });
+            removes.map(function (entry) {
+                var params = entry.getFormalIn().concat(entry.getFormalOut()),
+                    body   = entry.getBody();
+                nodes = nodes.remove(entry); 
+                params.map(function (param) {nodes = nodes.remove(param);})
+                body.map(function (bodynode) {nodes = nodes.remove(bodynode);})
+            });
+            program = constructProgram(nodes, {target: 'normal', cps : true});
+            slicededitor.setValue(escodegen.generate(program.program));
         } catch (err) {
             console.log(err.stack);
             $("#error").append(err.message);

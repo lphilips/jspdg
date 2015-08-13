@@ -144,7 +144,7 @@ PDG_Node.prototype.enclosingObjectEntry = function () {
             this.objectEntry = from;
             break;
         } 
-        else if (from.parsenode.objectentry) {
+        else if (from.parsenode && from.parsenode.objectentry) {
             this.objectEntry = from.parsenode.objectentry;
             entry = this.objectEntry;
             break;
@@ -211,7 +211,7 @@ PDG_Node.prototype.dataDependentNodes = function(crossTier, includeActualP) {
             tout = to.getOutEdges(EDGES.DATA);
             if (to.isActualPNode) {
                 if (includeActualP) {
-                    set = set.concat(to)
+                    set.push(to)
                 } else {
                     var calledges = to.getInEdges(EDGES.CONTROL),
                         callnode = calledges[0].from,
@@ -237,19 +237,22 @@ PDG_Node.prototype.dataDependentNodes = function(crossTier, includeActualP) {
                         if (upedges.length > 0)
                             data_out = data_out.concat(upedges)
                         else
-                            set = set.concat(callnode)
+                            set.push(callnode)
                         }
                 }
             }
             else if (to.isCallNode) {
-                var upnode    = to.getInEdges(EDGES.CONTROL)[0].from,
-                    parsenode = upnode.parsenode;
-                    set = set.concat(upnode);
+                var upnode    = to.getInEdges(EDGES.CONTROL)[0].from;
+                if (!upnode.isEntryNode) {
+                    set.push(upnode);
                     data_out = data_out.concat(upnode.getOutEdges(EDGES.DATA)); 
+                }
+                else 
+                    set.push(to);
             }
             else 
                 if(!(contains(set, to)) && !to.isFormalNode) {
-                    set = set.concat(to);
+                    set.push(to);
                     data_out = data_out.concat(tout);
             }
     }
@@ -317,9 +320,12 @@ EntryNode.prototype.getBody = function () {
             target = out.to;
         if (target.isStatementNode ||
             target.isCallNode      ||
-            target.isObjectEntry ) {
+            target.isObjectEntry   ||
+            target.isEntryNode) {
             body.push(target);
-            outs = outs.concat(target.getOutEdges(EDGES.CONTROL));
+            outs = outs.concat(target.getOutEdges(EDGES.CONTROL)).concat(target.getOutEdges(EDGES.OBJMEMBER));
+            if ( target.isStatementNode && esp_isProperty(target.parsenode))
+                outs = outs.concat(target.getOutEdges(EDGES.DATA).filter(function (e) { return e.to.isEntryNode}))
         }
 
     }
@@ -431,9 +437,13 @@ CallNode.prototype.getStmNode = function () {
             return callnode.getStmNode()
         })
     } else {
-        return this.getInEdges(EDGES.CONTROL).filter( function (e) {
-            return e.from.isStatementNode
+        upnode = this.getInEdges(EDGES.CONTROL).filter( function (e) {
+            return e.from.isStatementNode && !esp_isTryStm(e.from.parsenode)
         }).map(function (e) {return e.from})
+        if (upnode.length > 0)
+            return  upnode
+        else
+            return this;
 
     }
 }
@@ -602,10 +612,10 @@ PDG_Node.prototype.getdtype = function (recheck) {
             return true
         // Follow edge from argument to its call node
         else if (e.from.isActualPNode && e.to.isCallNode) 
-            return true
+            return e.from.direction !== -1
         // Follow edge from call node that is an argument itself
         else if (e.to.isActualPNode && e.from.isCallNode) 
-            return true
+            return e.from.direction !== -1
         else 
             // Else only follow control type edges + object member edges
             return e.equalsType(EDGES.CONTROL) ||
@@ -626,7 +636,7 @@ PDG_Node.prototype.getdtype = function (recheck) {
         while(incoming.length > 0) {
             var edge = incoming.shift();
             node = edge.from;
-            if (node.dtype)
+            if (node.dtype || node.id === 'e0')
                 break;
             var proceed = node.edges_in.filter(filterIncoming);
             incoming = incoming.concat(proceed);

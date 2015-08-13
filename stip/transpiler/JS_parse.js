@@ -137,10 +137,28 @@ var JSParse = (function () {
 
             addParams : function (params) {
                 this.parsenode.params = params;
+            },
+
+            setName : function (name) {
+              this.parsenode.id = {
+                                "type": "Identifier",
+                                "name": name
+                            }
             }
         }
     }
 
+    var funDecl = function (f) {
+      return {
+            "type": "FunctionDeclaration",
+            "id": f.id,
+            "params": f.params,
+            "defaults": [],
+            "body": f.body,
+            "generator": false,
+            "expression": false
+        }
+    }
 
     var jsRPCAddCb = function (rpc, cb) {
         rpc.expression.arguments = rpc.expression.arguments.concat(cb)
@@ -151,6 +169,7 @@ var JSParse = (function () {
     module.RPC             = RPC;
     module.asyncFun        = asyncFun;
     module.createVarDecl   = createVarDecl;
+    module.createFunDecl   = funDecl;
 
     return module;
 
