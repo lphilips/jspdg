@@ -139,9 +139,7 @@ var NodeParse = (function () {
 
     var asyncFun = function () {
         return  {
-                parsenode :  {
-                    "type": "ObjectExpression",
-                    "properties": [
+                parsenode :  
                         {
                             "type": "Property",
                             "key": {
@@ -163,20 +161,19 @@ var NodeParse = (function () {
                                 "expression": false
                             },
                             "kind": "init"
-                        }
-                    ]
-              }, 
+                        },
+    
 
             setBody : function (body) {
-                this.parsenode.properties[0].value.body.body = body 
+                this.parsenode.value.body.body = body 
             }, 
 
             addParams : function (params) {
-                this.parsenode.properties[0].value.params = params;
+                this.parsenode.value.params = params;
             },
 
             setName : function (name) {
-                this.parsenode.properties[0].key.value = name;
+                this.parsenode.key.value = name;
             }
         }
     }

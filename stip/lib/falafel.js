@@ -73,6 +73,8 @@ function insertHelpers (node, parent, chunks) {
             node.range[0], node.range[1]+1
         ).join('');
     };
+
+    node.chunks = chunks;
     
     if (node.update && typeof node.update === 'object') {
         var prev = node.update;
