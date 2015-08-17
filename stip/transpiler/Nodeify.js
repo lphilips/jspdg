@@ -213,8 +213,9 @@ var Nodeify = (function () {
         var body = [],
             bodynodes = node.getOutEdges(EDGES.CONTROL).filter(function (e) {
                 return !e.to.isFormalNode //e.to.isStatementNode || e.to.isCallNode;
-            }).map(function (e) { return e.to });
-
+            }).map(function (e) { return e.to }).sort(function (n1, n2) { 
+                return n1.cnt - n2.cnt;
+            }); 
         /* nodeify every body node */
         bodynodes.map(function (n) {
             var bodynode = toNode(cloneSliced(sliced, sliced.nodes, n));
@@ -324,7 +325,7 @@ var Nodeify = (function () {
             transformer = makeTransformer(sliced.option), cpscall;
         actual_ins.map(function (a_in) {
             sliced.nodes = sliced.nodes.remove(a_in)
-        })
+        });
         actual_outs.map(function (a_out) {
             sliced.nodes = sliced.nodes.remove(a_out)
         });
@@ -370,7 +371,7 @@ var Nodeify = (function () {
                 }
                 cpscall = NodeParse.createBroadcast();
                 cpscall.setName('"' + node.name + '"');
-                cpscall.addArgs(node.parsenode.arguments)
+                cpscall.addArgs(node.parsenode.arguments);
                 sliced.parsednode = cpscall.parsenode;
 
                 return sliced;

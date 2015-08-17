@@ -370,6 +370,7 @@ var Stip = (function () {
             right;
 
         stmNode.name = ident.name;
+        addToPDG(stmNode, upnode);
         /* Will add data dependency to declaration node */
         makePDGNode(graphs, parsenode.left, stmNode);
         /* Right-hand side */
@@ -380,7 +381,6 @@ var Stip = (function () {
             if (e.to.isCallNode && e.equalsType(EDGES.CONTROL))
                 e.to.dtype = stmNode.getdtype()
         })
-        addToPDG(stmNode, upnode);
         return [stmNode];
     }
 
