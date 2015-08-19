@@ -169,7 +169,7 @@ var NodeParse = (function () {
             }, 
 
             addParams : function (params) {
-                this.parsenode.value.params = params;
+                this.parsenode.value.params = this.parsenode.value.params.concat(params);
             },
 
             setName : function (name) {

@@ -238,6 +238,7 @@ var Nodeify = (function () {
             sliced.nodes = sliced.nodes.remove(node);
             func.setBody(body);
             func.addParams(parsenode.params);
+            func.addParams({'type' : 'Identifier', 'name' : 'callback'});
             func.setName();
             sliced.parsednode = node.parsenode;
             sliced.method     = func;
