@@ -13,6 +13,7 @@ var pre_analyse = function (src) {
     var primdefs    = [];
     var primreturns = {};
     var fundefsC    = [];
+    var sharedblock;
 
     var function_args = function (callnode) {
         return callnode.arguments.filter(function (arg) {
@@ -249,6 +250,11 @@ var pre_analyse = function (src) {
                     var comment = node.leadingComment,
                         bodystr = node.source().slice(1, -1);
 
+                    if (comment && Comments.isSharedAnnotated(comment)) {
+                        sharedblock = node;
+                        return;
+                    }
+
                     if (node.updatestrF) {
                         node.updatestrF.map(function (str) {
                             bodystr = str.concat(bodystr)
@@ -374,6 +380,7 @@ var pre_analyse = function (src) {
     return  { 
         src        :   src,
         assumes    : assumes,
+        shared     : sharedblock,
         primitives : primitives
     };
 }

@@ -91,7 +91,7 @@
 
     // define print method for JIPDA
     var print = function () { console.log(Array.prototype.slice.call(arguments).join(" ")) },       
-        editor, slicededitor, result, PDGg, clientprogram, serverprogram, assumes;
+        editor, slicededitor, result, PDGg, clientprogram, serverprogram, assumes, shared;
 
     function doIt () {
         try {
@@ -107,6 +107,7 @@
             var preanalysis = pre_analyse(src);
             console.log(preanalysis.src);
             assumes = preanalysis.assumes;
+            shared  = preanalysis.shared;
             var src = editor.getSession().getValue(),
                 ast = Ast.createAst(preanalysis.src, {loc:true, owningComments: true});
             $("#graph").empty();
@@ -131,26 +132,32 @@
             slicededitor.setValue('');
             if ($("#includeclient").prop('checked') && $("#includesetup").prop('checked')) {
                 concatCode("/* CLIENT */"); 
+                concatCode(escodegen.generate(shared)) 
                 concatCode(escodegen.generate(clientprogram.program)) 
             }
             else if ($("#includeclient").prop('checked')) {
                 concatCode("/* CLIENT */");
+                concatCode(escodegen.generate(shared)) 
                 concatCode(escodegen.generate(clientprogram.nosetup))
             }
             else if ($("#includesetup").prop('checked')) {
                 concatCode("/* CLIENT */");
+                concatCode(escodegen.generate(shared)) 
                 concatCode(escodegen.generate(clientprogram.setup))
             }
             if ($("#includeserver").prop('checked') && $("#includesetup").prop('checked')) {
                 concatCode("/* SERVER */");
+                concatCode(escodegen.generate(shared)) 
                 concatCode(escodegen.generate(serverprogram.program))
             }
             else if ($("#includeserver").prop('checked')) {
                 concatCode("/* SERVER */");
+                concatCode(escodegen.generate(shared)) 
                 concatCode(escodegen.generate(serverprogram.nosetup))
             }
             else if ($("#includesetup").prop('checked')) {
                 concatCode("/* SERVER */");
+                concatCode(escodegen.generate(shared)) 
                 concatCode(escodegen.generate(serverprogram.setup))
             }
       }
