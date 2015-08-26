@@ -11,6 +11,8 @@
     <link rel="stylesheet" href="css/bootstrap-toggle.css"/>
     <link rel="stylesheet" href="protopurity.css" type="text/css" media="all"/> 
     <link rel="stylesheet" href="lib/jquery-ui.min.css"/>
+    <link rel="stylesheet" href="css/codemirror.css"/>
+    <link rel="stylesheet" href="css/mdn-like.css"/>
 
     <title>STiP.js</title>
     <!-- Le javascript-->
@@ -50,7 +52,8 @@
     <script src="../lib/esrefactor.js"></script>
     <script src="../lib/json2.js"></script>
     <script src="../lib/beautifier.js"></script>
-    <script src="lib/ace/ace.js"></script>
+    <script src="lib/codemirror/codemirror.js"></script>
+    <script src="lib/codemirror/javascript.js"></script>
     <script type="text/javascript" src="../lib/falafel.js"></script>
     <script src="https://code.jquery.com/jquery.js"></script>
     <script src="http://yui.yahooapis.com/3.9.0/build/yui/yui-min.js"></script>
@@ -98,7 +101,7 @@
 
             $("#graph").empty();
             $("#error").empty();
-            var src = editor.getSession().getValue(),
+            var src = editor.getValue(),
             // First parse and create again via escodegen
                 ast = Ast.createAst(src, {loc:true, owningComments: true, comment: true});
             src = escodegen.generate(escodegen.attachComments(ast, ast.comments, ast.tokens), {comment: true});
@@ -108,7 +111,7 @@
             console.log(preanalysis.src);
             assumes = preanalysis.assumes;
             shared  = preanalysis.shared;
-            var src = editor.getSession().getValue(),
+            var src = editor.getValue(),
                 ast = Ast.createAst(preanalysis.src, {loc:true, owningComments: true});
             $("#graph").empty();
             graphs = new Stip.Graphs(ast, src, preanalysis.primitives);
@@ -132,33 +135,33 @@
             slicededitor.setValue('');
             if ($("#includeclient").prop('checked') && $("#includesetup").prop('checked')) {
                 concatCode("/* CLIENT */"); 
-                concatCode(escodegen.generate(shared)) 
-                concatCode(escodegen.generate(clientprogram.program)) 
+                if (shared) concatCode(escodegen.generate(shared)); 
+                concatCode(escodegen.generate(clientprogram.program)) ;
             }
             else if ($("#includeclient").prop('checked')) {
                 concatCode("/* CLIENT */");
-                concatCode(escodegen.generate(shared)) 
-                concatCode(escodegen.generate(clientprogram.nosetup))
+                if (shared) concatCode(escodegen.generate(shared)) ;
+                concatCode(escodegen.generate(clientprogram.nosetup));
             }
             else if ($("#includesetup").prop('checked')) {
                 concatCode("/* CLIENT */");
-                concatCode(escodegen.generate(shared)) 
-                concatCode(escodegen.generate(clientprogram.setup))
+                if (shared) concatCode(escodegen.generate(shared)); 
+                concatCode(escodegen.generate(clientprogram.setup));
             }
             if ($("#includeserver").prop('checked') && $("#includesetup").prop('checked')) {
                 concatCode("/* SERVER */");
-                concatCode(escodegen.generate(shared)) 
-                concatCode(escodegen.generate(serverprogram.program))
+                if (shared) concatCode(escodegen.generate(shared)); 
+                concatCode(escodegen.generate(serverprogram.program));
             }
             else if ($("#includeserver").prop('checked')) {
                 concatCode("/* SERVER */");
-                concatCode(escodegen.generate(shared)) 
-                concatCode(escodegen.generate(serverprogram.nosetup))
+                if (shared) concatCode(escodegen.generate(shared)); 
+                concatCode(escodegen.generate(serverprogram.nosetup));
             }
             else if ($("#includesetup").prop('checked')) {
                 concatCode("/* SERVER */");
-                concatCode(escodegen.generate(shared)) 
-                concatCode(escodegen.generate(serverprogram.setup))
+                if (shared) concatCode(escodegen.generate(shared)); 
+                concatCode(escodegen.generate(serverprogram.setup));
             }
       }
 
@@ -269,36 +272,17 @@
 
 
       $(function () {
-        editor = ace.edit("editor");
-        editor.getSession().setUseWorker(false);
-        editor.getSession().setMode("ace/mode/javascript");
-        slicededitor = ace.edit("slicededitor");
-        slicededitor.getSession().setUseWorker(false);
-        slicededitor.getSession().setMode("ace/mode/javascript");
 
         editor.setValue(Examples.tiersplitexs[0]);
-        editor.gotoLine(0);
+        editor.setCursor(0,0);
         editor.focus();
-        editor.commands.addCommand({
-            name: 'split',
-            bindKey: {win: 'Ctrl-s', mac: 'Command-s'},
-            exec: function (editor) {
-                split()
-            }
-        });
-        editor.commands.addCommand({
-            name: 'eval',
-            bindKey: {win: 'Ctrl-e', mac: 'Command-e'},
-            exec: function (editor) {
-                doIt()
-            }
-        })
       })
 
       function fillSnippets(){
         var list = document.getElementById('snippets'),
             split = 'Tier-splitting',
             normal = 'JavaScript',
+            cont   = 'Continuations',
             head = document.createElement('li'),
             i = 0;
         head.appendChild(document.createTextNode(split));
@@ -318,6 +302,18 @@
         head.appendChild(document.createTextNode(normal));
         list.appendChild(head);
         Examples.slicetxt.map(function (txt) {
+            var li = document.createElement('li'),
+                a = document.createElement('a');
+            a.appendChild(document.createTextNode(txt));
+            a.setAttribute('data-value', i);
+            i++;
+            li.appendChild(a);
+            list.appendChild(li);
+        });
+        head = document.createElement('li');
+        head.appendChild(document.createTextNode(cont));
+        list.appendChild(head);
+        Examples.continuationstxt.map(function (txt) {
             var li = document.createElement('li'),
                 a = document.createElement('a');
             a.appendChild(document.createTextNode(txt));
@@ -370,16 +366,19 @@
         <div id= "code">
             <div class="well row" style="margin-left: 0px; margin-right: 0px; margin-top: 5px; margin-bottom: 5px;">
                 <div class="col-md-6"> 
-                    <h4 style="float:left;">Your JavaScript code:</h4>
-                    <div class="dropdown" style="float: right;">
-                        <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" 
-                                id="dropdownSnippets" style="float:right;">
-                            Snippets
-                            <span class="caret"></span>
-                        </button>
-                        <ul id="snippets" aria-labelledby="dropdownSnippets" class="dropdown-menu" role="menu"></ul>
+                    <div class="row">
+                        <h4 style="float:left;">Your JavaScript code:</h4>
+                        <div class="dropdown" style="float: right; margin-right:20px">
+                            <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" 
+                                    id="dropdownSnippets" style="float:right;">
+                                Snippets
+                                <span class="caret"></span>
+                            </button>
+                            <ul id="snippets" aria-labelledby="dropdownSnippets" class="dropdown-menu" role="menu"></ul>
+                        </div>
                     </div>
-                    <div id="editor" style="height: 350px; width:100%;"></div>
+                    <!--<div id="editor" style="height: 350px; width:100%;"></div>-->
+                    <textarea id="editor" name="editor"></textarea>
                 </div>
                 <div class="col-md-6"> 
                     <div class="row">
@@ -396,10 +395,10 @@
                             </div>
                         </div>
                     </div>
-                   <div class="row" id="slicededitor" style="height: 350px;"></div>
+                   <!--<div class="row" id="slicededitor" style="height: 350px;"></div>-->
+                   <textarea id="slicededitor" name="slicededitor"></textarea>
                 </div>
             </div>
-
 
             <div class="well">
                 <!-- Tool tabs -->
@@ -532,18 +531,75 @@
 
     </body>
     <script type="text/javascript">
+        var keymap = {
+            "Ctrl-S" : function (cm) {
+                split();
+            },
+            "Ctrl-E" : function (cm) {
+                doIt();
+            },
+            "Ctr-K" : function (cm) {
+                cpstransform();
+            },
+            "Cmd-S" : function (cm) {
+                split();
+            },
+            "Cmd-E" : function (cm) {
+                doIt();
+            },
+            "Cmd-K" : function (cm) {
+                cpstransform();
+            }
+        };
+
+        editor= CodeMirror(function (e) {
+            var txt = document.getElementById("editor");
+            txt.parentNode.replaceChild(e, txt);
+        }, {
+            lineNumbers: true,
+            styleActiveLine: true,
+            matchBrackets : true,
+            theme: "mdn-like"
+        });
+        editor.addKeyMap(keymap);
+        $(editor.getWrapperElement()).resizable({
+            resize: function() {
+                editor.setSize($(this).width(), $(this).height());
+                editor.refresh();
+            }
+        });
+        slicededitor= CodeMirror(function (e) {
+            var txt = document.getElementById("slicededitor");
+            txt.parentNode.replaceChild(e, txt);
+        }, {
+            lineNumbers: true,
+            styleActiveLine: true,
+            matchBrackets : true,
+            theme: "mdn-like"
+        });
+        $(slicededitor.getWrapperElement()).resizable({
+            resize: function() {
+                slicededitor.setSize($(this).width(), $(this).height());
+                slicededitor.refresh();
+            }
+        });
+
+
         fillSnippets();
         $(".dropdown-menu li a").click(function () {
                 var value = $(this).data('value'),
                     nr_splits = Examples.tiersplitexs.length,
-                    text = '',
-                    editor = ace.edit("editor");
-                if(value >= nr_splits) 
-                    text = Examples.sliceexs[value - nr_splits];
-                else
+                    nr_splits2 = Examples.sliceexs.length,
+                    text = '';
+                if(value < nr_splits) 
                     text = Examples.tiersplitexs[value];
+                else if (value < (nr_splits + nr_splits2))
+                    text = Examples.sliceexs[value - nr_splits];
+                else 
+                    text = Examples.contexs[value - (nr_splits + nr_splits2)]
                 editor.setValue(text);
-                editor.gotoLine(0);
+                editor.setCursor(0,0);
+                editor.focus();
         })
         $("#includeclient").change(function () {
             printCode();
@@ -554,6 +610,8 @@
         $("#includesetup").change(function () {
             printCode();
         })
+
+        
 
     </script>
     <script src="js/jquery.panzoom//test/libs/jquery.js"></script>

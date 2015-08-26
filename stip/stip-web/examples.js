@@ -11,6 +11,10 @@ var Examples =  (function () {
       .replace("@client", "/* @client */")
       .replace("@server", "/* @server */")
       .replace("@assumes", "/* @assumes")
+      .replace(/@broadcast/g, "/*@broadcast*/")
+      .replace("@shared", "/*@shared*/")
+      .replace(/@reply/g,"/*@reply*/")
+      .replace(/@blocking/g,"/*@blocking*/")
       .replace("]\n/\*", "]\n")
   };
 
@@ -50,10 +54,12 @@ var chatexample = uncomment (function () {/*
     var name = "user"  + random(),
         btn  = $("#btn"),
         text = $("#text");
-    btn.onClick( function () {
-        var msg = text.value();
-        broadcast(name, msg)
-    });
+
+    function chatHandler () {
+       var msg = text.value();
+       broadcast(name, msg);
+    }
+    btn.onClick(chatHandler);
     function displayMessage(name, message) {
         text.value(name + ":said " + message)
     }
@@ -93,13 +99,15 @@ var add = 32;
 }
 @client
 {
+  var tmpDom = $('tmp');
+  var txtDom = $('txt');
   var celcius = temperature() * factor() + add;
   // Update UI
-  print('tmp', read('tmp') + celcius);
+  tmpDom.value(tempDom.value() + celcius);
   if (celcius > 20) 
-    print('txt', 'It is rather hot today');
+    txtDom.value('It is rather hot today');
   else
-    print('txt', 'It is rather cold today');
+    txtDom.value('It is rather cold today');
 }
 */});
 
@@ -119,10 +127,140 @@ var add = 32;
 }
 */});
 
-  module.tiersplittxt = ['Chat', 'Basic', 'Temperature', 'Callback Hell'];
-  module.tiersplitexs = [chatexample, example1, example3, example4];
+
+  var advancedchat = uncomment( function () {/*
+@assumes [random():Num]
+@shared 
+ { function userExistsError (msg, name) {
+         this.message = msg;
+         this.newName = name;
+    }
+    
+    function userError (msg) {
+        this.message = msg
+    }
+    
+    function messageError (msg) {
+        this.message = msg
+    }
+}
+
+
+@server
+{
+    var ids = [];
+    var names = [];
+
+    function broadcast(user_id, msg){
+        if(! ids.indexOf(user_id) < 0) 
+          throw new userError(user_id + ' not found');
+        if(msg.length === 0) 
+          throw new messageError('message was empty');
+
+        var idPos = ids.indexOf(user_id);
+        var user =  names[idPos];
+
+        @broadcast
+        hear(user + "says:" + msg);
+        return;
+    }
+
+    function registerUser(){
+        var user_id = random();
+        var name = "user_" + user_id;
+
+        ids.push(user_id);
+        names.push(name);
+
+        @broadcast
+        hear(name + ' joined'); 
+
+        return user_id;
+    }
+
+    function changeUser(user_id, newName){
+        var idPos = ids.indexOf(user_id);
+
+        if(names.indexOf(newName) >= 0){
+            throw new userExistsError('Username already in use', newName);
+        }
+
+        var oldName = names[idPos];
+        names[idPos] = newName;
+
+        @reply
+        hear('Your name was changed'); 
+
+        @broadcast
+        hear(oldName + ' changed to ' + newName); 
+        return;
+
+    }
+}
+
+@client
+{
+    
+    var user_id;
+    var msgDom  = $('#msg');
+    var chatDom = $('#chat');
+    var nameDom = $('#name');
+    var speakDom = $('#speakBtn');
+    var nameBDom = $('#nameBtn');
+
+    user_id = registerUser(); 
+
+    function speak(){
+    try {
+        var msg = msgDom.value();
+        broadcast(user_id, msg); 
+     }catch(e){
+        msgDom.text(e.message);
+     }
+    }
+
+    function hear(msg){
+        chatDom.append( '<div><div>'+ msg +'</div></div>');
+    }
+
+    function changeName(){
+    try{
+        changeUser(user_id, nameDom.value()); 
+
+    } catch(e){
+        msgDom.text('Could not change name to ' + e.newName + ': ' + e.message);
+    }
+
+    }
+    speakDom.click(speak);
+    nameBDom.click(changeName);
+
+}
+*/})
+
+var example5 = uncomment( function (){/*
+var foo = function (x) { return x }
+@blocking
+foo(42);
+var a = foo(1);
+var b = foo(2);
+var c = a * 2;
+var d = b * 2;
+@blocking
+var e = foo(3);
+@blocking
+var f = foo(4);
+@blocking
+var g = foo(5);
+*/});
+
+  module.tiersplittxt = ['Chat', 'Basic', 'Advanced Chat','Temperature'];
+  module.tiersplitexs = [chatexample, example1, advancedchat, example3];
   module.slicetxt = ['Data dependencies']
   module.sliceexs = [example2]
+  module.continuationstxt = ['Callback Hell', 'Annotation']
+  module.contexs = [example4, example5]
+
 
 
   return module

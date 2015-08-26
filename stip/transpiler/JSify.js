@@ -54,7 +54,13 @@ var JSify = (function () {
         if (entry.length > 0) {
             var f = toJavaScript(slicednodes, entry[0], cps);
             if (esp_isVarDecl(node.parsenode))
-                 node.parsenode.declarations[0].init = f.parsednode;
+                 if (esp_isFunDecl(f.parsednode)) {
+                    f.parsednode.id = node.parsenode.declarations[0].id;
+                    return new Sliced(f.nodes, node, f.parsednode);
+                 }
+                 else {
+                    node.parsenode.declarations[0].init = f.parsednode;
+                }
             else if (esp_isExpStm(node.parsenode) && 
                      esp_isAssignmentExp(node.parsenode.expression))
                 node.parsenode.right = f.parsednode; 

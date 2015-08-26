@@ -242,8 +242,9 @@ var pre_analyse = function (src) {
                     1;
                   }
 
-                  if (node.type === "Block" && Comments.isAssumesAnnotated(node.value)) {
-                    extractAssumes(node.value)
+                  if (node.type === "Block" && Comments.isAssumesAnnotated(node.source())) {
+                    extractAssumes(node.value);
+                    node.update("/* " + node.value.replace(/\[.*?\]/, "").replace("@assumes", "") + " */");
                   }
 
                   if (esp_isBlockStm(node)) {
