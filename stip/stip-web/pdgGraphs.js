@@ -15,7 +15,7 @@ function createPDGGraph (PDG)
             },
             addEdges = function (n) {
               var to_edges = n.getOutEdges().filter(function (e) {
-                return Arrays.indexOf(e, edges) < 0;
+                return Arrays.indexOf(e, edges) < 0 //&& e.equalsType(EDGES.CONTROL);
               });
               edges = edges.concat(to_edges);
               to_nodes = to_nodes.concat(to_edges.map(function (e) {return e.to}));
@@ -37,9 +37,9 @@ function createPDGGraph (PDG)
               tooltip  = parsed ? parsed.toString() :  "",
               cssclass = label.slice(0,1) + " " + dtype;
           if(node.isActualPNode) 
-            node.value ? label += " " + node.value : label;
+            node.value ? label += " " + node.value.slice(0,10) : label;
           if(node.isFormalNode)
-            label += " " + node.name
+            label += " " + node.name.slice(0,10);
           if(dtype === "server")
             label += "[S]"
           if(dtype === "client")
@@ -68,38 +68,60 @@ function createPDGGraph (PDG)
       label += g;
       if (!edge.label) label += " (false)";
       return {id: edgeId++, source: Arrays.indexOf(edge.from, nodes), target: Arrays.indexOf(edge.to, nodes),
-        label: label}
+        label: label, orig: edge}
     });
 
-    var graph = new dagreD3.Digraph({compound: true});
-
+    var graph = new dagreD3.graphlib.Graph().setGraph({});//new dagreD3.Digraph({compound: true});
+    var getStyle = function (label) {
+      if (label === 'data')
+        return 'stroke-dasharray: 5,5'
+      if (label === 'call')
+        return 'stroke-width: 2px;'
+      if (label === 'remote call')
+        return 'stroke: #a4e; stroke-width:2px;'
+      if (label === 'object member')
+        return 'stroke-dasharray:2,2'
+      if (label === 'par-out' || label === 'par-in')
+        return 'stroke-width=0.5px; stroke-dasharray:1,1'
+      if (label === 'remote par-in' || label === 'remote par-out') 
+        return 'stroke: #a4e;stroke-width=0.5px; stroke-dasharray:1,1'
+    };
     states.forEach(function (node) {
-      graph.addNode(node.id, {label: node.label, description : node.description})
+      //graph.addNode(node.id, {label: node.label, description : node.description})
+      graph.setNode(node.id, {label: node.label, description : node.description})
     });
     transitions.forEach(function (edge) {
-      graph.addEdge(edge.id, edge.source, edge.target, {label: edge.label})
+      //graph.addEdge(edge.id, edge.source, edge.target, {label: edge.label, lineInterpolate: 'basis-closed'})
+      graph.setEdge(edge.source, edge.target, {
+          lablineInterpolate: (edge.label === "control" ? 'basis' : 'linear'),
+          label: edge.label === 'control' ? '' : edge.label, 
+          style: getStyle(edge.label),});
     }); 
     return [graph, nodes, edges];
    }
    
    function drawPDGGraph (graph, states, transitions) {
 
-      var renderer = new dagreD3.Renderer();
+      /*var renderer = new dagreD3.Renderer();
       var l = dagreD3.layout();
-      renderer.layout(l);
+      renderer.layout(l);*/
+      var render = new dagreD3.render();
 
       var svg = d3.select("svg g");
       svg.selectAll("*").remove();
       svg.attr('width', 500);
-      var layout = dagreD3.layout()
+      /*var layout = dagreD3.layout()
                     .nodeSep(4)
                     .edgeSep(5)
                     .rankSep(15)
-                   // .rankDir("LR");
-      renderer.layout(layout);
+                   // .rankDir("LR");*/
+      //renderer.layout(layout);
 
-      renderer.run(graph, svg);
-
+      //renderer.run(graph, svg);
+      graph.graph().nodeSep = 5;
+      graph.graph().edgeSep = 5;
+      graph.graph().rankSep = 15;
+      render(svg, graph);
 
       $("g.node").each(function (n)
           {
@@ -137,9 +159,9 @@ function createPDGGraph (PDG)
        })   
       $("g.edgePath").each(function ()
           {
-            var transition = transitions[this.__data__];
+            var transition = transitions[this.__data__.w];
             //if (transition)
-              $(this).attr("class", "edge " + transition.type.name);
+            // $(this).attr("class", "edge " + transition.type.name);
       });
       var svg = d3.select("svg")
         //.attr("width", layout.graph().width + 40)

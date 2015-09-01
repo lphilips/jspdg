@@ -7,11 +7,25 @@
   <link rel="stylesheet" href="css/bootstrap.css"> 
   <link rel="stylesheet" href="css/starter-template.css">
   <link rel="stylesheet" href="css/prettify.css">
+  <link rel="stylesheet" href="css/codemirror.css"/>
+  <link rel="stylesheet" href="css/mdn-like.css"/>
+  <style>
+    .CodeMirror {
+      height: auto;
+      margin-bottom: 10px;
+    }
+  </style>
+
   <title>Stip.Js How To</title>
   <!--<script type="text/javascript" src="../../../lib/esprima.js"></script>!-->
   <script src="https://code.jquery.com/jquery.js"></script>
   <script src="js/prettify.js"></script>
   <script src="js/bootstrap.min.js"></script>
+  <script src="lib/codemirror/codemirror.js"></script>
+  <script src="lib/codemirror/javascript.js"></script>
+  <script src="lib/codemirror/xml.js"></script>
+  <script src="lib/codemirror/css.js"></script>
+  <script src="lib/codemirror/htmlmixed.js"></script>
   <script>
     !function ($) {
       $(function(){
@@ -26,87 +40,258 @@
  <div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
     <div class="container">
       <div class="navbar-header">
-            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">         
-              <span class="sr-only">Toggle navigation</span>          
-              <span class="icon-bar"></span>          
-              <span class="icon-bar"></span>          
-              <span class="icon-bar"></span>        
-            </button>
-            <a class="navbar-brand" href="stip.html">STiP.js</a>
-          </div>
-          <div class="collapse navbar-collapse">
-            <ul class="nav navbar-nav">
-                <li><a href="stip.html">Home</a></li>
-                <li><a href="howto.html">How to</a></li>
-                <li><a href="about.html">About</a></li>
-            </ul>
-          </div><!--/.nav-collapse -->
+                <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">         
+                    <span class="sr-only">Toggle navigation</span>          
+                    <span class="icon-bar"></span>          
+                    <span class="icon-bar"></span>          
+                    <span class="icon-bar"></span>        
+                </button>
+                <img src="imgs/stip-white.png" style="height:55px;">
+            </div>
+            <div class="collapse navbar-collapse">
+                <ul class="nav navbar-nav">
+                    <li><a href="stip.html">Home</a></li>
+                    <li><a href="howto.html">How to</a></li>
+                    <li><a href="about.html">About</a></li>
+                </ul>
+            </div><!--/.nav-collapse -->
       </div>
     </div>
     <div class="container theme-showcase" role="main">
-      <div class="jumbotron" >
-       <img src="imgs/stip.png"> </img>
-       <p class="lead">Slicing Tierless Programs in JavaScript </p>
-        <p class="small"> This is a first prototype of the tier splitting tool Stip.js. 
-                 (tested on Chrome and Firefox)</p>
-      </div> <!-- /.jumbotron -->
+         <div class="jumbotron" >
+            <div class="row" arylw="table-layout: fixed;">
+                <div class="col-md-4">
+                    <img src="imgs/stip.png"/>
+                </div>
+                <div class="col-md-6" style="display: table !important; height: 170px;">
+                    <div style= "display: table-cell; vertical-align:middle;">
+                        <p class="lead">Slicing Tierless Programs in JavaScript </p>
+                        <p class="small"> This is a first prototype of the tier splitting tool Stip.js. 
+                        (tested on Chrome and Firefox)</p>
+                    </div>
+                </div>
+            </div>
+        </div> <!-- /.jumbotron -->
 
       <div class="container">
-        <h1>STiP.js - How To </h1>
-        <p>At the moment we only support a small subset of JavaScript and the generated code for the example is for the <a href="https://www.meteor.com">Meteor framework</a>.</p>
-        <p>STiP.js uses program dependency graphs to tier split the JavaScript code. By clicking the eval-button, the program dependency graph will be calculated and is displayed beneath the code. By clicking the Tier split-button, STiP.js will try to tier split your code. Therefore you have to use the annotations @client and @server, followed by a block statement.</p>
+        <h1>Stip.js - How To </h1>
+        <p>At the moment we only support a small subset of JavaScript and the generated code is for Node.js with 
+         <a href="https://github.com/dielc/asyncCall.js">a remote communication library</a> or for the <a href="https://www.meteor.com">Meteor framework</a>.</p>
+        <p>Stip.js uses program dependency graphs to tier split the JavaScript code. 
+        By clicking the eval-button (shortcut Ctrl-E or Cmd-Ein the editor), the program dependency graph will be calculated and is displayed beneath the code. By clicking the Tier split-button (Ctrl-S or Cmd-S), STiP.js will try to tier split your code. Therefore you have to use the annotations @client and @server, followed by a block statement.
+        JavaScript programs can also be transformed to continuation passing style by clicking the CPS transform button (Ctrl-K or Cmd-K).
+        </p>
+
+        <h2>Annotations</h2>
+        <p>To guide the transpiler, Stip.js uses annotations inside comments. This way, other tools like refactoring tools or IDEs can still be used.
+        Each of the following annotations should thus be used inside comments, e.g. <code>/* @server */ </code>.</p>
+        <table class="table table-striped table-bordered">
+        <thead><th class="col-md-2">Annotation</th><th>Explanation</th></thead>
+          <tbody>
+             <tr>
+              <td> <code>@server</code>  </td>
+              <td>Followed by a block statement. Indicates that all statements in that block end up in the server tier.</td>
+            </tr>
+            <tr>
+              <td> <code>@client</code>  </td>
+              <td>Followed by a block statement. Indicates that all statements in that block end up in the client tier.</td>
+            </tr>
+            <tr>
+              <td> <code>@shared</code>  </td>
+              <td>Stip.js calculates the dependencies for each tier, and duplicates code that is not annotated (i.e. not inside a block annotated as server or client) but referred to by a tier. However, sometimes code (e.g. custom error definitions) is not referred to by a tier, but should be accessible by both tiers. Herefore this annotation can be used. The block statement tagged with this annotation is duplicated on each tier.</td>
+            </tr>
+            <tr>
+              <td> <code>@broadcast</code>  </td>
+              <td>Server-side only, above a statement containing a call to a client function. A call to a function on a client tier tagged with @broadcast, is transformed into a call from the server to every client. This is the default for server calls to client functions.</td>
+            </tr>
+            <tr>
+              <td> <code>@reply</code>  </td>
+              <td>Server-side only, inside function body above a statement containing a call to a client function. A call to a function on a client tier tagged with @reply, is transformed into a call from the server to the client who called the server function.
+              <textarea id="codemirror" cols="1">
+/*@server*/
+{
+  function foo () {
+    /*@reply */
+    bar()
+  }
+}
+/*@client*/
+{ 
+  function bar () {
+   // update UI,...
+  }
+  foo()
+}</textarea>
+
+              </td>
+            </tr>
+            <tr>
+              <td><code>@blocking</code> </td>
+              <td>Followed by a statement containing a function call. It means that the call should be transformed to continuation passing style, with the remainder of the program as its continuation.
+              Stip.js normally figures out, via data dependencies, which parts of the program are dependent on the call. However, in case of e.g. the sleep function, which will have no data dependencies, the remainder of the program should wait before executing. To achieve this, the blocking annotation can be used. </td>
+            </tr>
+            <tr>
+              <td><code>@assumes</code></td>
+              <td>Sometimes it could be that certain fuctions are available in the running environment, for instance a random function.
+              To keep Stip.js happy, certain info about that function should be given: its name, number of arguments and return type.
+              An example, where the random and add function are available in the environment:
+               <code>/* @assumes [random():Num, add(x,y):Num] */</code>
+              </td>
+            </tr>
+
+          </tbody>
+        </table>
+
+
+
         <h2>Example</h2>
-        <p>The following example makes a function temperature that returns the current temperature (at the moment this is a constant 5). On the client side we invoke this function as an ordinary JavaScript function and convert the result to Celcius. We print the result to a DOM element with the id 'tmp' using the <code>print(id,text)</code> tierless primitive. We also use the <code>read(id)</code> tierless primitive to get the current value of a DOM element. </p>
-        <pre class="prettyprint linenums">
-var factor = 9/5;
-var add = 32;
-/* @server */
+        <p> The following example is a very simple chat. On the server side only one function is defined, that calls a function on every client that will update their UI. Each client has its own name (based on a random number) and an event handler for a "send"-button. When this button is clicked, the message of the user is obtained from the DOM and the serverfunction <code>broadcast</code> is called.
+
+        We use jQuery for DOM operations. A more advanced chat application can be found in the snippets. </p>
+
+
+        <textarea id="chatexample" style="display:inline-block;">
+/* @assumes [random():Num]
+@server */
 {
-  var standard = 5;
-  var temperature = function() {
-    return standard;
+  function broadcast(name, message) {
+      displayMessage(name, message);
   }
-} 
+}
+    
 /* @client */
-{
-  var temp = temperature() * factor;
-  var celc = temp + add;
-  print('tmp', read('tmp') + celc);
-  if(celc > 20) {
-    print('txt', 'It is rather hot today!')
-  } else {
-    print('txt', 'It is rather cold today!')
-  }
-}</pre>
-<p>The tier splitted code is Meteor code, so the part following the <code>/* CLIENT */</code> comment should be pasted in a Meteor project under the client folder, the part following the <code>/* SERVER */</code> comment should be pasted in a Meteor project under the server folder.
+  {
+    var name = "user"  + random(),
+        btn  = $("#btn"),
+        text = $("#text");
+
+    function chatHandler () {
+       var msg = text.value();
+       broadcast(name, msg);
+    }
+    btn.onClick(chatHandler);
+    function displayMessage(name, message) {
+        text.value(name + ":said " + message)
+    }
+}</textarea>
+<p>The result after the transpilation process:</p>
+<div class="row">
+      <div class="col-md-6">
+          <textarea id="chatresultc">
+/* CLIENT CODE */
+
+var name = 'user' + random();
+var btn = $('#btn');
+var text = $('#text');
+function chatHandler() {
+    var msg = text.value();
+    client.rpcCall('broadcast', name, msg, function (err0, res0) {
+    });
+}
+btn.onClick(chatHandler);
+function displayMessage(name, message) {
+    text.value(name + ':said ' + message);
+}
+
+client.expose('displayMessage': function (name, message, callback) {
+    text.value(name + ':said ' + message);
+});
+ </textarea>
+      </div>
+      <div class="col-md-6">
+        <textarea id="chatresults">
+/* SERVER CODE */
+server.expose('broadcast': function (name, message, callback) {
+    server.rpc('displayMessage', [
+        name,
+        message
+    ]);
+});</textarea>
+      </div>
+    </div>
+
+
+
 To test this code, you need a HTML file with the following code:</p>
-<pre class="prettyprint linenums lang-html">
+<textarea id="htmlcode">
 &lt;head&gt;
-  &lt;title&gt;Tier splitted temperature web app&lt;/title&gt;
+  &lt;title&gt;Tierless chat app&lt;/title&gt;
 &lt;/head&gt;
 
 &lt;body&gt;
-  {{&gt; foo}}
-&lt;/body&gt;
+  &lt;textarea id="chat"&gt;&lt;/textarea&gt;
 
-&lt;template name=&quot;foo&quot;&gt;
-    &lt;p id=&#039;tmp&#039;&gt;
-        Current temperature is
-    &lt;/p&gt;
-    &lt;p id=&quot;txt&quot;&gt;&lt;/p&gt;
-&lt;/template&gt;
-</pre>
-This will display the following page on the client side:
-<pre>
-Current temperature is 41
-It is rather hot today!
-</pre>
+  &lt;input id="text" type="text"/&gt;
 
+  &lt;button id="btn"&gt;send!&lt;/button&gt;
+&lt;/body&gt;</textarea>
 
+</div>
 
-      </div>
+<script>
+    var editor= CodeMirror(function (e) {
+        var txt = document.getElementById("codemirror");
+        txt.parentNode.replaceChild(e, txt);
+    }, {
+        lineNumbers: true,
+        value : document.getElementById("codemirror").value,
+        styleActiveLine: true,
+        matchBrackets : true,
+        readOnly : true,
+        theme: "mdn-like",
+    });
+    editor.setSize(400, null);
+    var ceditor= CodeMirror(function (e) {
+        var txt = document.getElementById("chatexample");
+        txt.parentNode.replaceChild(e, txt);
+    }, {
+        lineNumbers: true,
+        value : document.getElementById("chatexample").value,
+        styleActiveLine: true,
+        matchBrackets : true,
+        readOnly : true,
+        theme: "mdn-like",
+    });
+    ceditor.setSize(600, 500);
+    var rseditor= CodeMirror(function (e) {
+        var txt = document.getElementById("chatresultc");
+        txt.parentNode.replaceChild(e, txt);
+    }, {
+        lineNumbers: true,
+        value : document.getElementById("chatresultc").value,
+        styleActiveLine: true,
+        matchBrackets : true,
+        readOnly : true,
+        theme: "mdn-like",
+    });
+    rseditor.setSize(480, 400);
+    var rceditor= CodeMirror(function (e) {
+        var txt = document.getElementById("chatresults");
+        txt.parentNode.replaceChild(e, txt);
+    }, {
+        lineNumbers: true,
+        value : document.getElementById("chatresults").value,
+        styleActiveLine: true,
+        matchBrackets : true,
+        readOnly : true,
+        theme: "mdn-like",
+    });
+    rceditor.setSize(480, 400);
+    var htmleditor = CodeMirror(function (e) {
+        var txt = document.getElementById("htmlcode");
+        txt.parentNode.replaceChild(e, txt);
+    }, {
+        lineNumbers: true,
+        value : document.getElementById("htmlcode").value,
+        styleActiveLine: true,
+        matchBrackets : true,
+        readOnly : true,
+        theme: "mdn-like",
+        mode: "htmlmixed",
+    });
+    htmleditor.setSize(600, 250);
 
-
+</script>
 
 </body>
 </html>

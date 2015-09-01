@@ -361,14 +361,17 @@ var CPSTransform = (function () {
         return parent; 
     }
 
-    /* Aux function, returns "remainder continuation statements" of current call (depending on where the call is located) */
+    /* Aux function, returns "remainder continuation statements" of current call (depending on where the call is located)
+     * Optional parameter, blocking, to indicate whether all remaining statements should be included, or only those starting
+     * from the next blocking annotation (@blocking).
+     */
     var getRemainderStms = function (callnode) {
         var ins     = callnode.getInEdges(EDGES.CONTROL).slice(),
             visited = [],
             passed = false,
             remainder = [],
             entry, body, remainder;
-        while(ins.length > 0) {
+        while (ins.length > 0) {
             var edge = ins.shift(),
                 from = edge.from;
             if (from.isEntryNode) {
@@ -391,19 +394,20 @@ var CPSTransform = (function () {
                     }   
                 })
             }
-        }   
+        };   
         body = entry.getOutEdges(EDGES.CONTROL)
             .map(function (e) {return e.to})
             .filter(function (n) {return !n.isFormalNode});
         body.map(function (bodynode) {
-            if (bodynode.equals(callnode) || esp_hasCallStm(bodynode.parsenode, callnode.parsenode)) {
+            if (bodynode.equals(callnode) || 
+                esp_hasCallStm(bodynode.parsenode, callnode.parsenode)) {
                 passed = true;
             }
             else if (passed) {
                 remainder.push(bodynode)
             }
-        })
-        return remainder
+        });
+        return remainder;
     }
 
     /* Used to transform to a cps-form from server-> one client */

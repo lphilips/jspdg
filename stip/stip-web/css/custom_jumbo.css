@@ -12,3 +12,7 @@ body {
 .theme-showcase > p > .btn {
   margin: 5px 0;
 }
+
+.container {
+    width: 970px;
+}

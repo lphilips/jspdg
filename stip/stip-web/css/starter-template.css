@@ -189,4 +189,8 @@ g.tooltip:not(.css) {
   fill:currentColor;
 }
 
+.container {
+  width: 970px;
+}
+
 
