@@ -15,8 +15,9 @@ var Comments = (function () {
     var assumes_annotation   = "@assumes";
     var reply_annotation     = "@reply";
     var broadcast_annotation = "@broadcast";
-    var blocking_annotation  = "@blocking"
-    var shared_annotation    = "@shared"
+    var blocking_annotation  = "@blocking";
+    var shared_annotation    = "@shared";
+    var generated_annotation = "@generated";
 
 
     // Client annotations is @client in comment
@@ -48,6 +49,10 @@ var Comments = (function () {
 
     var isSharedAnnotated = function (comment) {
         return comment.value.indexOf(shared_annotation) != -1;
+    }
+
+    var isGeneratedAnnotated = function (comment) {
+        return comment.value.indexOf(generated_annotation) != -1;
     }
 
     var isTierAnnotated = function (node) {
@@ -153,7 +158,7 @@ var Comments = (function () {
     module.isClientAnnotated     = isClientAnnotated;
     module.isBlockingAnnotated   = isBlockingAnnotated;
     module.isSharedAnnotated     = isSharedAnnotated;
-
+    module.isGeneratedAnnotated  = isGeneratedAnnotated;
     return module
 
 

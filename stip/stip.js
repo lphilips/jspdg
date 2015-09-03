@@ -1014,6 +1014,8 @@ var Stip = (function () {
             console.log("PDG(" + parsetype + ")" + node);
 
         if (node.leadingComment) {
+            if (Comments.isGeneratedAnnotated(node.leadingComment))
+                return;
             Comments.handleBeforeComment(node.leadingComment, node)
         }
 

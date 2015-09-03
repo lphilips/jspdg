@@ -71,7 +71,7 @@ function createPDGGraph (PDG)
         label: label, orig: edge}
     });
 
-    var graph = new dagreD3.graphlib.Graph().setGraph({});//new dagreD3.Digraph({compound: true});
+    var graph = new dagreD3.graphlib.Graph().setGraph({});
     var getStyle = function (label) {
       if (label === 'data')
         return 'stroke-dasharray: 5,5'
@@ -87,13 +87,11 @@ function createPDGGraph (PDG)
         return 'stroke: #a4e;stroke-width=0.5px; stroke-dasharray:1,1'
     };
     states.forEach(function (node) {
-      //graph.addNode(node.id, {label: node.label, description : node.description})
       graph.setNode(node.id, {label: node.label, description : node.description})
     });
     transitions.forEach(function (edge) {
-      //graph.addEdge(edge.id, edge.source, edge.target, {label: edge.label, lineInterpolate: 'basis-closed'})
       graph.setEdge(edge.source, edge.target, {
-          lablineInterpolate: (edge.label === "control" ? 'basis' : 'linear'),
+          lablineInterpolate: (edge.label === "control" ? 'basis-closed' : 'linear'),
           label: edge.label === 'control' ? '' : edge.label, 
           style: getStyle(edge.label),});
     }); 
@@ -102,22 +100,12 @@ function createPDGGraph (PDG)
    
    function drawPDGGraph (graph, states, transitions) {
 
-      /*var renderer = new dagreD3.Renderer();
-      var l = dagreD3.layout();
-      renderer.layout(l);*/
       var render = new dagreD3.render();
 
       var svg = d3.select("svg g");
       svg.selectAll("*").remove();
       svg.attr('width', 500);
-      /*var layout = dagreD3.layout()
-                    .nodeSep(4)
-                    .edgeSep(5)
-                    .rankSep(15)
-                   // .rankDir("LR");*/
-      //renderer.layout(layout);
 
-      //renderer.run(graph, svg);
       graph.graph().nodeSep = 5;
       graph.graph().edgeSep = 5;
       graph.graph().rankSep = 15;

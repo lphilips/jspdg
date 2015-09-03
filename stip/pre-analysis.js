@@ -218,20 +218,6 @@ var pre_analyse = function (src) {
         return parent;
     }
 
-    var isAnnotated = function (node) {
-       /* var annotation;
-        getComments(node);
-        comments.map(function (comment) {
-            var commentEnd = comment.loc.end.line,
-                nodeStart  = node.loc.start.line;
-            if (nodeStart - commentEnd === 1) {
-                annotation = comment
-            }
-        })
-        return annotation; */
-    }
-
-
 
     var src = falafel(src, 
                 { comment : true, tokens: true, loc: true, owningComments: true},
@@ -320,8 +306,8 @@ var pre_analyse = function (src) {
                             if (esp_isFunExp(arg)) {
                                 var name = anonf_name + ++anonf_ct;
                                 var func = createFunDecl(name, arg.params);
-                                
                                 var call = createCall(name);
+                                call.leadingComments = [{type: "Block", value:"@generated", range: [0,16]}];
                                 func.body = arg.body;
                                 func.params.map(function (param) {
                                     call.expression.arguments = call.expression.arguments.concat({
@@ -341,10 +327,11 @@ var pre_analyse = function (src) {
                                     
                                 }
                                 return createIdentifier(name);
-                                
                             }
                             else if (esp_isIdentifier(arg) && fundefsC[arg.name]) {
-                                bodystrL = bodystrL.concat(escodegen.generate(createCall(arg.name)));
+                                call = createCall(arg.name);
+                                call.leadingComments = [{type: "Block", value:"@generated", range: [0,16]}];
+                                bodystrL = bodystrL.concat("/* @generated */" + escodegen.generate(call));
                                 return arg
                             }
                             else
