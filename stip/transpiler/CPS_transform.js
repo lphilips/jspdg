@@ -28,7 +28,7 @@ var CPSTransform = (function () {
             orig_esp_exp = esp_exp,
             callbackstms = [],
             datadep = [],
-            datadeps, calldeps, vardecls, parsednode, transformargs, bodynode;
+            datadeps, calldeps, vardecls, parsednode, transformargs, bodynode, nextcont;
 
         /* Add original arguments to async call */
         actual_ins.map(function(a_in) {
@@ -60,8 +60,16 @@ var CPSTransform = (function () {
             slicednodes = removeNode(slicednodes, upnode);
             /* Data depentent nodes */
             datadeps.map( function (node) {
+                var incont = insideContinuation(call, node);
 
-                if(!(node.isActualPNode)) {
+                if (incont) {
+                    if (!nextcont) {
+                        nextcont = incont;
+                        datadep.push(nextcont)
+                    }
+                }
+
+                else if(!(node.isActualPNode)) {
                     /* Has the node other outgoing dependencies on call nodes/ var decls? 
                        If so, transform the dependence and add it to callback body */
                     calldeps = node.edges_in.filter( function (e) {
@@ -93,7 +101,8 @@ var CPSTransform = (function () {
 
 
                 datadep.map( function (n) {
-                    if (slicedContains(slicednodes, n) && transform.shouldTransform(call)) {
+                    if (slicedContains(slicednodes, n) && 
+                        transform.shouldTransform(call)) {
                         bodynode = transform.transformF(slicednodes, n, transform.option); 
                         slicednodes = bodynode.nodes;
                         callbackstms = callbackstms.concat(bodynode);}
@@ -101,6 +110,7 @@ var CPSTransform = (function () {
 
             })
         }
+
 
         /* Add the callback as last argument to the async call. */
         asyncCall.addArg(callback.parsenode)
@@ -361,10 +371,25 @@ var CPSTransform = (function () {
         return parent; 
     }
 
-    /* Aux function, returns "remainder continuation statements" of current call (depending on where the call is located)
-     * Optional parameter, blocking, to indicate whether all remaining statements should be included, or only those starting
-     * from the next blocking annotation (@blocking).
-     */
+    /* Aux function, indicating whether a statement is inside the continuation of a call annotated with @blocking */
+    var insideContinuation = function (startingpoint, statement) {
+        var remainder = getRemainderStms(startingpoint),
+            cont      = false,
+            passed    = false;
+        remainder.map(function (remstm) {
+            var comment = remstm.parsenode.leadingComment;
+            if (comment && 
+                Comments.isBlockingAnnotated(comment) &&
+                !passed && !cont)
+                cont = remstm;
+            if (remstm.equals(statement))
+                passed = true;
+        })
+        return cont;
+    }
+
+
+    /* Aux function, returns "remainder continuation statements" of current call (depending on where the call is located) */
     var getRemainderStms = function (callnode) {
         var ins     = callnode.getInEdges(EDGES.CONTROL).slice(),
             visited = [],

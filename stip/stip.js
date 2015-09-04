@@ -37,6 +37,7 @@ var Stip = (function () {
         var stmNodes = [];
         node.declarations.map(function (decl) {
             var stmNode = graphs.PDG.makeStm(decl);
+            stmNode.parsenode.leadingComment = node.leadingComment;
             if (upnode) 
                 stmNode.dtype = upnode.getdtype();
             stmNode.name = decl.id.name;
