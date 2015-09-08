@@ -466,7 +466,7 @@ var Nodeify = (function () {
             blocknodes = node.getOutEdges(EDGES.CONTROL)
                              .map(function (e) {return e.to}),
             /* Nodes that are calls are have calls in them */
-            callnodes  = blocknodes.filter(function (n) { return esp_hasCallStm(n.parsenode)}),
+            callnodes  = blocknodes.filter(function (n) { return esp_hasCallStm(n)}),
             /* Get the actual calls */
             calls      = callnodes.flatMap(function (cn) { 
                             if (cn.isCallNode) 
@@ -712,11 +712,11 @@ var Nodeify = (function () {
     var slicedContains = function (nodes, node) {
         return nodes.filter(function (n) {
             if(n.isCallNode) {
-                return n.parsenode === node.parsenode
+                return n.parsenode === node.parsenode;
             } else
-            return n.id === node.id
-        }).length > 0
-    }
+            return n.id === node.id;
+        }).length > 0;
+    };
 
     /* Main function */
     var toNode = function (sliced) {
@@ -770,11 +770,11 @@ var Nodeify = (function () {
                     /*node.getOutEdges(EDGES.CONTROL).filter(function (e) {
                             return e.to.isCallNode
                         }).length > 0)*/)
-                return nodeifyRetStm(sliced)
+                return nodeifyRetStm(sliced);
             if(esp_isExpStm(node.parsenode) && esp_isAssignmentExp(node.parsenode.expression))
-                return nodeifyVarDecl(sliced)
+                return nodeifyVarDecl(sliced);
             if(esp_isExpStm(node.parsenode) && esp_isBinExp(node.parsenode.expression))
-                return nodeifyBinExp(sliced)
+                return nodeifyBinExp(sliced);
             //if (esp_isExpStm(node.parsenode) && esp_isCallExp(node.parsenode.expression)) {
              //   sliced.node.parsenode = node.parsenode.expression;
               //  return nodeifyCallExp(sliced);
@@ -784,21 +784,21 @@ var Nodeify = (function () {
             return sliced;
           
         }
-    }
+    };
 
     var nodeify = function (slicednodes, node, option) {
         var sliced = new Sliced(slicednodes, node);
         sliced.option = option;
-        return toNode(sliced)
-    }
+        return toNode(sliced);
+    };
 
     var nodePrimitives = function () {
         return [meteor_readP(), meteor_printP(), meteor_installLP(), meteor_broadcastP(), meteor_subscribeP()];
-    }
+    };
 
-    module.transpile = nodeify
+    module.transpile = nodeify;
 
-    return module
+    return module;
 
 
 })()

@@ -12,9 +12,10 @@ var JSParse = (function () {
         return {
             type            : 'VariableDeclaration',
             declarations    : [ declarator ],
+            leadingComment  : declarator.leadingComment,
             kind            : 'var'
-        }
-    }
+        };
+    };
 
 
     /*  Representation of a callback function :
@@ -22,26 +23,26 @@ var JSParse = (function () {
      */
     var callback = function (cnt) {
         return {  parsenode : {
-                    "type": "FunctionExpression",
-                    "id": null,
-                    "params": [
+                    type: "FunctionExpression",
+                    id: null,
+                    params: [
                         {
-                            "type": "Identifier",
-                            "name": "err"+cnt
+                            type: "Identifier",
+                            name: "err"+cnt
                         },
                         {
-                            "type": "Identifier",
-                            "name": "res"+cnt
+                            type: "Identifier",
+                            name: "res"+cnt
                         }
                     ],
-                    "defaults": [],
-                    "body": {
-                        "type": "BlockStatement",
-                        "body": []
+                    defaults: [],
+                    body: {
+                        type: "BlockStatement",
+                        body: []
                     },
-                    "rest": null,
-                    "generator": false,
-                    "expression": false
+                    rest: null,
+                    generator: false,
+                    expression: false
                   },
                   addBodyStm : function (stm) {
                     this.parsenode.body.body = this.parsenode.body.body.concat(stm)
@@ -55,8 +56,8 @@ var JSParse = (function () {
                   getResPar  : function () {
                     return this.parsenode.params[1];
                   }
-                }
-    }
+              };
+    };
 
     /* Representation of a remote procedurecall:
      *   fname(args, callback(err, res) {})
@@ -64,15 +65,15 @@ var JSParse = (function () {
 
     var RPC = function (call, fname, args) {
         return { parsenode  : {
-                        "callnode"  : call,
-                        "type"      : "ExpressionStatement",
-                        "expression": {
-                            "type": "CallExpression",
-                            "callee": {
-                                "type": "Identifier",
-                                "name": fname
+                        callnode  : call,
+                        type      : "ExpressionStatement",
+                        expression: {
+                            type: "CallExpression",
+                            callee: {
+                                type: "Identifier",
+                                name: fname
                             },
-                            "arguments": args ? args : []
+                            arguments: args ? args : []
                         }
                     },
                   addArg    : function (arg) {
@@ -106,9 +107,9 @@ var JSParse = (function () {
                         newcb.parsenode = argsp[argsp.length-1]
                         return newcb
                     }
-                  }
                 }
-    }
+            };
+    };
 
     /* 
      * Representation of an async function (takes an extra argument callback)
@@ -118,17 +119,17 @@ var JSParse = (function () {
     var asyncFun = function () {
         return {
             parsenode :  {
-                            "type": "FunctionExpression",
-                            "id": null,
-                            "params": [],
-                            "defaults": [],
-                            "body": {
-                                "type": "BlockStatement",
-                                "body": []
+                            type: "FunctionExpression",
+                            id: null,
+                            params: [],
+                            defaults: [],
+                            body: {
+                                type: "BlockStatement",
+                                body: []
                             },
-                            "rest": null,
-                            "generator": false,
-                            "expression": false
+                            rest: null,
+                            generator: false,
+                            expression: false
             }, 
 
             setBody : function (body) {
@@ -145,24 +146,24 @@ var JSParse = (function () {
                                 "name": name
                             }
             }
-        }
-    }
+        };
+    };
 
     var funDecl = function (f) {
       return {
-            "type": "FunctionDeclaration",
-            "id": f.id,
-            "params": f.params,
-            "defaults": [],
-            "body": f.body,
-            "generator": false,
-            "expression": false
-        }
-    }
+          type: "FunctionDeclaration",
+          id: f.id,
+          params: f.params,
+          defaults: [],
+          body: f.body,
+          generator: false,
+          expression: false
+        };
+    };
 
     var jsRPCAddCb = function (rpc, cb) {
         rpc.expression.arguments = rpc.expression.arguments.concat(cb)
-    } 
+    };
 
 
     module.callback        = callback;

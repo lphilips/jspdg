@@ -11,49 +11,50 @@ var NodeParse = (function () {
         return {
             type            : 'VariableDeclaration',
             declarations    : [ declarator ],
+            leadingComment  : declarator.leadingComment,
             kind            : 'var'
-        }
-    }
+        };
+    };
        
 
     var createExp = function (exp) {
         return {
             type           : 'ExpressionStatement',
-            expression     : exp 
-        }
-    }
+            expression     : exp
+        };
+    };
 
      /*  Representation of a callback function :
      *    callback(errx, resx) {}
      */
     var callback = function (cnt) {
         return {  parsenode : {
-                    "type": "FunctionExpression",
-                    "id": null,
-                    "params": [
+                    type: "FunctionExpression",
+                    id: null,
+                    params: [
                         {
-                            "type": "Identifier",
-                            "name": "err"+cnt
+                            type: "Identifier",
+                            name: "err"+cnt
                         },
                         {
-                            "type": "Identifier",
-                            "name": "res"+cnt
+                            type: "Identifier",
+                            name: "res"+cnt
                         }
                     ],
-                    "defaults": [],
-                    "body": {
-                        "type": "BlockStatement",
-                        "body": []
+                    defaults: [],
+                    body: {
+                        type: "BlockStatement",
+                        body: []
                     },
-                    "rest": null,
-                    "generator": false,
-                    "expression": false
+                    rest: null,
+                    generator: false,
+                    expression: false
                   },
                   addBodyStm : function (stm) {
-                    this.parsenode.body.body = this.parsenode.body.body.concat(stm)
+                    this.parsenode.body.body = this.parsenode.body.body.concat(stm);
                   },
                   setBody    : function (body) {
-                    this.parsenode.body.body = body
+                    this.parsenode.body.body = body;
                   },
                   getBody    : function () {
                     return this.parsenode.body.body;
@@ -61,8 +62,8 @@ var NodeParse = (function () {
                   getResPar  : function () {
                     return this.parsenode.params[1];
                   }
-         }
-    }
+         };
+    };
 
     /* Representation of a remote procedurecall from client -> server:
      *   client.rpcCall(fname, args, callback(err, res) {})
@@ -70,26 +71,26 @@ var NodeParse = (function () {
 
     var RPC = function (call, fname, args) {
         return { parsenode  : 
-                        {   "callnode"  : call,
-                            "type"      : "ExpressionStatement",
-                            "expression": {
-                                "type"      : "CallExpression",
-                                "callee"    : {
-                                    "type"      : "MemberExpression",
-                                    "computed"  : false,
-                                    "object"    : {
-                                        "type"  : "Identifier",
-                                        "name"  : "client"
+                        {   callnode  : call,
+                            type      : "ExpressionStatement",
+                            expression: {
+                                type      : "CallExpression",
+                                callee    : {
+                                    type      : "MemberExpression",
+                                    computed  : false,
+                                    object    : {
+                                        type  : "Identifier",
+                                        name  : "client"
                                             },
-                                    "property"  : {
-                                        "type"  : "Identifier",
-                                        "name"  : "rpcCall"
+                                    property  : {
+                                        type  : "Identifier",
+                                        name  : "rpcCall"
                                     }
                                 },
-                                "arguments" : [
+                                arguments : [
                                     {
-                                        "type"  : "Literal",
-                                        "value" : fname
+                                        type  : "Literal",
+                                        value : fname
                                     }].concat( args ? args : [])
                             }
                         },
@@ -127,9 +128,9 @@ var NodeParse = (function () {
                         newcb.parsenode = argsp[argsp.length-1]
                         return newcb
                     }
-                  }
-        }
-    }
+                }
+        };
+    };
 
 
     /* 
@@ -141,26 +142,26 @@ var NodeParse = (function () {
         return  {
                 parsenode :  
                         {
-                            "type": "Property",
-                            "key": {
-                                "type": "Literal",
+                            type: "Property",
+                            key: {
+                                type: "Literal",
                                 // Name must be set by vardecl
-                                "value": "",
+                                value: "",
                             },
-                            "value": {
-                                "type": "FunctionExpression",
-                                "id": null,
-                                "params": [],
-                                "defaults": [],
-                                "body": {
-                                    "type": "BlockStatement",
-                                    "body": []
+                            value: {
+                                type: "FunctionExpression",
+                                id: null,
+                                params: [],
+                                defaults: [],
+                                body: {
+                                    type: "BlockStatement",
+                                    body: []
                                 },
-                                "rest": null,
-                                "generator": false,
-                                "expression": false
+                                rest: null,
+                                generator: false,
+                                expression: false
                             },
-                            "kind": "init"
+                            kind: "init"
                         },
     
 
@@ -175,31 +176,31 @@ var NodeParse = (function () {
             setName : function (name) {
                 this.parsenode.key.value = name;
             }
-        }
-    }
+        };
+    };
 
     var asyncReplyC = function () {
         return {
             parsenode : {
-                "type"      : "ExpressionStatement",
-                "expression": {
-                    "type"      : "CallExpression",
-                    "callee"    : {
-                        "type"      : "MemberExpression",
-                        "computed"  : false,
-                        "object"    : {
-                            "type"  : "Identifier",
-                            "name"  : "this"
+                type      : "ExpressionStatement",
+                expression: {
+                    type      : "CallExpression",
+                    callee    : {
+                        type      : "MemberExpression",
+                        computed  : false,
+                        object    : {
+                            type  : "Identifier",
+                            name  : "this"
                                 },
-                        "property"  : {
-                            "type"  : "Identifier",
-                            "name"  : "rpcCall"
+                        property  : {
+                            type  : "Identifier",
+                            name  : "rpcCall"
                         }
                     },
-                    "arguments" : [
+                    arguments : [
                         {
-                            "type"  : "Literal",
-                            "value" : ""
+                            type  : "Literal",
+                            value : ""
                         }]
                 }
             },
@@ -211,37 +212,36 @@ var NodeParse = (function () {
             addArgs : function (args) {
                 this.parsenode.expression.arguments = this.parsenode.expression.arguments.concat(args);
             }
-
-        }
-    }
+        };
+    };
 
 
     var broadcast = function () {
         return {
                 parsenode :  {
-                "type": "ExpressionStatement",
-                "expression": {
-                    "type": "CallExpression",
-                    "callee": {
-                        "type": "MemberExpression",
-                        "computed": false,
-                        "object": {
-                            "type": "Identifier",
-                            "name": "server"
+                type: "ExpressionStatement",
+                expression: {
+                    type: "CallExpression",
+                    callee: {
+                        type: "MemberExpression",
+                        computed: false,
+                        object: {
+                            type: "Identifier",
+                            name: "server"
                         },
-                        "property": {
-                            "type": "Identifier",
-                            "name": "rpc"
+                        property: {
+                            type: "Identifier",
+                            name: "rpc"
                         }
                     },
-                    "arguments": [
+                    arguments: [
                         {
-                            "type": "Identifier",
-                            "name": ""
+                            type: "Identifier",
+                            name: ""
                         },
                         {
-                            "type": "ArrayExpression",
-                            "elements": []
+                            type: "ArrayExpression",
+                            elements: []
                         }
                     ]
                 }
@@ -254,25 +254,25 @@ var NodeParse = (function () {
             setName : function (name) {
                 this.parsenode.expression.arguments[0].name = name;
             }
-        }
-    }
+        };
+    };
 
 
     var createServer = function () {
         return esprima.parse('var server = new ServerRpc(serverHttp, {})').body[0];
-    }
+    };
 
     var createClient = function () {
         return esprima.parse("var client = new ClientRpc('http://127.0.0.1:8080');").body[0];
-    }
+    };
 
     var methodsServer = function () {
         return esprima.parse('server.expose({})').body[0]; 
-    }
+    };
 
     var methodsClient = function () {
         return esprima.parse('client.expose({})').body[0];
-    }
+    };
 
 
     module.createVarDecl   = createVarDecl;

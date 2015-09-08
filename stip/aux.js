@@ -123,17 +123,26 @@ var esp_inTryStatement = function (ast, node) {
 }
 
 var esp_hasCallStm = function (node, callnode) {
-  var src  = escodegen.generate(node),
-      call = false;
-
-  falafel(src, function (node) {
-    if (esp_isCallExp(node)) 
-      if (callnode)
-        call = (src.indexOf(escodegen.generate(callnode)) >= 0);
-      else
-        call = true;
-  })
-  return call;
+  var src  = escodegen.generate(node.parsenode),
+      call = false,
+      calls;
+  /* Try catch, because node could be a return statement, which is not a valid program*/
+  try {
+      falafel(src, function (node) {
+        if (esp_isCallExp(node)) 
+          if (callnode)
+            call = (src.indexOf(escodegen.generate(callnode)) >= 0);
+          else
+            call = true;
+      });
+      return call;
+  } catch (e) {
+      calls = node.getOutEdges(EDGES.CONTROL)
+                .filter(function (e) {return e.to})
+                .filter(function (n) {return n.isCallNode})
+                .filter(function (c) {return callnode.equals(c.parsenode)});
+      return calls.length > 0;
+  }
 }
 
 

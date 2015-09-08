@@ -28,45 +28,57 @@ var CPSTransform = (function () {
             orig_esp_exp = esp_exp,
             callbackstms = [],
             datadep = [],
-            datadeps, calldeps, vardecls, parsednode, transformargs, bodynode, nextcont;
+            datadeps = [],
+            calldeps, vardecls, parsednode, transformargs, bodynode, nextcont;
 
         /* Add original arguments to async call */
         actual_ins.map(function(a_in) {
             asyncCall.addArg(a_in.parsenode);
-        })
+        });
 
+        /* Upnode is given + of type var decl, assignment, etc */
+        if(upnode && upnode.dataDependentNodes) {
+            /* Put it in callback, together with all statements dependent on the variable */
+            datadeps = upnode.dataDependentNodes(false, true);
+        }
 
         if (isBlockingCall(call)) {
             getRemainderStms(call).map(function (stm) {
                 if (slicedContains(slicednodes, stm)) {
-                    bodynode = transform.transformF(slicednodes, stm, transform.option); 
-                    slicednodes = bodynode.nodes;
-                    callbackstms = callbackstms.concat(bodynode);
+                   // if (upnode && upnode.dataDependentNodes && 
+                    //    datadeps.length > 0) {
+                        datadeps.push(stm);
+                    //} else {
+                      //  bodynode = transform.transformF(slicednodes, stm, transform.option); 
+                      //  slicednodes = bodynode.nodes;
+                      //  callbackstms = callbackstms.concat(bodynode);
+                   // }
+                    
                 }
-            })
+            });
         }
 
 
         /* Upnode is given + of type var decl, assignment, etc */
         if(upnode && upnode.dataDependentNodes) {
             /* Put it in callback, together with all statements dependent on the variable */
-            datadeps = upnode.dataDependentNodes(false, true);
+            // datadeps = datadeps.concat(upnode.dataDependentNodes(false, true));
             if (!esp_exp) {
-                esp_exp = CPSgetExpStm(upnode.parsenode)
+                esp_exp = CPSgetExpStm(upnode.parsenode);
             }
             if (transform.shouldTransform(call))
                 esp_exp = transformVar(esp_exp, call, cps_count);
             callback.addBodyStm(upnode.parsenode);
             slicednodes = removeNode(slicednodes, upnode);
+        }
             /* Data depentent nodes */
             datadeps.map( function (node) {
                 var incont = insideContinuation(call, node);
 
-                if (incont) {
-                    if (!nextcont) {
+                if (incont && !nextcont && 
+                    slicedContains(slicednodes, incont)) {
                         nextcont = incont;
-                        datadep.push(nextcont)
-                    }
+                        datadep.push(nextcont);
                 }
 
                 else if(!(node.isActualPNode)) {
@@ -79,7 +91,7 @@ var CPSTransform = (function () {
                             }).map( function (e) { return e.from });
                     vardecls  = node.edges_in.filter( function (e) {
                                 return  e.equalsType(EDGES.DATA) && e.from.parsenode && 
-                                        e.from.cnt !== upnode.cnt &&
+                                        (upnode ? e.from.cnt !== upnode.cnt : true) &&
                                         ( esp_isVarDecl(e.from.parsenode) ||
                                           esp_isVarDeclarator(e.from.parsenode) ||
                                           esp_isAssignmentExp(e.from.parsenode)) 
@@ -94,26 +106,27 @@ var CPSTransform = (function () {
                     var callnode = node.getCall()[0],
                         stm  = callnode.getStmNode();
                     if (stm.length > 0)
-                        datadep = datadep.concat(stm)
+                        datadep = datadep.concat(stm);
                     else 
-                        datadep = datadep.concat(callnode)
+                        datadep = datadep.concat(callnode);
                 }
 
 
-                datadep.map( function (n) {
+
+            });
+        
+
+        datadep.map( function (n) {
                     if (slicedContains(slicednodes, n) && 
                         transform.shouldTransform(call)) {
                         bodynode = transform.transformF(slicednodes, n, transform.option); 
                         slicednodes = bodynode.nodes;
-                        callbackstms = callbackstms.concat(bodynode);}
-                })
-
-            })
-        }
-
+                        callbackstms = callbackstms.concat(bodynode);
+                    }
+        });
 
         /* Add the callback as last argument to the async call. */
-        asyncCall.addArg(callback.parsenode)
+        asyncCall.addArg(callback.parsenode);
         asyncCall.setCallback(callback);
 
         (function (callback) {
@@ -122,9 +135,9 @@ var CPSTransform = (function () {
                     arg    = this.callnode,
                     transf = transformVar(arg.parsenode, call, respar.name.slice(-1));
                 node.replaceArg(arg.expression[0], transf);
-                callback.setBody([node.parsenode].concat(callback.getBody().slice(1)))
+                callback.setBody([node.parsenode].concat(callback.getBody().slice(1)));
             }
-        })(callback)
+        })(callback);
 
         parsednode = asyncCall;
         transformargs = transformArguments(callargs, parsednode, slicednodes, transform, upnode, esp_exp, call);
@@ -149,7 +162,7 @@ var CPSTransform = (function () {
                     }
                 })
             }
-            parsednode = asyncCall
+            parsednode = asyncCall;
         }
 
 
@@ -425,7 +438,7 @@ var CPSTransform = (function () {
             .filter(function (n) {return !n.isFormalNode});
         body.map(function (bodynode) {
             if (bodynode.equals(callnode) || 
-                esp_hasCallStm(bodynode.parsenode, callnode.parsenode)) {
+                esp_hasCallStm(bodynode, callnode.parsenode)) {
                 passed = true;
             }
             else if (passed) {
@@ -527,8 +540,10 @@ var CPSTransform = (function () {
 
 
     var CPSsetExpStm = function (parsenode, newexp) {
-        if(esp_isVarDecl(parsenode))
+        if(esp_isVarDecl(parsenode)) {
+            newexp.leadingComment = parsenode.declarations[0].leadingComment;
             parsenode.declarations[0].init = newexp
+        }
 
         else if (esp_isExpStm(parsenode)) {
             var exp = parsenode.expression;

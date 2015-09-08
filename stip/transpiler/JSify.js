@@ -435,7 +435,7 @@ var JSify = (function () {
         if (esp_isExpStm(node.parsenode) && esp_isCallExp(node.parsenode.expression)) {
             node.parsenode = node.parsenode.expression
         }
-        console.log('SLICE(' + node.parsenode.type + ') ' + node.parsenode);
+        console.log('JSIFY(' + node.parsenode.type + ') ' + node.parsenode);
         switch (node.parsenode.type) {
             case 'VariableDeclaration': 
                 return sliceVarDecl(slicednodes, node, cps);
