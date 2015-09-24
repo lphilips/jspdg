@@ -119,6 +119,7 @@ var constructProgram = function (nodes, option) {
                 program.body = program.body.concat(slicing.parsednode);
             }
             nodes = slicing.nodes;  
+            nodes.remove(n);
             option.cloudtypes = slicing.cloudtypes;
             methods = methods.concat(slicing.methods);
         }

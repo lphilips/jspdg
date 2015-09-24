@@ -107,15 +107,19 @@ var Stip = (function () {
             addToPDG(stmNode, entry);
         } 
         else if (entry.isObjectEntry) {
-            entry.addMember(node.paramname, entryNode)
+            entry.addMember(node.paramname, entryNode);
         }
-        else {
+        else if (esp_isExpStm(entry.parsenode) &&
+                esp_isAssignmentExp(entry.parsenode.expression)) {
             entry.addEdgeOut(entryNode, EDGES.DATA);
-            graphs.ATP.addNodes(node, entry)
+        }
+        else if (esp_isVarDecl(entry)) {
+            entry.addEdgeOut(entryNode, EDGES.DATA);
+            graphs.ATP.addNodes(node, entry);
         }
         /* BODY */
         func_node.body.body.map(function (exp) {
-            makePDGNode(graphs, exp, entryNode)
+            makePDGNode(graphs, exp, entryNode);
         })
         /* Exception Exit nodes added along the way should be connected to formal out */
         entryNode.getFormalOut().map(function (form_out) {
@@ -366,16 +370,17 @@ var Stip = (function () {
         var parsenode    = node.expression,
             ident        = esp_isIdentifier(parsenode.left) ? parsenode.left : parsenode.left.object ,
             stmNode      = graphs.PDG.makeStm(node),
-            declaration  = esp_isThisExpression(ident) ? false : Pdg.declarationOf(ident, graphs.AST),
-            pdg_nodes    = graphs.ATP.getNode(declaration),
-            right;
+            declaration  = esp_isThisExpression(ident) ? false : Pdg.declarationOf(ident, graphs.AST);
 
         stmNode.name = ident.name;
         addToPDG(stmNode, upnode);
+        
         /* Will add data dependency to declaration node */
         makePDGNode(graphs, parsenode.left, stmNode);
         /* Right-hand side */
         makePDGNode(graphs, parsenode.right, stmNode);
+        
+        graphs.ATP.addNodes(declaration, stmNode);
         /* Recheck dependent call nodes for dtype (could be wrong because assign. exp had
            no dtype at that moment ) */
         var calls = stmNode.edges_out.map(function (e) {
@@ -607,8 +612,12 @@ var Stip = (function () {
                 var formals = entrynode.getFormalIn();
                 if (!callnode.name.startsWith('anonf')) {
                     addToPDG(callnode, upnode);
+                    /* Recall comment handlers on upnode in case the entry node is handled later than the call node */
+                    if (!entry && upnode.parsenode.leadingComment)
+                        Comments.handleAfterComment(upnode.parsenode.leadingComment, [upnode]);
                     addCallDep(callnode, entrynode);
                     handleActualParameters(graphs, parsenode, callnode);
+
                     /* Bind the actual and formal parameters */
                     for (var i = 0; i < callnode.getActualIn().length; i++) {
                         var a = callnode.getActualIn()[i],
@@ -617,10 +626,11 @@ var Stip = (function () {
                         if (f && (!a.equalsdtype(f) || 
                             !a.isSharedNode() ||
                             !f.isSharedNode()))
-                            a.addEdgeOut(f, EDGES.REMOTEPARIN)
+                            a.addEdgeOut(f, EDGES.REMOTEPARIN);
                         else if (f)
                             a.addEdgeOut(f, EDGES.PARIN);
                     }
+
                     /* Actual out parameter */
                     if (entrynode.excExits.length > 0) {
                         /* Call made in try/catch statement? */
@@ -856,9 +866,11 @@ var Stip = (function () {
         if (!isPrimitive) {
             declaration = Pdg.declarationOf(node, graphs.AST);
             if (declaration) {
+
                 var PDG_nodes = graphs.ATP.getNode(declaration);
                 if (PDG_nodes)
                     PDG_nodes.map(function (pdgnode) {
+                        /* TODO check if exec. can reach the pdg_node before adding data dep */
                         handle(pdgnode)
                     })
                 else 

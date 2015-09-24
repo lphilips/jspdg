@@ -267,7 +267,7 @@ var pre_analyse = function (src) {
 
                   if (esp_isFunDecl(node)) {
                     var comment = isBlockAnnotated(node);
-                    if (Comments.isClientAnnotated(comment)) 
+                    if (comment && Comments.isClientAnnotated(comment)) 
                         fundefsC[node.id.name] = node;
                   }
 

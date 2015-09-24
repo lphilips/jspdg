@@ -29,6 +29,7 @@ var CPSTransform = (function () {
             callbackstms = [],
             datadep = [],
             datadeps = [],
+            entry  = getEntryNode(call),
             calldeps, vardecls, parsednode, transformargs, bodynode, nextcont;
 
         /* Add original arguments to async call */
@@ -44,17 +45,8 @@ var CPSTransform = (function () {
 
         if (isBlockingCall(call)) {
             getRemainderStms(call).map(function (stm) {
-                if (slicedContains(slicednodes, stm)) {
-                   // if (upnode && upnode.dataDependentNodes && 
-                    //    datadeps.length > 0) {
-                        datadeps.push(stm);
-                    //} else {
-                      //  bodynode = transform.transformF(slicednodes, stm, transform.option); 
-                      //  slicednodes = bodynode.nodes;
-                      //  callbackstms = callbackstms.concat(bodynode);
-                   // }
-                    
-                }
+                if (slicedContains(slicednodes, stm))
+                     datadeps.push(stm);
             });
         }
 
@@ -73,7 +65,8 @@ var CPSTransform = (function () {
         }
             /* Data depentent nodes */
             datadeps.map( function (node) {
-                var incont = insideContinuation(call, node);
+                var incont = insideContinuation(call, node),
+                    dataentry = getEntryNode(node);
 
                 if (incont && !nextcont && 
                     slicedContains(slicednodes, incont)) {
@@ -84,22 +77,53 @@ var CPSTransform = (function () {
                 else if(!(node.isActualPNode)) {
                     /* Has the node other outgoing dependencies on call nodes/ var decls? 
                        If so, transform the dependence and add it to callback body */
-                    calldeps = node.edges_in.filter( function (e) {
-                                return  e.equalsType(EDGES.DATA) && 
-                                        e.from.isCallNode && 
-                                        e.from.cnt !== upnode.cnt
-                            }).map( function (e) { return e.from });
-                    vardecls  = node.edges_in.filter( function (e) {
-                                return  e.equalsType(EDGES.DATA) && e.from.parsenode && 
-                                        (upnode ? e.from.cnt !== upnode.cnt : true) &&
-                                        ( esp_isVarDecl(e.from.parsenode) ||
-                                          esp_isVarDeclarator(e.from.parsenode) ||
-                                          esp_isAssignmentExp(e.from.parsenode)) 
-                            }).map( function (e) { return e.from });
+                    calldeps = node.getInEdges(EDGES.DATA)
+                                    .map(function (e) {return e.from})
+                                    .filter( function (n) {
+                                        n.isCallNode && 
+                                        n.cnt !== upnode.cnt
+                            });
+                    vardecls  = node.getInEdges(EDGES.DATA)
+                                    .map(function (e) {return e.from})
+                                    .filter( function (n) {
+                                        return n.parsenode && 
+                                        (upnode ? n.cnt !== upnode.cnt : true) &&
+                                        ( esp_isVarDecl(n.parsenode) ||
+                                          esp_isVarDeclarator(n.parsenode) ||
+                                          esp_isAssignmentExp(n.parsenode)) 
+                            });
+                    calldeps.concat(vardecls).map(function (node) {
+                        var nodeEntry = getEntryNode(node),
+                            datas;
+                        if (!nodeEntry.equals(entry)) {
+                            /* TODO datadep nodeEntry ook meenemen */
+                            if (!slicedContains(datadep, nodeEntry)) {
+                                datadep.push(nodeEntry);
+                                datadep = datadep.concat(nodeEntry.getCalls());
+                            }
+                        } else  if (!slicedContains(datadep, node)) {
+                            datadep.push(node);
+                            if (node.dataDependentNodes)  {
+                                datas = node.dataDependentNodes();
+                                datas.map(function (n) {
+                                    if (!slicedContains(datadep, n) && !n.isActualPNode)
+                                        datadep.push(n);
+                                })
+                            }
 
-                    datadep = datadep.concat(calldeps);
-                    datadep = datadep.concat(vardecls);
-                    datadep = datadep.concat(node);             
+                        }
+                    })
+
+                    //datadep = datadep.concat(calldeps);
+                    //datadep = datadep.concat(vardecls);
+                    if (!dataentry.equals(entry)) {
+                        if (!slicedContains(datadep, dataentry)) {
+                            datadep.push(dataentry);
+                            datadep = datadep.concat(dataentry.getCalls());
+                        }
+                    }
+                    else 
+                        datadep = datadep.concat(node);             
                 }
 
                 else {
@@ -115,6 +139,10 @@ var CPSTransform = (function () {
 
             });
         
+        /* Sort on original order */
+        datadep.sort(function (n1, n2) {
+                        return n1.cnt - n2.cnt;
+        })
 
         datadep.map( function (n) {
                     if (slicedContains(slicednodes, n) && 
@@ -134,7 +162,7 @@ var CPSTransform = (function () {
                 var respar = callback.getResPar(),
                     arg    = this.callnode,
                     transf = transformVar(arg.parsenode, call, respar.name.slice(-1));
-                node.replaceArg(arg.expression[0], transf);
+                node.replaceArg(arg.parsenode, transf);
                 callback.setBody([node.parsenode].concat(callback.getBody().slice(1)));
             }
         })(callback);
@@ -402,37 +430,38 @@ var CPSTransform = (function () {
     }
 
 
-    /* Aux function, returns "remainder continuation statements" of current call (depending on where the call is located) */
-    var getRemainderStms = function (callnode) {
-        var ins     = callnode.getInEdges(EDGES.CONTROL).slice(),
+    var getEntryNode = function (node) {
+        var ins = node.getInEdges(EDGES.CONTROL).slice(),
             visited = [],
-            passed = false,
-            remainder = [],
-            entry, body, remainder;
+            entry;
         while (ins.length > 0) {
             var edge = ins.shift(),
                 from = edge.from;
-            if (from.isEntryNode) {
+            if (from.isEntryNode || from.isDistributedNode || 
+                from.isStatementNode && esp_isTryStm(from.parsenode)) {
                 entry = from;
                 break;
-            }  
-            else if (from.isDistributedNode) {
-                entry = from;
-                break;
-            }
-            else if (from.isStatementNode && esp_isTryStm(from.parsenode)) {
-                entry = from;
-                break;
-            }
-            else {
-                from.getInEdges(EDGES.CONTROL).map(function (edge) {
-                    if (!(contains(visited, edge))) {
-                        visited.push(edge);
-                        ins.push(edge);
-                    }   
+            } else {
+                from.getInEdges(EDGES.CONTROL)
+                    .map(function (edge) {
+                        if (!(contains(visited, edge))) {
+                            visited.push(edge);
+                            ins.push(edge);
+                        }   
                 })
             }
-        };   
+        }
+        return entry;
+    }
+
+    /* Aux function, returns "remainder continuation statements" of current call (depending on where the call is located) */
+    var getRemainderStms = function (callnode) {
+        var ins       = callnode.getInEdges(EDGES.CONTROL).slice(),
+            visited   = [],
+            passed    = false,
+            remainder = [],
+            entry     = getEntryNode(callnode), 
+            body, remainder; 
         body = entry.getOutEdges(EDGES.CONTROL)
             .map(function (e) {return e.to})
             .filter(function (n) {return !n.isFormalNode});

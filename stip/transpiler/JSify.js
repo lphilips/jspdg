@@ -56,6 +56,7 @@ var JSify = (function () {
             if (esp_isVarDecl(node.parsenode))
                  if (esp_isFunDecl(f.parsednode)) {
                     f.parsednode.id = node.parsenode.declarations[0].id;
+                    f.nodes = f.nodes.remove(entry[0]);
                     return new Sliced(f.nodes, node, f.parsednode);
                  }
                  else {
@@ -65,6 +66,7 @@ var JSify = (function () {
                      esp_isAssignmentExp(node.parsenode.expression))
                 node.parsenode.right = f.parsednode; 
             slicednodes = f.nodes;
+            slicednodes = slicednodes.remove(entry[0]);
         }
         /* Outgoing data dependency to object entry node? */
         if (object.length > 0) {
@@ -106,9 +108,8 @@ var JSify = (function () {
     /* Function Expression */
     var sliceFunExp = function (slicednodes, node, cps) {
         var parent    = Ast.parent(parsenode, graphs.AST);
-        if (node.isObjectEntry) {
-            return sliceFunConstructor(slicednodes, node, cps)
-        }
+        if (node.isObjectEntry) 
+            return sliceFunConstructor(slicednodes, node, cps);
         else {// Body
              // Formal parameters
              var form_ins  = node.getFormalIn(),
@@ -130,8 +131,8 @@ var JSify = (function () {
             };
             // Formal out parameters
             form_outs.map(function (f_out) {
-                slicednodes = slicednodes.remove(f_out)
-            })
+                slicednodes = slicednodes.remove(f_out);
+            });
             var body = [],
                 bodynodes = node.getOutEdges(EDGES.CONTROL)
                                 .filter(function (e) {
@@ -144,17 +145,15 @@ var JSify = (function () {
                     body = body.concat(bodynode.parsednode);
                 }
                 slicednodes = removeNode(bodynode.nodes,n);
-                
                 });
-            slicednodes = slicednodes.remove(node);
+            //slicednodes = slicednodes.remove(node);
             parsenode.body.body = body;
             if (cps && !(parsenode.id && parsenode.id.name.startsWith('anonf'))) {
                 var transformer = makeTransformer(cps),
                     cpsfun      = CPSTransform.transformFunction(node, slicednodes, transformer);
-                if (esp_isFunDecl(parsenode) && cpsfun[1].setName) {
+                if (esp_isFunDecl(parsenode) && cpsfun[1].setName)
                     cpsfun[1].setName(parsenode.id.name);
-                }
-                return new Sliced(cpsfun[0], node, JSParse.createFunDecl(cpsfun[1].parsenode))
+                return new Sliced(cpsfun[0], node, JSParse.createFunDecl(cpsfun[1].parsenode));
             }
             return new Sliced(slicednodes, node, parsenode);
         }

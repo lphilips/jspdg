@@ -341,6 +341,11 @@ EntryNode.prototype.addCall = function (callnode) {
 }
 
 
+EntryNode.prototype.getCalls = function () {
+    return this.getInEdges(EDGES.CALL)
+        .map(function (e) { return e.from});
+}
+
 /* Object Entry nodes, denoted by "OE+index" */
 var ObjectEntryNode = function (id, parsenode) {
     EntryNode.call(this, 'o'+id);

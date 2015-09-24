@@ -67,6 +67,7 @@
     <script type="text/javascript" src="../PDG/node.js"></script>
     <script type="text/javascript" src="../PDG/graph.js"></script>
     <script type="text/javascript" src="../pre-analysis.js"></script>
+    <script type="text/javascript" src="../hoist.js"></script>
     <script type="text/javascript" src="../jipdatool.js"></script>
     <script type="text/javascript" src="../annotations.js"></script>
     <script type="text/javascript" src="js/esprimatool.js"></script>
@@ -84,7 +85,9 @@
     <script type="text/javascript" src="../transpiler/Nodeify.js"></script>
     <script type="text/javascript" src="../transpiler/CT_parse.js"></script>
     <script type="text/javascript" src="../transpiler/slice.js"></script>
-    <script type="text/javascript" src="../lib/escodegen.browser.js"></script>
+    <script type="text/javascript" src="../lib/esutils.js"></script>
+    <script type="text/javascript" src="../lib/esutils_code.js"></script>
+    <script type="text/javascript" src="../lib/escodegen.js"></script>
     <script type="text/javascript" src="PDGgraph.js"></script>
     <script type="text/javascript" src="pdgGraphs.js"></script>
     <script type="text/javascript" src="lib/viz.js"></script>
@@ -103,9 +106,10 @@
             var src = editor.getValue(),
             // First parse and create again via escodegen
                 ast = Ast.createAst(src, {loc:true, owningComments: true, comment: true});
-            src = escodegen.generate(escodegen.attachComments(ast, ast.comments, ast.tokens), {comment: true});
+            ast = Hoist.hoist(ast, function (node) {return esp_isBlockStm(node) && Comments.isTierAnnotated(node)});
+            src = escodegen.generate(ast);
 
-            /* Pre analysis step */
+            /* Pre analysis step (uses falafel, so does not work on AST but string representation */
             var preanalysis = pre_analyse(src);
             console.log(preanalysis.src);
             assumes = preanalysis.assumes;

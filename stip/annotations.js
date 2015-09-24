@@ -126,6 +126,7 @@ var Comments = (function () {
         })
     }
 
+    /* Move @blocking annotations to the attached call nodes as well */
     var handleBlockingComment = function (comment, pdgNodes) {
         pdgNodes.map(function (pdgNode) {
             var callnodes;
