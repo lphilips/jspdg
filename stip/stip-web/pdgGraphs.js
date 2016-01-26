@@ -91,10 +91,12 @@ function createPDGGraph (PDG)
     });
     transitions.forEach(function (edge) {
       graph.setEdge(edge.source, edge.target, {
-          lablineInterpolate: (edge.label === "control" ? 'basis-closed' : 'linear'),
-          label: edge.label === 'control' ? '' : edge.label, 
-          style: getStyle(edge.label),});
+         lablineInterpolate: (edge.label === "control" ? 'basis-closed' : 'linear'),
+         label: edge.label === 'control' ? '' : edge.label, 
+         style: getStyle(edge.label)
+      });
     }); 
+
     return [graph, nodes, edges];
    }
    
@@ -148,8 +150,8 @@ function createPDGGraph (PDG)
       $("g.edgePath").each(function ()
           {
             var transition = transitions[this.__data__.w];
-            //if (transition)
-            // $(this).attr("class", "edge " + transition.type.name);
+            if (transition)
+             $(this).attr("class", "edge " + transition.type.name);
       });
       var svg = d3.select("svg")
         //.attr("width", layout.graph().width + 40)

@@ -45,7 +45,7 @@ var JSParse = (function () {
                     expression: false
                   },
                   addBodyStm : function (stm) {
-                    this.parsenode.body.body = this.parsenode.body.body.concat(stm)
+                    this.parsenode.body.body.push(stm);
                   },
                   setBody    : function (body) {
                     this.parsenode.body.body = body
@@ -64,15 +64,20 @@ var JSParse = (function () {
      */
 
     var RPC = function (call, fname, args) {
-        return { parsenode  : {
+      var callee;
+      if (esp_isMemberExpression(call.parsenode.callee)) 
+        callee =  call.parsenode.callee;
+      else
+        callee = {
+                  type: "Identifier",
+                  name: fname
+        };
+      return { parsenode  : {
                         callnode  : call,
                         type      : "ExpressionStatement",
                         expression: {
                             type: "CallExpression",
-                            callee: {
-                                type: "Identifier",
-                                name: fname
-                            },
+                            callee: callee,
                             arguments: args ? args : []
                         }
                     },
@@ -107,8 +112,42 @@ var JSParse = (function () {
                         newcb.parsenode = argsp[argsp.length-1]
                         return newcb
                     }
+                },
+                getArguments : function () {
+                    return this.parsenode.expression.arguments;
                 }
             };
+    };
+
+    var RPCReturn = function (RPC) {
+         return {
+                parsenode  : 
+                    {   callnode  : RPC.parsenode.callnode,
+                        type      : "ReturnStatement",
+                        argument  : RPC.parsenode.expression,
+                        cont      : RPC.parsenode.cont 
+                    },
+              isRPC     : true,
+              addArg    : function (arg) {
+                RPC.addArg(arg);
+              },
+              replaceArg : function (prev, arg) {
+                RPC.replaceArg(prev, arg);
+              },
+              setCallback : function (cb) {
+                this.callback = cb;
+                RPC.setCallback(cb);
+              },
+              updateCallback : function (cb) {
+                RPC.updateCallback(cb);
+              },
+              setName : function (name) {
+                RPC.setName(name);
+              },
+              getCallback : function () {
+                return RPC.getCallback()
+            }
+        };
     };
 
     /* 
@@ -165,12 +204,37 @@ var JSParse = (function () {
         rpc.expression.arguments = rpc.expression.arguments.concat(cb)
     };
 
+    var createReturnStm = function (arg) {
+        return {
+            type: "ReturnStatement",
+            argument: arg
+        };
+    };
+
+    var createCallCb = function (name, err, res) {
+      return {
+
+              type: "CallExpression",
+              callee: {
+                    type: "Identifier",
+                    name: name
+                },
+              arguments: res ? [
+                    err,
+                    res
+                ] : [ err ]
+            }
+    };
+
 
     module.callback        = callback;
     module.RPC             = RPC;
+    module.RPCReturn       = RPCReturn;
     module.asyncFun        = asyncFun;
     module.createVarDecl   = createVarDecl;
     module.createFunDecl   = funDecl;
+    module.createReturnStm = createReturnStm;
+    module.createCallCb    = createCallCb;
 
     return module;
 

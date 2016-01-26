@@ -1,7 +1,8 @@
-var pre_analyse = function (src) {
+var pre_analyse = function (ast) {
     var anonf_ct    = 0;
     var anonf_name  = 'anonf';
-    var primitives  = ["$", "proxy"];
+    var primitives  = ["$", "console", "window"]; 
+    var asyncs      = ["https", "dns", "fs", "proxy"];
     var anonfC      = [];
     var anonfS      = [];
     var anonfSh     = [];
@@ -10,8 +11,9 @@ var pre_analyse = function (src) {
     var callC       = [];
     var callSh      = [];
     var assumes     = [];
-    var primdefs    = [];
+    var primdefs    = {};
     var primreturns = {};
+    var primtoadd   = {};
     var fundefsC    = [];
     var sharedblock;
 
@@ -90,7 +92,7 @@ var pre_analyse = function (src) {
     }
 
     var createFunExp = function (args, returntype) {
-        return {
+        var funexp =  {
                     type: "FunctionExpression",
                     id: null,
                     params: args,
@@ -106,11 +108,13 @@ var pre_analyse = function (src) {
                     },
                     generator: false,
                     expression: false
-                }
+            };
+        Ast.augmentAst(funexp);
+        return funexp;
     }
 
     var createFunDecl = function (id, args, returntype) {
-        return  {
+        var fundecl =  {
             "type": "FunctionDeclaration",
             "id": {
                 "type": "Identifier",
@@ -129,11 +133,13 @@ var pre_analyse = function (src) {
             },
             "generator": false,
             "expression": false
-        }
+        };
+        Ast.augmentAst(fundecl);
+        return fundecl;
     }
 
     var createCall = function (id) {
-        return {
+        var call = {
             type:"ExpressionStatement",
             expression: {
                 type:"CallExpression",
@@ -141,7 +147,9 @@ var pre_analyse = function (src) {
                 arguments:[],
                 isPreAnalyse: true
             }
-        }
+        };
+        Ast.augmentAst(call);        
+        return call;
     }
 
 
@@ -169,21 +177,12 @@ var pre_analyse = function (src) {
         }
     }
 
-    primitives.map(function (prim) {
-        var primret = {type: 'ObjectExpression', properties : []},
-            func    = createFunDecl(prim, [], "Obj");
-        func.body.body[0].argument = primret;
-        primreturns[prim] = primret;
-        assumes.push(func);
-    })
-
-
     var comments;
     var getComments = function (node) {
         if (!comments) {
             var parent = node;
             while (!esp_isProgram(parent)) {
-                parent = parent.parent;
+                parent = Ast.parent(parent, ast);
             }
             comments =  parent.comments;
         }
@@ -197,7 +196,7 @@ var pre_analyse = function (src) {
             if (esp_isBlockStm(parent) && parent.leadingComment) {
                 break;
             } else {
-                parent = parent.parent;
+                parent = Ast.parent(parent, ast);
             }
         }
         if (esp_isBlockStm(parent)) {
@@ -212,163 +211,161 @@ var pre_analyse = function (src) {
             if (esp_isBlockStm(parent)) {
                 break;
             } else {
-                parent = parent.parent;
+                parent = Ast.parent(parent, ast);
             }
         }
         return parent;
     }
 
 
-    var src = falafel(src, 
-                { comment : true, tokens: true, loc: true, owningComments: true},
-                function (node) {
-                  getComments(node);
+    walkAst(ast, {
 
-                  if (esp_isProgram(node)) {
-                    1;
-                  }
+        pre: function (node) {
+            /* Needs to be done upfront */
+            if (esp_isFunDecl(node)) {
+                var comment = isBlockAnnotated(node);
+                if (comment && Comments.isClientAnnotated(comment)) 
+                    fundefsC[node.id.name] = node;
+            }
+        },
 
-                  if (node.type === "Block" && Comments.isAssumesAnnotated(node.source())) {
-                    extractAssumes(node.value);
-                    node.update("/* " + node.value.replace(/\[.*?\]/, "").replace("@assumes", "") + " */");
-                  }
+        post: function (node) {
 
-                  if (esp_isBlockStm(node)) {
-                    var comment = node.leadingComment,
-                        bodystr = node.source().slice(1, -1);
+            getComments(node);
 
-                    if (comment && Comments.isSharedAnnotated(comment)) {
-                        sharedblock = node;
-                        return;
-                    }
 
-                    if (node.updatestrF) {
-                        node.updatestrF.map(function (str) {
-                            bodystr = str.concat(bodystr)
-                            node.body = esprima.parse(str).body.concat(node.body);
-                        })
-                        node.updatestrL.map(function (str) {
-                            bodystr = bodystr.concat(str);
-                            node.body = node.body.concat(esprima.parse(str).body);
-                        })
-                    }
+            /* @assumes annotation */
+            if (node.leadingComment && Comments.isAssumesAnnotated(node.leadingComment.value)) {
+                extractAssumes(node.leadingComment.value);
+            }
 
-                    node.update("{" + bodystr + "}");
+            /* If a block has updateFirst and/or updateLast property, 
+               these statements should be added in the beginning / ending of the block */
+            if (esp_isBlockStm(node) || esp_isProgram(node)) {
+                var comment = node.leadingComment;
 
-                    
-                  }
-
-                  if (node.primitive) {
-                    if (esp_isVarDeclarator(node))
-                      primdefs[node.id.name] = node;
-                    else if (esp_isAssignmentExp(node))
-                      primdefs[node.left.name] = node;
-                  }
-
-                  if (esp_isFunDecl(node)) {
-                    var comment = isBlockAnnotated(node);
-                    if (comment && Comments.isClientAnnotated(comment)) 
-                        fundefsC[node.id.name] = node;
-                  }
-
-                  if (esp_isCallExp(node)) {
-                    var name    = esp_getCalledName(node);
-                    var anonf   = function_args(node);
-                    var obj     = esp_isMemberExpression(node.callee) ? node.callee.object.name : false;
-                    var primdef = obj ? primdefs[obj] : primdefs[name];
-                    if (primitives.indexOf(name) >= 0 ) {
-                        node.primitive = true;
-                        if (esp_isExpStm(node.parent) || esp_isVarDecl(node.parent) || 
-                            esp_isAssignmentExp(node.parent) || esp_isVarDeclarator(node.parent))
-                            node.parent.primitive = name;
-                    }
-                    if (primdef) {
-                        var primret = primreturns[primdef.primitive],
-                            present = primret.properties.filter(function (prop) {
-                                return prop.key.name === name
-                            });
-                        if (present.length <= 0)
-                            primret.properties.push( {
-                                type : 'Property',
-                                key :  {
-                                            "type": "Identifier",
-                                            "name": name
-                                        },
-                                value : createFunExp([], '')
-                            })
-                    }
-                    if (anonf.length > 0) {
-                        var comment = isBlockAnnotated(node);
-                        var enclBlock = getCurrentBlock(node);
-                        var bodystrF = "";
-                        var bodystrL = "";
-                        node.arguments = node.arguments.map(function (arg) {
-                            if (esp_isFunExp(arg)) {
-                                var name = anonf_name + ++anonf_ct;
-                                var func = createFunDecl(name, arg.params);
-                                var call = createCall(name);
-                                call.leadingComments = [{type: "Block", value:"@generated", range: [0,16]}];
-                                func.body = arg.body;
-                                func.params.map(function (param) {
-                                    call.expression.arguments = call.expression.arguments.concat({
-                                            "type": "Literal",
-                                            "value": null
-                                        });
-                                });
-                                if (comment && Comments.isClientAnnotated(comment)) {
-                                    bodystrF = escodegen.generate(func).concat(escodegen.generate(call)).concat(bodystrF);
-                                }
-                                else if (comment && Comments.isServerAnnotated(comment)) {
-                                     
-                                     bodystrF = escodegen.generate(func).concat(escodegen.generate(call)).concat(bodystrF);
-                                } else {
-                                    anonfSh = anonfSh.concat(func);
-                                    callSh = callSh.concat(call);
-                                    
-                                }
-                                return createIdentifier(name);
-                            }
-                            else if (esp_isIdentifier(arg) && fundefsC[arg.name]) {
-                                call = createCall(arg.name);
-                                call.leadingComments = [{type: "Block", value:"@generated", range: [0,16]}];
-                                bodystrL = bodystrL.concat("/* @generated */" + escodegen.generate(call));
-                                return arg
-                            }
-                            else
-                                return arg
-                        });
-                        node.update(escodegen.generate(node));
-                        if (!enclBlock.updatestrF) {
-                            enclBlock.updatestrF = [];
-                            enclBlock.updatestrL = [];
-                        }
-                        enclBlock.updatestrF.push(bodystrF);
-                        enclBlock.updatestrL.push(bodystrL);
-
-                    }
+                if (comment && Comments.isSharedAnnotated(comment)) {
+                    sharedblock = node;
+                    return;
                 }
-           
-            });
 
-    src = src.toString();
-   
-    assumes.map(function (assume) {
-        src = escodegen.generate(assume).concat(src)
+                if (node.updateFirst) {
+                    node.body = node.updateFirst.concat(node.body);
+                }
+                if (node.updateLast) {
+                    node.body = node.body.concat(node.updateLast)
+                }
+                   
+            }
+
+            /* If a node is tagged as primitive, add it to the primitive definitions.
+               This causes later accesses to the primitive (such as element.jquerymethod()) 
+               to be added to e.g. the jquery primitive */
+            if (node.primitive) {
+                if (esp_isVarDeclarator(node))
+                  primdefs[node.id.name] = node;
+                else if (esp_isAssignmentExp(node))
+                  primdefs[node.left.name] = node;
+            }
+
+            if (esp_isMemberExpression(node) && !node.primitive &&
+              !esp_isThisExpression(node.object)) {
+                var name = node.property.name;
+                var objname;
+                if (esp_isCallExp(node.object)) {
+                    objname = node.object.callee.name;
+                }
+                else { 
+                    objname = node.object.name;
+                }
+                
+                primtoadd[objname] ? primtoadd[objname].push(name) : primtoadd[objname] = [name] ;
+            }
+
+
+            if (esp_isCallExp(node)) {
+
+                var name    = esp_getCalledName(node);
+                var anonf   = function_args(node);
+                var obj     = esp_isMemberExpression(node.callee) ? node.callee.object.name : false;
+                var primdef = obj ? primdefs[obj] : primdefs[name];
+
+                if (primitives.indexOf(name) >= 0 ) {
+                    node.primitive = true;
+                    node.parent = Ast.parent(node, ast);
+                    if (esp_isExpStm(node.parent) || esp_isVarDecl(node.parent) || 
+                        esp_isAssignmentExp(node.parent) || esp_isVarDeclarator(node.parent))
+                        node.parent.primitive = name;
+                }
+                if (primdef) {
+                    var primret = primreturns[primdef.primitive],
+                        present = primret.properties.filter(function (prop) {
+                            return prop.key.name === name
+                        });
+                    if (present.length <= 0)
+                        primret.properties.push( {
+                            type : 'Property',
+                            key :  {
+                                        "type": "Identifier",
+                                        "name": name
+                                    },
+                            value : createFunExp([], '')
+                        });
+                        Ast.augmentAst(primret);
+                }
+                if (anonf.length > 0) {
+                    var comment    = isBlockAnnotated(node);
+                    var enclBlock  = getCurrentBlock(node);
+                    var bodyFirst  = [];
+                    var bodyLast   = [];
+                    node.arguments = node.arguments.map(function (arg) {
+                        if (esp_isFunExp(arg)) {
+                            var name = anonf_name + ++anonf_ct;
+                            var func = createFunDecl(name, arg.params);
+                            var call = createCall(name);
+                            call.leadingComment = {type: "Block", value:"@generated", range: [0,16]};
+                            func.body = arg.body;
+                            func.params.map(function (param) {
+                                call.expression.arguments = call.expression.arguments.concat({
+                                        "type": "Literal",
+                                        "value": null
+                                    });
+                            });
+                            Ast.augmentAst(func);
+                            bodyFirst.push(func);
+                            bodyLast.push(call);
+                            return createIdentifier(name);
+                        }
+                        else if (esp_isIdentifier(arg) && fundefsC[arg.name]) {
+                            call = createCall(arg.name);
+                            call.leadingComment = {type: "Block", value:"@generated"};
+                            bodyLast = bodyLast.concat(call);
+                            return arg;
+                        }
+                        else
+                            return arg;
+                    });
+
+                    if (!enclBlock.updateFirst) {
+                        enclBlock.updateFirst = [];
+                        enclBlock.updateLast = [];
+                    }
+                    enclBlock.updateFirst = enclBlock.updateFirst.concat(bodyFirst);
+                    enclBlock.updateLast = enclBlock.updateLast.concat(bodyLast);
+
+                }
+            }
+
+        }
     })
-    anonfSh.map(function (func) {
-        src = src.concat(escodegen.generate(func))
-    })
-    callSh.map(function (call) {
-        src = src.concat(escodegen.generate(call))
-    })
 
-
-
+    ast.body = js_libs.getLibraries().concat(anonfSh).concat(callSh).concat(ast.body);
 
     return  { 
-        src        :   src,
-        assumes    : assumes,
+        ast        : ast,
+        assumes    : js_libs.getLibraries().concat(assumes),
         shared     : sharedblock,
-        primitives : primitives
+        primitives : primitives,
+        asyncs     : asyncs
     };
 }

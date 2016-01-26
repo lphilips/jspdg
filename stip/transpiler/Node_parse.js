@@ -133,6 +133,37 @@ var NodeParse = (function () {
     };
 
 
+    var RPCReturn = function (RPC) {
+        return {
+                parsenode  : 
+                    {   callnode  : RPC.parsenode.callnode,
+                        type      : "ReturnStatement",
+                        argument  : RPC.parsenode.expression,
+                        cont      : RPC.parsenode.cont
+                    },
+              isRPC     : true,
+              addArg    : function (arg) {
+                RPC.addArg(arg);
+              },
+              replaceArg : function (prev, arg) {
+                RPC.replaceArg(prev, arg);
+              },
+              setCallback : function (cb) {
+                this.callback = cb;
+                RPC.setCallback(cb);
+              },
+              updateCallback : function (cb) {
+                RPC.updateCallback(cb);
+              },
+              setName : function (name) {
+                RPC.setName(name);
+              },
+              getCallback : function () {
+                return RPC.getCallback()
+            }
+        };
+    }
+
     /* 
      * Representation of an async function (takes an extra argument callback)
      *   
@@ -257,6 +288,29 @@ var NodeParse = (function () {
         };
     };
 
+    var createReturnStm = function (arg) {
+        return {
+            type: "ReturnStatement",
+            argument: arg
+        };
+    };
+
+    var createCallCb = function (name, err, res) {
+      return {
+
+              type: "CallExpression",
+              callee: {
+                  type: "Identifier",
+                  name: name
+              },
+              arguments: res ? [
+                  err,
+                  res
+              ] : [ err ]
+          };
+    };
+
+
 
     var createServer = function () {
         return esprima.parse('var server = new ServerRpc(serverHttp, {})').body[0];
@@ -279,6 +333,7 @@ var NodeParse = (function () {
     module.createExp       = createExp;
     module.callback        = callback;
     module.RPC             = RPC;
+    module.RPCReturn       = RPCReturn;
     module.asyncFun        = asyncFun;
     module.methodsClient   = methodsClient;
     module.methodsServer   = methodsServer; 
@@ -286,6 +341,9 @@ var NodeParse = (function () {
     module.createClient    = createClient;
     module.createBroadcast = broadcast;
     module.asyncReplyC     = asyncReplyC;
+    module.createReturnStm = createReturnStm;
+    module.createCallCb    = createCallCb;
+
 
     return module;
 

@@ -146,6 +146,45 @@ var esp_hasCallStm = function (node, callnode) {
 }
 
 
+//
+// Walk the tree, ignore x-* properties
+//
+function walkAst(ast, callback) {
+      if (typeof ast !== 'object' || !ast) {
+            return;
+      }
+
+
+    if (callback.pre) callback.pre(ast);
+      //
+      // Store them, they may try to reorder
+      //
+      var children = [], child;
+      //Object.keys(ast).forEach(function (key) {
+      for (key in ast) {
+            child = ast[key];
+            //if (key.substr(0,2) === 'x-') {
+             // return;
+            //}
+            if (!key.startsWith("_")) {
+              if (child instanceof Array ) {
+                  for ( j = 0, len = child.length; j < len; j += 1 ) {
+                      children.push( child[j] );
+                  }
+              } else if ( child != void 0 && typeof child.type === 'string' ) {
+                  children.push(child);
+              }
+            }
+            //children.push(ast[key]);
+      };
+      children.forEach(function (node) {
+          /* ignore block comment nodes */
+          if (node.type !== 'Block')
+            walkAst(node, callback);
+      });
+    if (callback.post) callback.post(ast);
+}
+
 
 Array.prototype.memberAt =
     function (x)

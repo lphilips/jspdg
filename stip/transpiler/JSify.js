@@ -13,9 +13,19 @@ var JSify = (function () {
 
     var makeShouldTransform = function (cps) {
         return function (call) {
-                if (call.name === 'createServer')
+            var parsenode = esp_isExpStm(call.parsenode) ? call.parsenode.expression : call.parsenode;
+            if (cps)
+                if (call.primitive) {
                     return false;
-                return cps
+                } 
+                else if (esp_isMemberExpression(parsenode.callee) &&
+                    asyncs.indexOf(parsenode.callee.object.name) >= 0) 
+                        return true;
+                else
+                    return cps;
+
+            else
+                return false;
             }
         },
 
@@ -23,8 +33,9 @@ var JSify = (function () {
         return {  AST        : graphs.AST, 
                   transformF : toJavaScript,
                   callbackF  : JSParse.callback, 
-                  asyncCallF : JSParse.RPC, 
+                  asyncCallF : function (call) { return JSParse.RPC}, 
                   asyncFuncF : JSParse.asyncFun,
+                  parseF     : JSParse,
                   shouldTransform : makeShouldTransform(cps) ,
                   option     : cps
                 }
@@ -53,24 +64,38 @@ var JSify = (function () {
         /* Outgoing data dependency to entry node? */
         if (entry.length > 0) {
             var f = toJavaScript(slicednodes, entry[0], cps);
+            slicednodes = f.nodes;
+            slicednodes = slicednodes.remove(entry[0]);
+            
             if (esp_isVarDecl(node.parsenode))
                  if (esp_isFunDecl(f.parsednode)) {
                     f.parsednode.id = node.parsenode.declarations[0].id;
                     f.nodes = f.nodes.remove(entry[0]);
-                    return new Sliced(f.nodes, node, f.parsednode);
+                    
+                    return new Sliced(slicednodes, node, f.parsednode);
                  }
                  else {
                     node.parsenode.declarations[0].init = f.parsednode;
                 }
             else if (esp_isExpStm(node.parsenode) && 
-                     esp_isAssignmentExp(node.parsenode.expression))
-                node.parsenode.right = f.parsednode; 
-            slicednodes = f.nodes;
-            slicednodes = slicednodes.remove(entry[0]);
+                     esp_isAssignmentExp(node.parsenode.expression)) {
+
+                        if (esp_isFunDecl(f.parsednode)) {
+                            f.parsednode.id = node.parsenode.expression.left;
+
+                            return new Sliced(slicednodes, node, f.parsednode);
+                        }        
+                        node.parsenode.expression.right = f.parsednode; 
+
+            }
+
+                
+
         }
         /* Outgoing data dependency to object entry node? */
         if (object.length > 0) {
             var obj = toJavaScript(slicednodes, object[0], cps);
+            
             if (esp_isVarDecl(node.parsenode))
                 node.parsenode.declarations[0].init = obj.parsednode;
             else if (esp_isExpStm(node.parsenode) && 
@@ -107,7 +132,7 @@ var JSify = (function () {
 
     /* Function Expression */
     var sliceFunExp = function (slicednodes, node, cps) {
-        var parent    = Ast.parent(parsenode, graphs.AST);
+        var parent    = Ast.parent(node.parsenode, graphs.AST);
         if (node.isObjectEntry) 
             return sliceFunConstructor(slicednodes, node, cps);
         else {// Body
@@ -136,7 +161,7 @@ var JSify = (function () {
             var body = [],
                 bodynodes = node.getOutEdges(EDGES.CONTROL)
                                 .filter(function (e) {
-                                  return e.to.isStatementNode || e.to.isCallNode;
+                                  return !e.to.isFormalNode 
                                 })
                                 .map(function (e) { return e.to });
             bodynodes.map(function (n) {
@@ -146,15 +171,22 @@ var JSify = (function () {
                 }
                 slicednodes = removeNode(bodynode.nodes,n);
                 });
-            //slicednodes = slicednodes.remove(node);
+
             parsenode.body.body = body;
             if (cps && !(parsenode.id && parsenode.id.name.startsWith('anonf'))) {
                 var transformer = makeTransformer(cps),
                     cpsfun      = CPSTransform.transformFunction(node, slicednodes, transformer);
+
                 if (esp_isFunDecl(parsenode) && cpsfun[1].setName)
                     cpsfun[1].setName(parsenode.id.name);
+
+                else if (esp_isProperty(parent)) {
+                    return new Sliced(cpsfun[0], node, cpsfun[1].parsenode);
+                }
+
                 return new Sliced(cpsfun[0], node, JSParse.createFunDecl(cpsfun[1].parsenode));
             }
+
             return new Sliced(slicednodes, node, parsenode);
         }
     }
@@ -177,6 +209,7 @@ var JSify = (function () {
             for (var i = 0; i < form_ins.length; i++) {
                 var fp = form_ins[i],
                      p = params[i];
+                
                 if(!slicedContains(slicednodes,fp)) {
                     params.splice(i,1);
                 }
@@ -200,6 +233,7 @@ var JSify = (function () {
       node.parsenode.body.body = body;
       slicednodes = slicednodes.remove(node);
       slicednodes = slicednodes.remove(constructor);
+      
       return new Sliced(slicednodes, node, node.parsenode);
     }
 
@@ -208,16 +242,28 @@ var JSify = (function () {
             actual_outs = node.getActualOut(),  
             parent      = Ast.parent(node.parsenode,graphs.AST);
         actual_ins.map(function (a_in) {
-            slicednodes = slicednodes.remove(a_in)
+            slicednodes = slicednodes.remove(a_in);
         })
         actual_outs.map(function (a_out) {
-            slicednodes = slicednodes.remove(a_out)
+            slicednodes = slicednodes.remove(a_out);
         })
         if (cps) {
             var transformer = makeTransformer(cps),
-                cpscall     = CPSTransform.transformCall(node, slicednodes, transformer);
-            return new Sliced(cpscall[0], node, cpscall[1].parsenode)
+                parsenode   = node.parsenode,
+                cpscall     = CPSTransform.transformCall(node, slicednodes, transformer);   
+            
+            if (transformer.shouldTransform(node) && 
+                esp_isMemberExpression(parsenode.callee)) {
+                node.parsenode.arguments = cpscall[1].getArguments();
+                
+                return new Sliced(cpscall[0], node, parent);
+            }
+           
+            else
+                
+                return new Sliced(cpscall[0], node, cpscall[1].parsenode)
         }
+        
         return new Sliced(slicednodes, node, parent)
     }
 
@@ -234,8 +280,10 @@ var JSify = (function () {
         if (call.length > 0) {
             var transformer = makeTransformer(cps),
                 cpsvar      = CPSTransform.transformExp(node, slicednodes, transformer)
+            
             return new Sliced(cpsvar[0], node, cpsvar[1].parsenode)
         }
+        
         if (object.length > 0) {
             object.map(function (oe) {
                 var formout = oe.getOutEdges(EDGES.DATA)
@@ -247,6 +295,7 @@ var JSify = (function () {
             })
         }
         slicednodes = slicednodes.remove(node);
+        
         return new Sliced(slicednodes, node, node.parsenode)
     }
 
@@ -257,6 +306,7 @@ var JSify = (function () {
                             .map(function (e) {return e.to});
         bodynodes.map(function (n) {
             var bodynode = toJavaScript(slicednodes, n, cps);
+            
             if (slicedContains(slicednodes, n)) {
                     body = body.concat(bodynode.parsednode)
             }
@@ -264,6 +314,7 @@ var JSify = (function () {
         });
         slicednodes = slicednodes.remove(node);
         parsenode.body = body;
+        
         return new Sliced(slicednodes, node, parsenode);
     }
 
@@ -286,6 +337,7 @@ var JSify = (function () {
             node.parsenode.alternate = jsnode.parsednode;
         })
         slicednodes = slicednodes.remove(node);
+        
         return new Sliced(slicednodes, node, node.parsenode);
     }
 
@@ -305,6 +357,7 @@ var JSify = (function () {
         });
         slicednodes = slicednodes.remove(node);
         parsenode.properties = properties;
+        
         return new Sliced(slicednodes, node, parsenode);
     }
 
@@ -319,13 +372,16 @@ var JSify = (function () {
         
         slicednodes = removeNode(slicednodes, call);
         a_outs.map(function (a_out) {
+            
             if (slicedContains(slicednodes, a_out)) 
               slicednodes = removeNode(slicednodes, a_out)
         })
         parsenode.arguments = a_ins.filter(function (a_in) {
+            
             return slicedContains(slicednodes, a_in)    
         }).map(function (a_in) {return a_in.parsenode});
         slicednodes = slicednodes.remove(node);
+        
         return new Sliced(slicednodes, node, parsenode);
     }
 
@@ -346,6 +402,7 @@ var JSify = (function () {
             slicednodes = removeNode (callnode.nodes, entry);
         })
         slicednodes = slicednodes.remove(node);
+        
         return new Sliced(slicednodes, node, node.parsenode);
     }
 
@@ -376,6 +433,7 @@ var JSify = (function () {
 
         node.parsenode.block.body = block;
         slicednodes = slicednodes.remove(node);
+        
         return new Sliced(slicednodes, node, node.parsenode);
     }
 
@@ -395,25 +453,17 @@ var JSify = (function () {
     var removeNode = function (nodes, node, cps) {
         var callnode = false;
         nodes = nodes.remove(node);
-        /*nodes.map(function (n) {
-            if(n.parsenode) {
-            var parent = Ast.parent(n.parsenode,graphs.AST);
-            if(n.isCallNode && (n.parsenode === node.parsenode || parent === node.parsenode)) {
-                callnode = n
-            }
-        }
-        });
-        if(callnode) 
-            return nodes.remove(callnode);
-        else*/
+            
             return nodes;
     }
 
     var slicedContains = function (nodes, node, cps) {
         return nodes.filter(function (n) {
             if(n.isCallNode) {
+                
                 return n.parsenode === node.parsenode
             } else
+            
             return n.id === node.id
         }).length > 0
     }
@@ -422,6 +472,7 @@ var JSify = (function () {
     // Non distributed version.
     var toJavaScript = function (slicednodes, node, cps) {
         if(node.isActualPNode || node.isFormalNode || node.isExitNode || !node.parsenode) {
+            
             return new Sliced(slicednodes, node, false);
         }
         var parent = Ast.parent(node.parsenode,graphs.AST);
@@ -469,10 +520,13 @@ var JSify = (function () {
                             return e.to.isCallNode
                         }).length > 0)*/)
                     return sliceRetStm(slicednodes, node, cps)
+                
                 if (esp_isExpStm(node.parsenode) && esp_isAssignmentExp(node.parsenode.expression))
                     return sliceVarDecl(slicednodes, node, cps)
+                
                 if (esp_isExpStm(node.parsenode) && esp_isBinExp(node.parsenode.expression))
                     return sliceBinExp(slicednodes, node, cps)
+                
                 return new Sliced(slicednodes, node, node.parsenode);
         }
     }

@@ -41,13 +41,22 @@ var Hoist = (function () {
           //
           // Store them, they may try to reorder
           //
-          var children = [];
-          Object.keys(ast).forEach(function (key) {
-                if (key.substr(0,2) === 'x-') {
-                  return;
+          var children = [], child;
+          //Object.keys(ast).forEach(function (key) {
+          for (key in ast) {
+                child = ast[key];
+                //if (key.substr(0,2) === 'x-') {
+                 // return;
+                //}
+                if (child instanceof Array ) {
+                    for ( j = 0, len = child.length; j < len; j += 1 ) {
+                        children.push( child[j] );
+                    }
+                } else if ( child != void 0 && typeof child.type === 'string' ) {
+                    children.push(child);
                 }
-                children.push(ast[key]);
-          });
+                //children.push(ast[key]);
+          };
           children.forEach(function (node) {
                 walk2(node, callback);
           });
@@ -56,7 +65,7 @@ var Hoist = (function () {
    
 
     var createVarDecl = function (name) {
-        return {
+        var decl = {
             type : "VariableDeclaration",
             declarations : [{
                 type : "VariableDeclarator",
@@ -68,11 +77,13 @@ var Hoist = (function () {
             }],
             kind : "var",
             hoist: true,
-        }
+        };
+        Ast.augmentAst(decl);
+        return decl;
     };
 
     var createAssignment = function (name, value) {
-        return {
+        var ass = {
                 type: "AssignmentExpression",
                 operator: "=",
                 left: {
@@ -80,7 +91,17 @@ var Hoist = (function () {
                     name: name
                 },
                 right: value
-            }
+        };
+        Ast.augmentAst(ass);
+        return ass;
+    };
+
+    var getParent = function (node, ast, tohoist) {
+        var parent = Ast.parent(node, ast);
+        if (tohoist && tohoist(parent))
+            return parent
+        else
+            return Ast.enclosingFunScope(node, ast)
     };
 
     /* Changes the AST destructively 
@@ -99,7 +120,9 @@ var Hoist = (function () {
                 var declmap,
                     names;
 
-                if (esp_isProgram(node) || esp_isFunDecl(node)) {
+                if (esp_isProgram(node) || 
+                    esp_isFunDecl(node) || 
+                    esp_isFunExp(node)) {
                     declmap = Ast.functionScopeDeclarations(node);
                     names = Object.keys(declmap);
 
@@ -161,28 +184,21 @@ var Hoist = (function () {
 
                 else {
 
-                    var commenti, comment, moved;
-                    if (node.leadingComment) {
-                        commenti = ast.comments.indexOf(node.leadingComment)
-                        if (commenti >= 0) {
-                            comment = ast.comments[commenti];
-                            moved = ast.toString().indexOf(node.toString()) - node.range[0];
-                            comment.range[0] = comment.range[0] + moved;
-                            comment.range[1] = comment.range[1] + moved;
-                        }
-                    } 
-
                     if (esp_isVarDecl(node) && !node.hoist) {
+                        var parent = getParent(node, ast, tohoist);//Ast.enclosingFunScope(decl,ast);
+                        var body = esp_isFunDecl(parent) || esp_isFunExp(parent) ? parent.body.body : parent.body;
+                        var index = body.indexOf(node);
                         node.declarations.map(function (decl) {
-                            var parent = Ast.enclosingFunScope(decl,ast);
-                            var range;
-                            if (hoisted[parent.tag] && hoisted[parent.tag].indexOf(decl.id.name) >= 0) {
-                                node.type = "ExpressionStatement";
-                                node.expression = createAssignment(decl.id.name, decl.init);
-                                node.expression.range = node.range;
-
+                            if (hoisted[parent.tag] && hoisted[parent.tag].indexOf(decl.id.name) >= 0 && decl.init) {
+                                var exp = {type: "ExpressionStatement", expression : createAssignment(decl.id.name, decl.init)};
+                                Ast.augmentAst(exp);
+                                exp.leadingComment = node.leadingComment;
+                                body.splice(index, 0, exp);
+                                index += 1;
                             }
                         })
+                        esp_isFunDecl(parent) || esp_isFunExp(parent) ? 
+                         parent.body.body = body.remove(node): parent.body = body.remove(node);
                     }
                 }
             }

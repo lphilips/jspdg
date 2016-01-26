@@ -25,7 +25,7 @@ var b = 2;
 @server
 {
   var serveronly = 3;
-  var serverfunction = function (x) {
+  function serverfunction (x) {
       return x + a;
   };
   serverfunction(a);
@@ -41,7 +41,6 @@ var b = 2;
 */});
 
 var chatexample = uncomment (function () {/*
-@assumes [random():Num]
 @server 
 {
   function broadcast(name, message) {
@@ -51,17 +50,17 @@ var chatexample = uncomment (function () {/*
     
 @client
   {
-    var name = "user"  + random(),
+    var name = "user"  + Math.random(),
         btn  = $("#btn"),
         text = $("#text");
 
     function chatHandler () {
-       var msg = text.value();
+       var msg = text.val();
        broadcast(name, msg);
     }
-    btn.onClick(chatHandler);
+    btn.click(chatHandler);
     function displayMessage(name, message) {
-        text.value(name + ":said " + message)
+        text.val(name + ":said " + message)
     }
 }
 */})
@@ -88,12 +87,14 @@ bar()
 */});
 
   var example3 = uncomment (function (){/*
-var factor = function () { return 9/5 };
+function factor () { 
+  return 9/5; 
+};
 var add = 32;
 @server
 {
   var standard = 5;
-  var temperature = function () {
+  function temperature () {
     return standard;
   }
 }
@@ -103,22 +104,22 @@ var add = 32;
   var txtDom = $('txt');
   var celcius = temperature() * factor() + add;
   // Update UI
-  tmpDom.value(tempDom.value() + celcius);
+  tmpDom.val(tmpDom.val() + celcius);
   if (celcius > 20) 
-    txtDom.value('It is rather hot today');
+    txtDom.val('It is rather hot today');
   else
-    txtDom.value('It is rather cold today');
+    txtDom.val('It is rather cold today');
 }
 */});
 
   var example4 = uncomment( function (){/*
 @server
 {
-	var serverf = function (x) { return x }
+	function serverf(x) { return x }
 }
 @client 
 {
-	var clientf = function (x) { return x };
+	function clientf(x) { return x };
 	var a = clientf(1) + serverf(2)
 	var b = serverf(3) + 4 + serverf(5) + clientf(6);
 	var c = a + b + serverf(7);
@@ -129,7 +130,6 @@ var add = 32;
 
 
   var advancedchat = uncomment( function () {/*
-@assumes [random():Num]
 @shared 
  { function userExistsError (msg, name) {
          this.message = msg;
@@ -166,7 +166,7 @@ var add = 32;
     }
 
     function registerUser(){
-        var user_id = random();
+        var user_id = Math.random();
         var name = "user_" + user_id;
 
         ids.push(user_id);
@@ -212,7 +212,7 @@ var add = 32;
 
     function speak(){
     try {
-        var msg = msgDom.value();
+        var msg = msgDom.val();
         broadcast(user_id, msg); 
      }catch(e){
         msgDom.text(e.message);
@@ -225,7 +225,7 @@ var add = 32;
 
     function changeName(){
     try{
-        changeUser(user_id, nameDom.value()); 
+        changeUser(user_id, nameDom.val()); 
 
     } catch(e){
         msgDom.text('Could not change name to ' + e.newName + ': ' + e.message);
@@ -254,12 +254,136 @@ var f = foo(4);
 var g = foo(5);
 */});
 
-  module.tiersplittxt = ['Chat', 'Basic', 'Advanced Chat','Temperature'];
-  module.tiersplitexs = [chatexample, example1, advancedchat, example3];
+var examplefac = uncomment( function () {/*
+function fac (x) {
+  if (x == 0)
+    return 1;
+  else
+    return x * fac(x - 1);
+}
+
+fac(5);
+*/});
+
+
+var exampleho = uncomment( function () {/*
+function square (x) { 
+  return x * x; 
+} 
+function next(x) {  
+  return x + 1;
+} 
+function sum(a, b, term, next) {  
+  if (a === b) 
+    return term(b);   
+  else 
+    return term(a) + sum(next(a), b, term, next); 
+}
+
+sum(1,5, square, next);
+sum(1,3,square, next);
+*/});
+
+var exampleCollChat = uncomment( function () {/*
+@assumes [setTimeout(fn,ms):null]
+@server
+{
+    var lines = [];
+
+    function addLine (line) {
+        lines.push(line);
+        @broadcast
+        drawLine(line);
+    }
+}
+@client
+{
+    var canvas = $("#drawing");
+    var context = canvas.getContext("2d");
+    var width = window.width;
+    var height = window.height;
+    var mouse = { 
+          click: false,
+          move: false,
+          pos: {x:0, y:0},
+          pos_prev: false
+    };
+
+    canvas.width = width;
+    canvas.height = height;
+
+    function mouseMove (e) {
+        mouse.pos.x = e.clientX / width;
+        mouse.pos.y = e.clientY / height;
+        mouse.move = true;
+    }
+
+    function mouseDown (e) {
+        mouse.click = true;
+    }
+
+    function mouseUp (e) {
+        mouse.click = false;
+    }
+
+    canvas.onmousemove(mouseMove);
+    canvas.onmouseup(mouseUp);
+    canvas.onmousedown(mouseDown);
+    mouseMove({clientX : 0, clientY : 0});
+
+    function drawLine(line) {
+        var begin = line[0];
+        var end   = line[1];
+        context.beginPath();
+        context.lineWidth = 2;
+        context.moveTo(begin.x * width, begin.y * height);
+        context.lineTo(end.x * width, end.y * height);
+        context.stroke();
+    }
+
+    function loop () {
+        if ( mouse.move && mouse.pos_prev) {
+            addLine([mouse.pos, mouse.pos_prev]);
+            mouse.move = false;
+        }
+        mouse.pos_prev = {x : mouse.pos.x, y: mouse.pos.y};
+        setTimeout(loop, 25);
+
+    }
+
+    loop();
+}
+*/});
+
+
+var cpsboardgames = uncomment( function () { /*
+function options (path) {
+  return {
+    hostname: 'bgg-json.azurewebsites.net',
+    path: path,
+    method: 'GET'
+  }
+}
+
+var latest = https.get(options('/hot'));
+latest.on('data', function (d) {
+  console.log(d);
+});
+var friends = ["flippydosk", "swipl"];
+friends.forEach(function (friend) {
+  var played = https.get(options('/plays'+friend));
+  played.on('data', function (d) {
+    console.log(d);
+  });
+});
+*/})
+
+  module.tiersplittxt = ['Chat', 'Basic', 'Advanced Chat','Collaborative Drawing','Temperature'];
+  module.tiersplitexs = [chatexample, example1, advancedchat, exampleCollChat, example3];
   module.slicetxt = ['Data dependencies']
   module.sliceexs = [example2]
-  module.continuationstxt = ['Callback Hell', 'Annotation']
-  module.contexs = [example4, example5]
+  module.continuationstxt = ['Factorial', 'Higher Order', 'Callback Hell', 'Annotation', 'Boardgames']
+  module.contexs = [examplefac, exampleho, example4, example5, cpsboardgames]
 
 
 

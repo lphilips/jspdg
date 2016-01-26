@@ -33,14 +33,14 @@ PDG_Node.prototype.addEdgesIn = function (froms) {
 PDG_Node.prototype.addEdgesOut= function (tos) {
     for (var i = 0; i < tos.length; i++) {
       var totype = tos[i],
-          e      = new PDG_Edge(this,totype[0],totype[1]);
+          e      = new PDG_Edge(this, totype[0], totype[1]);
       this.edges_out.push(e);
       totype[0].edges_in.push(e);
     }
 }
 
 PDG_Node.prototype.addEdgeOut = function (to, type, label) {
-  var e = new PDG_Edge(this,to, type,label);
+  var e = new PDG_Edge(this, to, type, label);
   this.edges_out.push(e);
   to.edges_in.push(e);
 }
@@ -363,11 +363,9 @@ ObjectEntryNode.prototype.getMember = function (id) {
     if (id.name)
         id = id.name
     found =  this.members[id];
-    if (found) {
-
-    }
     return found;
 }
+
 
 ObjectEntryNode.prototype.addMember = function (name, member) {
     this.addEdgeOut(member, EDGES.OBJMEMBER);
