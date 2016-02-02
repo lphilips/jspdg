@@ -69,7 +69,7 @@ var CPSTransform = (function () {
             callback.addBodyStm(upnode.parsenode);
             slicednodes = removeNode(slicednodes, upnode);
         }
-            /* Data depentent nodes */
+            /* Data dependent nodes */
             datadeps.map( function (node) {
                 var incont = insideContinuation(call, node),
                     dataentry = getEntryNode(node);
@@ -120,7 +120,8 @@ var CPSTransform = (function () {
                         }
                     });
 
-                    if (!dataentry.equals(entry)) {
+                    if (!dataentry.equals(entry) && (calledEntry ? !calledEntry.equals(dataentry) : true) &&
+                        !hasAsReturnValue(dataentry, node)) {
                         if (!slicedContains(datadep, dataentry)) {
                             datadep.push(dataentry);
                             if (dataentry.getCalls)
@@ -676,6 +677,14 @@ var CPSTransform = (function () {
 
     var  isBlockingCall = function (callnode) {
         return callnode.parsenode.leadingComment && Comments.isBlockingAnnotated(callnode.parsenode.leadingComment)
+    }
+
+    var hasAsReturnValue = function (entrynode, returnvalue) {
+        return entrynode.isEntryNode && entrynode.getFormalOut().filter(function (form_out) {
+            return form_out.getInEdges(EDGES.DATA).filter(function (e) {
+                return e.from.equals(returnvalue);
+            })
+        }).length > 0;
     }
 
     var slicedContains = function (nodes,node) {

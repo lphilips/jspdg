@@ -236,7 +236,11 @@ var Stip = (function () {
         /* TEST */
         makePDGNode(graphs, node.test, stmNode);
         /* CONSEQUENT */
-        makePDGNode(graphs, consequent, stmNode)
+        makePDGNode(graphs, consequent, stmNode);
+        stmNode.getOutEdges(EDGES.CONTROL).filter(function (e) {
+            if (e.to.parsenode === consequent)
+                e.label = true;
+        })
         /* ALTERNATE */
         if (alternate) {
             makePDGNode(graphs, alternate, stmNode)
@@ -618,6 +622,34 @@ var Stip = (function () {
 
                             upnode.addEdgeOut(callnode, EDGES.CONTROL);
                             handleActualParameters(graphs, parsenode, callnode);
+                            entry.getFormalOut().map(function (formal_out) {
+                                var actual_out = new ActualPNode(++graphs.PDG.funIndex, -1),
+                                    upnodeform = formal_out.getInEdges(EDGES.DATA)
+                                                    .map(function (e) {return e.from})
+                                                    .filter(function (n) {return n.isObjectEntry});
+                                if (!upnode.isEntryNode && !upnode.isObjectEntry)
+                                    addDataDep(actual_out, upnode)
+                                else if (!upnode.isObjectEntry)
+                                    addDataDep(actual_out, callnode)
+                                /* Connect upnode to object entry that is returned by function */
+                                if (upnodeform.length > 0) {
+                                    upnodeform.map(function (objectentry) {
+                                        addDataDep(upnode, objectentry)
+                                    })
+                            }    
+
+                            /* Formal-out parameter -> actual-out parameter */
+                            if (formal_out && (!actual_out.equalsdtype(formal_out) || 
+                                !actual_out.isSharedNode() ||
+                                !formal_out.isSharedNode () ))
+                                    formal_out.addEdgeOut(actual_out, EDGES.REMOTEPAROUT); 
+                            else if (formal_out)
+                                formal_out.addEdgeOut(actual_out, EDGES.PAROUT);
+                            callnode.addEdgeOut(actual_out, EDGES.CONTROL);  
+                        })
+
+
+
                             if (!hasEntryParent) {
                                 pdgnode.addEdgeOut(upnode, EDGES.DATA)
                             } else {
@@ -739,14 +771,14 @@ var Stip = (function () {
             };
 
         if (entry && !(esp_isVarDeclarator(entry.parsenode)) && !entry.parsenode.init)
-            return handle(entry)
+            return handle(entry);
         else if (primitive) {
             callnode.primitive = true;
             addToPDG(callnode, upnode);
         }   
         else {
             graphs.ATP.installListener(calledf[0], handle)    
-            return [callnode]
+            return [callnode];
         }
             
        
@@ -1207,7 +1239,7 @@ var Stip = (function () {
     ASTToPDGMap.prototype.isPrimitive = function (callname, object) {
         return this.primitives.indexOf(callname) >= 0 || 
                isPrimitive(callname) ||
-               (object ? this.primitives.indexOf(object.name) >= 0 : true);
+               (object ? this.primitives.indexOf(object.name) >= 0 : false);
     }
 
     ASTToPDGMap.prototype.installListener = function (AstNode, listener) {

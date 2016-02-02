@@ -378,8 +378,8 @@ friends.forEach(function (friend) {
 });
 */})
 
-  module.tiersplittxt = ['Chat', 'Basic', 'Advanced Chat','Collaborative Drawing','Temperature'];
-  module.tiersplitexs = [chatexample, example1, advancedchat, exampleCollChat, example3];
+  module.tiersplittxt = ['Chat', 'Basic', 'Advanced Chat','Temperature'];
+  module.tiersplitexs = [chatexample, example1, advancedchat, example3];
   module.slicetxt = ['Data dependencies']
   module.sliceexs = [example2]
   module.continuationstxt = ['Factorial', 'Higher Order', 'Callback Hell', 'Annotation', 'Boardgames']

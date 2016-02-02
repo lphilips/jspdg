@@ -75,7 +75,7 @@ function drawLinks (PDG, element, ww,slicededitor) {
       else if (edge.equalsType(EDGES.SUMMARY))
         dot += " [style=\"dashed\", color=\"#0E62CF\"];\n";
       else if (edge.equalsType(EDGES.CONTROL)) {
-        if(!edge.label)
+        if(edge.label === false)
           dot += " [label=\"" + edge.label.toString() + "\"];\n";
         else
           dot += " [label=\" \"];\n";

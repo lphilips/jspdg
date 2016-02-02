@@ -297,22 +297,6 @@ var pre_analyse = function (ast) {
                         esp_isAssignmentExp(node.parent) || esp_isVarDeclarator(node.parent))
                         node.parent.primitive = name;
                 }
-                if (primdef) {
-                    var primret = primreturns[primdef.primitive],
-                        present = primret.properties.filter(function (prop) {
-                            return prop.key.name === name
-                        });
-                    if (present.length <= 0)
-                        primret.properties.push( {
-                            type : 'Property',
-                            key :  {
-                                        "type": "Identifier",
-                                        "name": name
-                                    },
-                            value : createFunExp([], '')
-                        });
-                        Ast.augmentAst(primret);
-                }
                 if (anonf.length > 0) {
                     var comment    = isBlockAnnotated(node);
                     var enclBlock  = getCurrentBlock(node);

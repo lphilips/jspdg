@@ -104,6 +104,7 @@ var Hoist = (function () {
             return Ast.enclosingFunScope(node, ast)
     };
 
+
     /* Changes the AST destructively 
      * Optional parameter: tohoist = predicate function.
      * Can be used for example when we want to hoist inside a block with a certain annotation as well.
@@ -186,6 +187,7 @@ var Hoist = (function () {
 
                     if (esp_isVarDecl(node) && !node.hoist) {
                         var parent = getParent(node, ast, tohoist);//Ast.enclosingFunScope(decl,ast);
+                        var astparent = Ast.parent(node, ast);
                         var body = esp_isFunDecl(parent) || esp_isFunExp(parent) ? parent.body.body : parent.body;
                         var index = body.indexOf(node);
                         node.declarations.map(function (decl) {
@@ -197,8 +199,16 @@ var Hoist = (function () {
                                 index += 1;
                             }
                         })
-                        esp_isFunDecl(parent) || esp_isFunExp(parent) ? 
-                         parent.body.body = body.remove(node): parent.body = body.remove(node);
+
+                        if (esp_isTryStm(astparent) || esp_isCatchStm(astparent) ||
+                            esp_isBlockStm(astparent) && esp_isTryStm(Ast.parent(astparent, ast)) ||
+                            esp_isBlockStm(astparent) && esp_isCatchStm(Ast.parent(astparent, ast))) {
+                            astparent.body = astparent.body.remove(node);
+                        }
+                        else if (esp_isFunDecl(parent) || esp_isFunExp(parent)) 
+                            parent.body.body = body.remove(node)
+                        else
+                            parent.body = body.remove(node);
                     }
                 }
             }

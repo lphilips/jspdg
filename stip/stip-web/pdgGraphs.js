@@ -20,6 +20,7 @@ function createPDGGraph (PDG)
               edges = edges.concat(to_edges);
               to_nodes = to_nodes.concat(to_edges.map(function (e) {return e.to}));
             };
+
           add(node);
           if (node.getOutEdges().length)
             addEdges(node)
@@ -63,10 +64,9 @@ function createPDGGraph (PDG)
     var edgeId = 0;
     var transitions = edges.map(function (edge) {
       var g = edge.type.name;
-      var edge;
       var label = "";
       label += g;
-      if (!edge.label) label += " (false)";
+      if (edge.label === false) label += " (false)";
       return {id: edgeId++, source: Arrays.indexOf(edge.from, nodes), target: Arrays.indexOf(edge.to, nodes),
         label: label, orig: edge}
     });

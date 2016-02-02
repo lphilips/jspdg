@@ -252,8 +252,8 @@ var Nodeify = (function () {
             sliced.method     = func;
         }
 
-        if ((node.isClientNode() && node.serverCalls === 0) || 
-            (node.isServerNode() && node.clientCalls === 0) || 
+        if ((node.isClientNode() && node.clientCalls > 0) || 
+            (node.isServerNode() && node.serverCalls > 0) || 
             node.dtype === DNODES.SHARED) {
             sliced.nodes = removeNode(sliced.nodes,node);
             sliced.parsednode  = parsenode;
@@ -334,12 +334,19 @@ var Nodeify = (function () {
             transformer = makeTransformer(sliced.option), cpscall;
         actual_ins.map(function (a_in) {
             a_in.getOutEdges(EDGES.CONTROL)
-                .map(function (e) {return e.to;})
+                .map(function (e) {return e.to})
                 .map(function (n) {
                     /* TODO: parsenode */
                     sliced.nodes = toNode(cloneSliced(sliced, sliced.nodes, n)).nodes;
                 })
             sliced.nodes = sliced.nodes.remove(a_in);
+            a_in.getOutEdges(EDGES.CONTROL)
+                .filter(function (e) {
+                    return e.to.isCallNode
+                })
+                .map(function (e) {
+                    sliced.nodes = sliced.nodes.remove(e.to)
+                })
         });
         actual_outs.map(function (a_out) {
             sliced.nodes = sliced.nodes.remove(a_out);
@@ -408,14 +415,15 @@ var Nodeify = (function () {
             /* Called by client */
             else if (node.isClientNode() && !esp_isVarDeclarator(parent)) {
                 sliced.parsednode = parent;
+                sliced.nodes = sliced.nodes.remove(parent);
             }
             /* Called by server */
             else if (node.isServerNode() && !esp_isVarDeclarator(parent)) {
                 sliced.parsednode = parent;
+                sliced.nodes = sliced.nodes.remove(parent);
             } else {
                 sliced.parsednode = node.parsenode;
             }
-
             return sliced;
         }
     }
@@ -453,12 +461,19 @@ var Nodeify = (function () {
 
     var nodeifyIfStm = function (sliced) {
         var node   = sliced.node,
+            test   = node.getOutEdges(EDGES.CONTROL)
+                        .filter(function (e) { return e.label !== true && e.label !== false })
+                        .map(function (e) { return e.to }),   /* TODO not just remove them */
             conseq = node.getOutEdges(EDGES.CONTROL)
-                        .filter(function (e) {return e.label})
+                        .filter(function (e) {return e.label === true}) // explicit check necessary
                         .map(function (e) {return e.to}),
             altern = node.getOutEdges(EDGES.CONTROL)
-                        .filter(function (e) {return !e.label})
+                        .filter(function (e) {return e.label === false}) // explicit check necessary
                         .map(function (e) {return e.to});
+        
+        test.map(function (testnode) {
+            sliced.nodes = removeNode(sliced.nodes, testnode);  /* TODO not just remove them */
+        })
 
         conseq.map(function (consnode) {
             var toSlice = cloneSliced(sliced, sliced.nodes, consnode);
@@ -801,6 +816,7 @@ var Nodeify = (function () {
            // }
             //CTTransform.transformExpression(node, sliced.cloudtypes)
             sliced.parsednode = node.parsenode;
+            sliced.nodes = sliced.nodes.remove(node);
             return sliced;
           
         }

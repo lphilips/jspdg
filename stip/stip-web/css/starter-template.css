@@ -167,6 +167,12 @@ text {
   stroke-width: 1px;
 }
 
+.edge.prototype {
+  stroke: #000;
+  fill: none;
+  stroke-width: 1px;
+}
+
 .tooltip {
     pointer-events:none; /*let mouse events pass through*/
     opacity:0;

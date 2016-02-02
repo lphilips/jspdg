@@ -108,7 +108,9 @@
             var src = editor.getValue(),
                 // First parse and create again via escodegen
                 ast = Ast.createAst(src, {loc:true, owningComments: true, comment: true});
-            ast = Hoist.hoist(ast, function (node) {return esp_isBlockStm(node) && Comments.isTierAnnotated(node)});
+            ast = Hoist.hoist(ast, function (node) {
+                    return esp_isBlockStm(node) && Comments.isTierAnnotated(node)
+                });
 
 
             /* Pre analysis step (uses falafel, so does not work on AST but string representation */
@@ -204,7 +206,7 @@
                         var params = node.getFormalIn().concat(node.getFormalOut()),
                         body   = node.getBody();
                         params.map(function (param) {sorteds = sorteds.remove(param); sortedc = sortedc.remove(param)});
-                        body.map(function (bodynode) {sorteds = sorteds.remove(bodynode); sortedc = sortedc.remove(bodynode)});
+                        body.map(function (bodynode) {remove(bodynode); });
                     }
                     else if (node.isStatementNode) {
                         node.getOutEdges(EDGES.CONTROL)
@@ -252,7 +254,13 @@
                         assumesnames.indexOf(pdgnode.parsenode.id.name) > -1) {
                         removes = removes.concat(pdgnode)
                         return false
-                    } else
+                    } 
+                    else if (esp_isVarDeclarator(pdgnode.parsenode) &&
+                        assumesnames.indexOf(pdgnode.parsenode.id.name) > -1) {
+                        removes = removes.concat(pdgnode);
+                        return false;
+                    }
+                    else
                         return true
                 else
                     return true

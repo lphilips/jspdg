@@ -551,12 +551,14 @@ DistributedNode = function (type) {
 
 PDG_Node.prototype.isClientNode = function () {
     this.dtype = this.getdtype();
-    return !this.dtype || this.dtype.value === DNODES.CLIENT.value
+    return  this.dtype.value === DNODES.CLIENT.value
+   // return !this.dtype || this.dtype.value === DNODES.CLIENT.value
 }
 
 PDG_Node.prototype.isServerNode = function () {
     this.dtype = this.getdtype();
-    return !this.dtype || this.dtype.value === DNODES.SERVER.value
+    return this.dtype.value === DNODES.SERVER.value
+    //return !this.dtype || this.dtype.value === DNODES.SERVER.value
 }
 
 PDG_Node.prototype.isSharedNode = function () {

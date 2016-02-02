@@ -93,7 +93,7 @@ var JSify = (function () {
 
         }
         /* Outgoing data dependency to object entry node? */
-        if (object.length > 0) {
+        if (object.length > 0 && call.length <= 0) {
             var obj = toJavaScript(slicednodes, object[0], cps);
             
             if (esp_isVarDecl(node.parsenode))
@@ -321,10 +321,10 @@ var JSify = (function () {
 
     var sliceIfStm = function (slicednodes, node, cps) {
         var conseq = node.getOutEdges(EDGES.CONTROL)
-                        .filter(function (e) {return e.label})
+                        .filter(function (e) {return e.label === true }) // explicit check necessary
                         .map(function (e) {return e.to}),
             altern = node.getOutEdges(EDGES.CONTROL)
-                        .filter(function (e) {return !e.label})
+                        .filter(function (e) {return e.label === false})  // explicit check necessary
                         .map(function (e) {return e.to});
         conseq.map(function (consnode) {
             var jsnode = toJavaScript(slicednodes, consnode, cps);

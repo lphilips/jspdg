@@ -28,7 +28,7 @@ function PDG_Edge (from, to, type, label) {
     this.from = from;
     this.to   = to;
     this.type = type;
-    label === false ? this.label = label : this.label = true;
+    this.label = label;
 }
 
 PDG_Edge.prototype.equalsType = function (etype) {
