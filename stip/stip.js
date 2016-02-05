@@ -2,7 +2,7 @@ var Stip = (function () {
 
     var module = {};
 
-    var arrayprims  = ["filter", "count", "push", "search", "length", "map", "append", "concat", "forEach"];
+    var arrayprims  = ["filter", "count", "push", "search", "length", "map", "append", "concat", "forEach", "slice"];
     var stringprims = ["startsWith", "charAt", "charCodeAt", "search", "indexOf"];
 
     var isPrimitive = function (callname) {
@@ -66,6 +66,12 @@ var Stip = (function () {
         graphs.ATP.addNodes(node, entry);
         handleFormalParameters(graphs, node, entry);
         
+        if (node.id.name.startsWith('anonf')) {
+            if (entry.isServerNode())
+                entry.serverCalls = 1;
+            if (entry.isClientNode())
+                entry.clientCalls = 1;
+        }
 
         /* BODY */
         node.body.body.map(function (exp) {
@@ -541,7 +547,7 @@ var Stip = (function () {
 
 
     var handleObjectExpression = function (graphs, node, upnode) {
-        var objectEntry = new ObjectEntryNode(graphs.PDG.entIndex++, node),
+        var objectEntry = graphs.PDG.makeObjEntry(node),
             prevEntry   = graphs.PDG.entryNode;
         graphs.PDG.changeEntry(objectEntry);
         if (esp_isVarDeclarator(upnode.parsenode) ||
@@ -597,12 +603,12 @@ var Stip = (function () {
                         callnode.name = calledname;
                         /* If no object entry, we can't connect an OE node with the referred node,
                            e.g. as the result of a map, filter call. Make data ref to declaration node */
-                        if (!objectentry) {
+                        if (!objectentry && !pdgnode.equals(upnode)) {
                             addDataDep(pdgnode, callnode);
                             addToPDG(callnode, upnode);
                             callnode.primitive = primitive;
                         }
-                        else {
+                        else if (!pdgnode.equals(upnode)) {
                             /* Get object property */
                             var member = objectentry.getMember(calledname);
                             while(!member) {
@@ -624,9 +630,13 @@ var Stip = (function () {
                             handleActualParameters(graphs, parsenode, callnode);
                             entry.getFormalOut().map(function (formal_out) {
                                 var actual_out = new ActualPNode(++graphs.PDG.funIndex, -1),
+
                                     upnodeform = formal_out.getInEdges(EDGES.DATA)
                                                     .map(function (e) {return e.from})
                                                     .filter(function (n) {return n.isObjectEntry});
+
+
+
                                 if (!upnode.isEntryNode && !upnode.isObjectEntry)
                                     addDataDep(actual_out, upnode)
                                 else if (!upnode.isObjectEntry)
@@ -636,7 +646,21 @@ var Stip = (function () {
                                     upnodeform.map(function (objectentry) {
                                         addDataDep(upnode, objectentry)
                                     })
-                            }    
+                                }
+
+                                else {
+                                    /* Search for object entry that is returned from function call:
+                                    From formal_out -> return statement -> object entry */
+                                    upnodeform = formal_out.getInEdges(EDGES.DATA)
+                                                    .map(function (e) {return e.from})
+                                                    .filter(function (n) {return n.isStatementNode && esp_isRetStm(n.parsenode)})
+                                                    .flatMap(function (n) {return n.getOutEdges(EDGES.DATA)})
+                                                    .map(function (e) {return e.to})
+                                                    .filter(function (n) {return n.isObjectEntry});
+                                    upnodeform.map(function (objectentry) {
+                                        addDataDep(upnode, objectentry)
+                                    })                      
+                                }    
 
                             /* Formal-out parameter -> actual-out parameter */
                             if (formal_out && (!actual_out.equalsdtype(formal_out) || 
@@ -667,9 +691,8 @@ var Stip = (function () {
                 var res;
                 for(var i = 0; i < PDG_node.length; i++) {
                     var node = PDG_node[i];
-                    if (node.isFormalNode)
-                        return;
-                    if (esp_isVarDeclarator(node.parsenode) && 
+                    if (node.isStatementNode &&
+                        esp_isVarDeclarator(node.parsenode) && 
                         node.parsenode.init &&
                         esp_isObjExp(node.parsenode.init)) {
                         res = handle(node);
@@ -679,7 +702,8 @@ var Stip = (function () {
                     else if (node.isEntryNode) {
                         //TODO : handle should return OE node
                     }
-                    else if (esp_isExpStm(node.parsenode) &&
+                    else if (node.isStatementNode && 
+                            esp_isExpStm(node.parsenode) &&
                             esp_isAssignmentExp(node.parsenode.expression)) {
                         res = handle(node);
                         break;
@@ -733,32 +757,44 @@ var Stip = (function () {
                         /* Call made in try/catch statement? */
                         handleCallwithCatch(graphs, callnode, entrynode, upnode)
                     }
-                    //else if (!name.startsWith('anonf')) {
-                        entrynode.getFormalOut().map(function (formal_out) {
-                            var actual_out = new ActualPNode(++graphs.PDG.funIndex, -1),
-                                upnodeform = formal_out.getInEdges(EDGES.DATA)
-                                                .map(function (e) {return e.from})
-                                                .filter(function (n) {return n.isObjectEntry});
-                            if (!upnode.isEntryNode && !upnode.isObjectEntry)
-                                addDataDep(actual_out, upnode)
-                            else if (!upnode.isObjectEntry)
-                                addDataDep(actual_out, callnode)
-                            /* Connect upnode to object entry that is returned by function */
-                            if (upnodeform.length > 0) {
-                                upnodeform.map(function (objectentry) {
-                                    addDataDep(upnode, objectentry)
-                                })
-                            }    
+                    entrynode.getFormalOut().map(function (formal_out) {
+                        var actual_out = new ActualPNode(++graphs.PDG.funIndex, -1),
+                            upnodeform = formal_out.getInEdges(EDGES.DATA)
+                                            .map(function (e) {return e.from})
+                                            .filter(function (n) {return n.isObjectEntry});
+                        if (!upnode.isEntryNode && !upnode.isObjectEntry)
+                            addDataDep(actual_out, upnode)
+                        else if (!upnode.isObjectEntry)
+                            addDataDep(actual_out, callnode)
+                        /* Connect upnode to object entry that is returned by function */
+                        if (upnodeform.length > 0) {
+                            upnodeform.map(function (objectentry) {
+                                addDataDep(upnode, objectentry)
+                            })
+                        }
+                        else {
+                            /* Search for object entry that is returned from function call:
+                            From formal_out -> return statement -> object entry */
+                            upnodeform = formal_out.getInEdges(EDGES.DATA)
+                                            .map(function (e) {return e.from})
+                                            .filter(function (n) {return n.isStatementNode && esp_isRetStm(n.parsenode)})
+                                            .flatMap(function (n) {return n.getOutEdges(EDGES.DATA)})
+                                            .map(function (e) {return e.to})
+                                            .filter(function (n) {return n.isObjectEntry});
+                            upnodeform.map(function (objectentry) {
+                                addDataDep(upnode, objectentry)
+                            })                      
+                        }    
 
-                            /* Formal-out parameter -> actual-out parameter */
-                            if (formal_out && (!actual_out.equalsdtype(formal_out) || 
-                                !actual_out.isSharedNode() ||
-                                !formal_out.isSharedNode () ))
-                                    formal_out.addEdgeOut(actual_out, EDGES.REMOTEPAROUT); 
-                            else if (formal_out)
-                                formal_out.addEdgeOut(actual_out, EDGES.PAROUT);
-                            callnode.addEdgeOut(actual_out, EDGES.CONTROL);  
-                        })
+                        /* Formal-out parameter -> actual-out parameter */
+                        if (formal_out && (!actual_out.equalsdtype(formal_out) || 
+                            !actual_out.isSharedNode() ||
+                            !formal_out.isSharedNode () ))
+                                formal_out.addEdgeOut(actual_out, EDGES.REMOTEPAROUT); 
+                        else if (formal_out)
+                            formal_out.addEdgeOut(actual_out, EDGES.PAROUT);
+                        callnode.addEdgeOut(actual_out, EDGES.CONTROL);  
+                    })
 
                 }
                 /* Add summary edges between a_in and a_out */

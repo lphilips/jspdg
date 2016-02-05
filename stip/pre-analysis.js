@@ -307,6 +307,8 @@ var pre_analyse = function (ast) {
                             var name = anonf_name + ++anonf_ct;
                             var func = createFunDecl(name, arg.params);
                             var call = createCall(name);
+                            var comment = isBlockAnnotated(arg);
+
                             call.leadingComment = {type: "Block", value:"@generated", range: [0,16]};
                             func.body = arg.body;
                             func.params.map(function (param) {

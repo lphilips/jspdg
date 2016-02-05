@@ -80,6 +80,25 @@ var CPSTransform = (function () {
                         datadep.push(nextcont);
                 }
 
+                else if (node.isCallNode) {
+                    node.getActualIn().map(function (a_in) {
+                        a_in.getInEdges(EDGES.DATA).map(function (e) {
+                            datadep.push(e.from);
+                        })
+                    })
+                    if (!slicedContains(datadep, node)) {
+                            datadep.push(node);
+                            if (node.dataDependentNodes)  {
+                                datas = node.dataDependentNodes();
+                                datas.map(function (n) {
+                                    if (!slicedContains(datadep, n) && !n.isActualPNode)
+                                        datadep.push(n);
+                                })
+                            }
+
+                        }
+                }
+
                 else if(!(node.isActualPNode)) {
                     /* Has the node other outgoing dependencies on call nodes/ var decls? 
                        If so, transform the dependence and add it to callback body */
@@ -380,9 +399,10 @@ var CPSTransform = (function () {
             }
 
             walkAst(func.parsenode, {
-                pre : function (node) {
+                post : function (node) {
                     var enclosingFun = getEnclosingFunction(node, transform.AST);
-                    
+                    if (enclosingFun)
+                        Ast.augmentAst(enclosingFun);
                     if (enclosingFun && 
                         esp_isRetStm(node) && 
                         enclosingFun.equals(func.parsenode)) {

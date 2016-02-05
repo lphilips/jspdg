@@ -355,6 +355,61 @@ var exampleCollChat = uncomment( function () {/*
 }
 */});
 
+var tierlessboardgames = uncomment( function () {/*
+@server 
+{
+  function options(path) {
+    return {
+      hostname: 'bgg-json.azurewebsites.net',
+      path : path,
+      method: 'GET'
+    }
+  }
+  
+  function getHottestGames() {
+    var output = '';
+    var hottest = https.get(options('/hot'));
+    hottest.on('data', function (data) {
+      output = output + data;
+    });
+    hottest.on('end', function () {
+      var obj = JSON.parse(output);
+      displayHottestGames(obj);
+    })
+  }
+}
+
+@client
+{
+  function makeTable() {
+    return $('<table></table>').addClass('table'); 
+  }
+  function makeRow() {
+    return $('<tr></tr>'); 
+  }
+  function makeCell(text) {
+    return $('<td></td>').text(text); 
+  }
+  
+  function displayHottestGames(games) {
+    var table = makeTable(); 
+    games = games.slice(10);
+    games.forEach(function (game) {
+      var row = makeRow();
+      var c1 = makeCell(game.name);
+      var c2 = makeCell(game.rank);
+      var c3 = makeCell(game.thumbnail);
+      row.append(c2);
+      row.append(c3);
+      row.append(c1);
+      table.append(row);
+    });
+    $('#hottestgames').append(table);
+  }
+
+  getHottestGames();
+}
+*/})
 
 var cpsboardgames = uncomment( function () { /*
 function options (path) {
@@ -378,8 +433,8 @@ friends.forEach(function (friend) {
 });
 */})
 
-  module.tiersplittxt = ['Chat', 'Basic', 'Advanced Chat','Temperature'];
-  module.tiersplitexs = [chatexample, example1, advancedchat, example3];
+  module.tiersplittxt = ['Chat', 'Basic', 'Advanced Chat','Boardgames', 'Temperature'];
+  module.tiersplitexs = [chatexample, example1, advancedchat, tierlessboardgames, example3];
   module.slicetxt = ['Data dependencies']
   module.sliceexs = [example2]
   module.continuationstxt = ['Factorial', 'Higher Order', 'Callback Hell', 'Annotation', 'Boardgames']

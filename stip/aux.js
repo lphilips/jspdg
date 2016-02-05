@@ -166,7 +166,7 @@ function walkAst(ast, callback) {
             //if (key.substr(0,2) === 'x-') {
              // return;
             //}
-            if (!key.startsWith("_")) {
+            if (!key.startsWith("_") && key !== 'parent' && key !== '_parent') {
               if (child instanceof Array ) {
                   for ( j = 0, len = child.length; j < len; j += 1 ) {
                       children.push( child[j] );

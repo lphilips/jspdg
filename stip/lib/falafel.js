@@ -42,7 +42,7 @@ var falafel = function (src, opts, fn) {
         insertHelpers(node, parent, result.chunks);
         
         forEach(objectKeys(node), function (key) {
-            if (key === 'parent') return;
+            if (key === '_parent') return;
             
             var child = node[key];
             if (isArray(child)) {
@@ -66,7 +66,7 @@ var falafel = function (src, opts, fn) {
 function insertHelpers (node, parent, chunks) {
     if (!node.range) return;
     
-    node.parent = parent;
+    node._parent = parent;
     
     node.source = function () {
         return chunks.slice(
