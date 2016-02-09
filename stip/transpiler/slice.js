@@ -116,7 +116,12 @@ var constructProgram = function (nodes, option) {
         if(n.parsenode) {
             slicing = toCode(option, nodes, n);
             if(slicing.parsednode) {
-                program.body = program.body.concat(slicing.parsednode);
+                if (esp_isBlockStm(slicing.parsednode) &&
+                    Comments.isTierAnnotated(slicing.parsednode))
+
+                    program.body = program.body.concat(slicing.parsednode.body);
+                else
+                    program.body.push(slicing.parsednode);
             }
             nodes = slicing.nodes;  
             nodes.remove(n);
