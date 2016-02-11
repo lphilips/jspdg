@@ -6,7 +6,7 @@
 
 var JSParse = (function () {
 
-    var module = {};
+    var toreturn = {};
 
     var createVarDecl = function (declarator) {
         return {
@@ -65,7 +65,7 @@ var JSParse = (function () {
 
     var RPC = function (call, fname, args) {
       var callee;
-      if (esp_isMemberExpression(call.parsenode.callee)) 
+      if (Aux.isMemberExpression(call.parsenode.callee)) 
         callee =  call.parsenode.callee;
       else
         callee = {
@@ -227,15 +227,21 @@ var JSParse = (function () {
     };
 
 
-    module.callback        = callback;
-    module.RPC             = RPC;
-    module.RPCReturn       = RPCReturn;
-    module.asyncFun        = asyncFun;
-    module.createVarDecl   = createVarDecl;
-    module.createFunDecl   = funDecl;
-    module.createReturnStm = createReturnStm;
-    module.createCallCb    = createCallCb;
+    toreturn.callback        = callback;
+    toreturn.RPC             = RPC;
+    toreturn.RPCReturn       = RPCReturn;
+    toreturn.asyncFun        = asyncFun;
+    toreturn.createVarDecl   = createVarDecl;
+    toreturn.createFunDecl   = funDecl;
+    toreturn.createReturnStm = createReturnStm;
+    toreturn.createCallCb    = createCallCb;
 
-    return module;
+    if (typeof module !== 'undefined' && module.exports != null) {
+        esprima         = require('../lib/esprima.js');
+        Aux             = require('../aux.js').Aux;
+        exports.JSParse = toreturn;
+    }
+
+    return toreturn;
 
 })();

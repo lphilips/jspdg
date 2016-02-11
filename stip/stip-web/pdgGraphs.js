@@ -50,9 +50,9 @@ function createPDGGraph (PDG)
           if(node.parsenode) 
               label += " " + ((parsed && parsed.toString().length > 10) ? parsed.toString().slice(0,10)+"..." : parsed) ;
           if (node.isStatementNode && 
-            (esp_isThrowStm(node.parsenode) ||
-              esp_isTryStm(node.parsenode) ||
-              esp_isCatchStm(node.parsenode))) {
+            (Aux.isThrowStm(node.parsenode) ||
+              Aux.isTryStm(node.parsenode) ||
+              Aux.isCatchStm(node.parsenode))) {
             cssclass += " error"
           }
           node.cssclass = cssclass;

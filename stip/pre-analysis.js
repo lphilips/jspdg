@@ -19,8 +19,8 @@ var pre_analyse = function (ast) {
 
     var function_args = function (callnode) {
         return callnode.arguments.filter(function (arg) {
-            return esp_isFunExp(arg) ||
-                   (esp_isIdentifier(arg) && fundefsC[arg.name])
+            return Aux.isFunExp(arg) ||
+                   (Aux.isIdentifier(arg) && fundefsC[arg.name])
         }) 
     }
     
@@ -181,7 +181,7 @@ var pre_analyse = function (ast) {
     var getComments = function (node) {
         if (!comments) {
             var parent = node;
-            while (!esp_isProgram(parent)) {
+            while (!Aux.isProgram(parent)) {
                 parent = Ast.parent(parent, ast);
             }
             comments =  parent.comments;
@@ -192,14 +192,14 @@ var pre_analyse = function (ast) {
     var isBlockAnnotated = function (node) {
        var parent = node,
             annotation;
-        while(!esp_isProgram(parent)) {
-            if (esp_isBlockStm(parent) && parent.leadingComment) {
+        while(!Aux.isProgram(parent)) {
+            if (Aux.isBlockStm(parent) && parent.leadingComment) {
                 break;
             } else {
                 parent = Ast.parent(parent, ast);
             }
         }
-        if (esp_isBlockStm(parent)) {
+        if (Aux.isBlockStm(parent)) {
             return parent.leadingComment;
         }
         return;
@@ -207,8 +207,8 @@ var pre_analyse = function (ast) {
 
     var getCurrentBlock = function (node) {
         var parent = node;
-        while(!esp_isProgram(parent)) {
-            if (esp_isBlockStm(parent)) {
+        while(!Aux.isProgram(parent)) {
+            if (Aux.isBlockStm(parent)) {
                 break;
             } else {
                 parent = Ast.parent(parent, ast);
@@ -218,11 +218,11 @@ var pre_analyse = function (ast) {
     }
 
 
-    walkAst(ast, {
+    Aux.walkAst(ast, {
 
         pre: function (node) {
             /* Needs to be done upfront */
-            if (esp_isFunDecl(node)) {
+            if (Aux.isFunDecl(node)) {
                 var comment = isBlockAnnotated(node);
                 if (comment && Comments.isClientAnnotated(comment)) 
                     fundefsC[node.id.name] = node;
@@ -241,7 +241,7 @@ var pre_analyse = function (ast) {
 
             /* If a block has updateFirst and/or updateLast property, 
                these statements should be added in the beginning / ending of the block */
-            if (esp_isBlockStm(node) || esp_isProgram(node)) {
+            if (Aux.isBlockStm(node) || Aux.isProgram(node)) {
                 var comment = node.leadingComment;
 
                 if (comment && Comments.isSharedAnnotated(comment)) {
@@ -262,17 +262,17 @@ var pre_analyse = function (ast) {
                This causes later accesses to the primitive (such as element.jquerymethod()) 
                to be added to e.g. the jquery primitive */
             if (node.primitive) {
-                if (esp_isVarDeclarator(node))
+                if (Aux.isVarDeclarator(node))
                   primdefs[node.id.name] = node;
-                else if (esp_isAssignmentExp(node))
+                else if (Aux.isAssignmentExp(node))
                   primdefs[node.left.name] = node;
             }
 
-            if (esp_isMemberExpression(node) && !node.primitive &&
-              !esp_isThisExpression(node.object)) {
+            if (Aux.isMemberExpression(node) && !node.primitive &&
+              !Aux.isThisExpression(node.object)) {
                 var name = node.property.name;
                 var objname;
-                if (esp_isCallExp(node.object)) {
+                if (Aux.isCallExp(node.object)) {
                     objname = node.object.callee.name;
                 }
                 else { 
@@ -283,18 +283,18 @@ var pre_analyse = function (ast) {
             }
 
 
-            if (esp_isCallExp(node)) {
+            if (Aux.isCallExp(node)) {
 
-                var name    = esp_getCalledName(node);
+                var name    = Aux.getCalledName(node);
                 var anonf   = function_args(node);
-                var obj     = esp_isMemberExpression(node.callee) ? node.callee.object.name : false;
+                var obj     = Aux.isMemberExpression(node.callee) ? node.callee.object.name : false;
                 var primdef = obj ? primdefs[obj] : primdefs[name];
 
                 if (primitives.indexOf(name) >= 0 ) {
                     node.primitive = true;
                     node.parent = Ast.parent(node, ast);
-                    if (esp_isExpStm(node.parent) || esp_isVarDecl(node.parent) || 
-                        esp_isAssignmentExp(node.parent) || esp_isVarDeclarator(node.parent))
+                    if (Aux.isExpStm(node.parent) || Aux.isVarDecl(node.parent) || 
+                        Aux.isAssignmentExp(node.parent) || Aux.isVarDeclarator(node.parent))
                         node.parent.primitive = name;
                 }
                 if (anonf.length > 0) {
@@ -303,7 +303,7 @@ var pre_analyse = function (ast) {
                     var bodyFirst  = [];
                     var bodyLast   = [];
                     node.arguments = node.arguments.map(function (arg) {
-                        if (esp_isFunExp(arg)) {
+                        if (Aux.isFunExp(arg)) {
                             var name = anonf_name + ++anonf_ct;
                             var func = createFunDecl(name, arg.params);
                             var call = createCall(name);
@@ -322,7 +322,7 @@ var pre_analyse = function (ast) {
                             bodyLast.push(call);
                             return createIdentifier(name);
                         }
-                        else if (esp_isIdentifier(arg) && fundefsC[arg.name]) {
+                        else if (Aux.isIdentifier(arg) && fundefsC[arg.name]) {
                             call = createCall(arg.name);
                             call.leadingComment = {type: "Block", value:"@generated"};
                             bodyLast = bodyLast.concat(call);
@@ -354,4 +354,15 @@ var pre_analyse = function (ast) {
         primitives : primitives,
         asyncs     : asyncs
     };
+}
+
+
+if (typeof module !== 'undefined' && module.exports != null) {
+    Ast = require('../jipda-pdg/ast.js').Ast;
+    Aux = require('./aux.js').Aux;
+    Comments = require('./annotations.js').Comments;
+    
+    var js_libs  = require('./jslibs.js').js_libs;
+
+    exports.pre_analyse         = pre_analyse;
 }

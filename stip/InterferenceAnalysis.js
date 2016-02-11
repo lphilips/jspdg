@@ -1,6 +1,6 @@
 var InterferenceAnalysis = (function () {
 
-    var module = {};
+    var toreturn = {};
 
 
 
@@ -16,12 +16,15 @@ var InterferenceAnalysis = (function () {
       if (!checked)
         var checked = [];
       checked.push(fn);
-      walkAst(fn, {
+      Aux.walkAst(fn, {
+
         pre: function (node) {
+
           var declaration, enclosingFun, same;
           var functions;
-          if (esp_isAssignmentExp(node)) {
-            if (esp_isMemberExpression(node.left)) {
+
+          if (Aux.isAssignmentExp(node)) {
+            if (Aux.isMemberExpression(node.left)) {
               localass = true;
             }
             else {
@@ -32,7 +35,8 @@ var InterferenceAnalysis = (function () {
                 localass = !same;
             }
           }
-          if (esp_isCallExp(node)) {
+
+          if (Aux.isCallExp(node)) {
             functions = Pdg.functionsCalled(node, program);
             functions.map(function (f) {
               var nonlocal;
@@ -42,14 +46,15 @@ var InterferenceAnalysis = (function () {
                   localass = nonlocal;
               }
             });
+
             node.arguments.map(function (arg) {
                 var declaration; 
-                if (esp_isFunExp(arg)) {
+                if (Aux.isFunExp(arg)) {
                   if (!localass)
                     localass = doesInterfereAST(arg, [], program, checked );
-                } else if (esp_isIdentifier(arg)) {
+                } else if (Aux.isIdentifier(arg)) {
                   declaration = Pdg.declarationOf(arg, program);
-                  if (esp_isFunDecl(declaration) && todo(declaration)) 
+                  if (Aux.isFunDecl(declaration) && todo(declaration)) 
                     if (!localass)
                       localass = doesInterfereAST(declaration, [], program, checked);
                   }
@@ -57,14 +62,15 @@ var InterferenceAnalysis = (function () {
           }
         }
       });
+
       args.map(function (arg) {
         var declaration; 
-        if (esp_isFunExp(arg)) {
+        if (Aux.isFunExp(arg)) {
           if (!localass)
             localass = doesInterfereAST(arg, [], program, checked );
-        } else if (esp_isIdentifier(arg)) {
+        } else if (Aux.isIdentifier(arg)) {
           declaration = Pdg.declarationOf(arg, program);
-          if (esp_isFunDecl(declaration) && todo(declaration)) 
+          if (Aux.isFunDecl(declaration) && todo(declaration)) 
             if (!localass)
               localass = doesInterfereAST(declaration, [], program, checked);
           }
@@ -75,8 +81,14 @@ var InterferenceAnalysis = (function () {
     }
 
 
-    module.doesInterfere = doesInterfereAST;
+    toreturn.doesInterfere = doesInterfereAST;
 
-    return module;
+    if (typeof module !== 'undefined' && module.exports != null) {
+        Pdg = require('../jipda-pdg/pdg/pdg.js').Pdg;
+        exports.InterferenceAnalysis   = toreturn;
+    }
+
+
+    return toreturn;
 
 })();

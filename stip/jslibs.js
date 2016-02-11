@@ -23,3 +23,9 @@ var js_libs = (function () {
     };
 
 })();
+
+if (typeof module !== 'undefined' && module.exports != null) {
+    var esprima = require('./lib/esprima.js');
+    var Ast = require('../jipda-pdg/ast.js').Ast;
+    exports.js_libs = js_libs;
+}

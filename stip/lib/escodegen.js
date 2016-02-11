@@ -37,6 +37,13 @@
 (function () {
     //'use strict';
 
+    if (typeof module !== 'undefined' && module.exports != null) {
+        esprima = require('./esprima.js');
+        esutils = require('./esutils.js');
+        require('./esutils_code.js');
+        console.log(esutils);
+    }
+
     var Syntax,
         Precedence,
         BinaryPrecedence,
@@ -2576,12 +2583,13 @@
     escodegen = { generate : generate};
     Syntax = esprima.Syntax;
 
-    /*exports.version = require('./package.json').version;
-    exports.generate = generate;
-    exports.attachComments = estraverse.attachComments;
-    exports.Precedence = updateDeeply({}, Precedence);
-    exports.browser = false;
-    exports.FORMAT_MINIFY = FORMAT_MINIFY;
-    exports.FORMAT_DEFAULTS = FORMAT_DEFAULTS; */
+    if (typeof module !== 'undefined' && module.exports != null) {
+        exports.generate = generate;
+        //exports.attachComments = estraverse.attachComments;
+        exports.Precedence = updateDeeply({}, Precedence);
+        exports.browser = false;
+        exports.FORMAT_MINIFY = FORMAT_MINIFY;
+        exports.FORMAT_DEFAULTS = FORMAT_DEFAULTS;
+    }
 }());
 /* vim: set sw=4 ts=4 et tw=80 : */

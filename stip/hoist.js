@@ -1,6 +1,6 @@
 var Hoist = (function () {
 
-    var module = {};
+    var toreturn = {};
 
 
     /* Walk function from esprima-walk 
@@ -121,9 +121,9 @@ var Hoist = (function () {
                 var declmap,
                     names;
 
-                if (esp_isProgram(node) || 
-                    esp_isFunDecl(node) || 
-                    esp_isFunExp(node)) {
+                if (Aux.isProgram(node) || 
+                    Aux.isFunDecl(node) || 
+                    Aux.isFunExp(node)) {
                     declmap = Ast.functionScopeDeclarations(node);
                     names = Object.keys(declmap);
 
@@ -134,10 +134,10 @@ var Hoist = (function () {
                         var declnode = declmap[name];
                         if (!tohoist(Ast.enclosingBlock(declnode, ast))) {
 
-                            if (esp_isFunDecl(declnode)) {
+                            if (Aux.isFunDecl(declnode)) {
                                 declnode.hoist = true;
                                 /* remove from body */
-                                if (esp_isProgram(node))
+                                if (Aux.isProgram(node))
                                     node.body = node.body.remove(declnode);
                                 else
                                     node.body.body = node.body.body.remove(declnode);
@@ -146,12 +146,12 @@ var Hoist = (function () {
                                 
 
                             }
-                            else if (esp_isVarDeclarator(declnode)) {
+                            else if (Aux.isVarDeclarator(declnode)) {
                                 added.push(createVarDecl(name));
                             }
                         }
                     });
-                    if (esp_isProgram(node))
+                    if (Aux.isProgram(node))
                         node.body = added.concat(node.body);
                     else
                         node.body.body = added.concat(node.body.body);
@@ -167,7 +167,7 @@ var Hoist = (function () {
                     names.map(function (name) {
                         var declnode = declmap[name];
 
-                        if (esp_isFunDecl(declnode)) {
+                        if (Aux.isFunDecl(declnode)) {
                             declnode.hoist = true;
                             /* remove from body (TODO currently only for block )*/
                             node.body = node.body.remove(declnode);
@@ -175,7 +175,7 @@ var Hoist = (function () {
                             
 
                         }
-                        else if (esp_isVarDeclarator(declnode)) {
+                        else if (Aux.isVarDeclarator(declnode)) {
                             added.push(createVarDecl(name));
                         }
                     });
@@ -185,10 +185,10 @@ var Hoist = (function () {
 
                 else {
 
-                    if (esp_isVarDecl(node) && !node.hoist) {
+                    if (Aux.isVarDecl(node) && !node.hoist) {
                         var parent = getParent(node, ast, tohoist);//Ast.enclosingFunScope(decl,ast);
                         var astparent = Ast.parent(node, ast);
-                        var body = esp_isFunDecl(parent) || esp_isFunExp(parent) ? parent.body.body : parent.body;
+                        var body = Aux.isFunDecl(parent) || Aux.isFunExp(parent) ? parent.body.body : parent.body;
                         var index = body.indexOf(node);
                         node.declarations.map(function (decl) {
                             if (hoisted[parent.tag] && hoisted[parent.tag].indexOf(decl.id.name) >= 0 && decl.init) {
@@ -200,12 +200,12 @@ var Hoist = (function () {
                             }
                         })
 
-                        if (esp_isTryStm(astparent) || esp_isCatchStm(astparent) ||
-                            esp_isBlockStm(astparent) && esp_isTryStm(Ast.parent(astparent, ast)) ||
-                            esp_isBlockStm(astparent) && esp_isCatchStm(Ast.parent(astparent, ast))) {
+                        if (Aux.isTryStm(astparent) || Aux.isCatchStm(astparent) ||
+                            Aux.isBlockStm(astparent) && Aux.isTryStm(Ast.parent(astparent, ast)) ||
+                            Aux.isBlockStm(astparent) && Aux.isCatchStm(Ast.parent(astparent, ast))) {
                             astparent.body = astparent.body.remove(node);
                         }
-                        else if (esp_isFunDecl(parent) || esp_isFunExp(parent)) 
+                        else if (Aux.isFunDecl(parent) || Aux.isFunExp(parent)) 
                             parent.body.body = body.remove(node)
                         else
                             parent.body = body.remove(node);
@@ -220,8 +220,18 @@ var Hoist = (function () {
     };
 
 
-    module.hoist = hoist;
-    return module;
+    toreturn.hoist = hoist;
+    if (typeof module !== 'undefined' && module.exports != null) {
+            Aux = require('./aux.js').Aux;
+            Ast = require('../jipda-pdg/ast.js').Ast;
+
+            exports.Hoist            = toreturn;
+    }
+
+
+
+    return toreturn;
+
 
 
 })();

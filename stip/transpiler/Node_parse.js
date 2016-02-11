@@ -4,7 +4,7 @@
 
 var NodeParse = (function () {
 
-    var module = {};
+    var toreturn = {};
 
 
     var createVarDecl = function (declarator) {
@@ -329,22 +329,26 @@ var NodeParse = (function () {
     };
 
 
-    module.createVarDecl   = createVarDecl;
-    module.createExp       = createExp;
-    module.callback        = callback;
-    module.RPC             = RPC;
-    module.RPCReturn       = RPCReturn;
-    module.asyncFun        = asyncFun;
-    module.methodsClient   = methodsClient;
-    module.methodsServer   = methodsServer; 
-    module.createServer    = createServer;
-    module.createClient    = createClient;
-    module.createBroadcast = broadcast;
-    module.asyncReplyC     = asyncReplyC;
-    module.createReturnStm = createReturnStm;
-    module.createCallCb    = createCallCb;
+    toreturn.createVarDecl   = createVarDecl;
+    toreturn.createExp       = createExp;
+    toreturn.callback        = callback;
+    toreturn.RPC             = RPC;
+    toreturn.RPCReturn       = RPCReturn;
+    toreturn.asyncFun        = asyncFun;
+    toreturn.methodsClient   = methodsClient;
+    toreturn.methodsServer   = methodsServer; 
+    toreturn.createServer    = createServer;
+    toreturn.createClient    = createClient;
+    toreturn.createBroadcast = broadcast;
+    toreturn.asyncReplyC     = asyncReplyC;
+    toreturn.createReturnStm = createReturnStm;
+    toreturn.createCallCb    = createCallCb;
 
+    if (typeof module !== 'undefined' && module.exports != null) {
+        esprima         = require('../lib/esprima.js');
+        exports.NodeParse = toreturn;
+    }
 
-    return module;
+    return toreturn;
 
 })();

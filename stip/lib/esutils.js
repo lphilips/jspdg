@@ -831,14 +831,16 @@ var esutils;
     Syntax = esprima.Syntax;
 
     //exports.version = require('./package.json').version;
-    exports.Syntax = Syntax;
-    exports.traverse = traverse;
-    exports.replace = replace;
-    exports.attachComments = attachComments;
-    exports.VisitorKeys = VisitorKeys;
-    exports.VisitorOption = VisitorOption;
-    exports.Controller = Controller;
-    exports.cloneEnvironment = function () { return clone({}); };
+    if (typeof module !== 'undefined' && module.exports != null) {
+        exports.Syntax = Syntax;
+        exports.traverse = traverse;
+        exports.replace = replace;
+        exports.attachComments = attachComments;
+        exports.VisitorKeys = VisitorKeys;
+        exports.VisitorOption = VisitorOption;
+        exports.Controller = Controller;
+        exports.cloneEnvironment = function () { return clone({}); };
+    }
 
     esutils = exports;
 

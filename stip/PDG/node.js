@@ -324,7 +324,7 @@ EntryNode.prototype.getBody = function () {
             target.isEntryNode) {
             body.push(target);
             outs = outs.concat(target.getOutEdges(EDGES.CONTROL)).concat(target.getOutEdges(EDGES.OBJMEMBER));
-            if ( target.isStatementNode && esp_isProperty(target.parsenode))
+            if ( target.isStatementNode && Aux.isProperty(target.parsenode))
                 outs = outs.concat(target.getOutEdges(EDGES.DATA).filter(function (e) { return e.to.isEntryNode}))
         }
 
@@ -406,13 +406,15 @@ CallNode.prototype.getActualOut = function () {
         }).flatMap(function (node) {
             return node.edges_out.map(function (e) {return e.to})
         })
+
     var catch_out = this.edges_out.map(function (e) {
         return e.to
     }).filter( function (node) {
-        node.isStatementNode && esp_isCatchStm(node.parsenode)
+        node.isStatementNode && Aux.isCatchStm(node.parsenode)
     }).flatMap(function (n) {
         return n.edges_out.map(function (e) {return e.to})
     })
+
     return actual_outs.concat(exit_outs).concat(catch_out);
 }
 
@@ -441,7 +443,7 @@ CallNode.prototype.getStmNode = function () {
         })
     } else {
         upnode = this.getInEdges(EDGES.CONTROL).filter( function (e) {
-            return e.from.isStatementNode && !esp_isTryStm(e.from.parsenode)
+            return e.from.isStatementNode && !Aux.isTryStm(e.from.parsenode)
         }).map(function (e) {return e.from})
         if (upnode.length > 0)
             return  upnode
@@ -587,32 +589,32 @@ PDG_Node.prototype.getdtype = function (recheck) {
         if (e.to.equals(e.from)) 
           return false
         // Follow function declarations in form var x  = function () { }
-        else if (e.to.parsenode && esp_isFunExp(e.to.parsenode) &&
-                 e.from.parsenode && (esp_isVarDeclarator(e.from.parsenode) ||
-                 esp_isVarDecl(e.from.parsenode) || esp_isProperty(e.from.parsenode))) 
+        else if (e.to.parsenode && Aux.isFunExp(e.to.parsenode) &&
+                 e.from.parsenode && (Aux.isVarDeclarator(e.from.parsenode) ||
+                 Aux.isVarDecl(e.from.parsenode) || Aux.isProperty(e.from.parsenode))) 
             return true
         else if (e.to.parsenode &&
-                ( esp_isObjExp(e.to.parsenode) || 
-                  esp_isNewExp(e.to.parsenode) ) &&
+                ( Aux.isObjExp(e.to.parsenode) || 
+                  Aux.isNewExp(e.to.parsenode) ) &&
                 e.from.parsenode &&
-                esp_isVarDeclarator(e.from.parsenode))
+                Aux.isVarDeclarator(e.from.parsenode))
             if (e.from.parsenode.init === e.to.parsenode)
                 return true
             else 
                 return false
 
         else if (e.to.parsenode && 
-                 ( esp_isObjExp(e.to.parsenode) || 
-                   esp_isNewExp(e.to.parsenode) ) &&
+                 ( Aux.isObjExp(e.to.parsenode) || 
+                   Aux.isNewExp(e.to.parsenode) ) &&
                  e.from.parsenode && 
-                 ( esp_isVarDeclarator(e.from.parsenode) ||
-                   esp_isVarDecl(e.from.parsenode) || 
-                   esp_isProperty(e.from.parsenode)))
+                 ( Aux.isVarDeclarator(e.from.parsenode) ||
+                   Aux.isVarDecl(e.from.parsenode) || 
+                   Aux.isProperty(e.from.parsenode)))
             return true
         
 
         else if (e.to.isObjectEntry && e.from.parsenode 
-                 && esp_isVarDeclarator(e.from.parsenode) &&
+                 && Aux.isVarDeclarator(e.from.parsenode) &&
                  e.from.parsenode.init === e.to.parsenode)
             return true
         // Follow edge from argument to its call node
@@ -662,3 +664,31 @@ PDG_Node.prototype.getdtype = function (recheck) {
 
 
 DistributedNode.prototype = new PDG_Node();
+
+
+
+
+if (typeof module !== 'undefined' && module.exports != null) {
+    var Aux = Aux;
+    (function () {
+        Aux = require('../aux.js').Aux;
+    })();
+    var pdg_edge        = require('./edge.js');
+    var EDGES           = pdg_edge.EDGES;
+    var PDG_Edge        = pdg_edge.PDG_Edge;
+    var Parameter_Edge  = Parameter_Edge;
+
+
+    exports.PDG_Node            = PDG_Node;
+    exports.EntryNode           = EntryNode;
+    exports.ObjectEntryNode     = ObjectEntryNode;
+    exports.CallNode            = CallNode;
+    exports.StatementNode       = StatementNode;
+    exports.FormalPNode         = FormalPNode;
+    exports.ActualPNode         = ActualPNode;
+    exports.ExitNode            = ExitNode;
+    exports.DNODES              = DNODES;
+    exports.ARITY               = ARITY;
+    exports.DistributedNode     = DistributedNode;
+    exports.arityEquals         = arityEquals;
+}

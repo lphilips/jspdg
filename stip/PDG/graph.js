@@ -272,3 +272,25 @@ S12.add_edges_out([[F1_out,EDGES.DATA]]);
 F1_in.add_edges_out([[S12,EDGES.DATA]]);
 F2_in.add_edges_out([[S12,EDGES.DATA]]);
 F1_out.add_edges_out([[A1_out,EDGES.PAROUT]]); */
+
+
+if (typeof module !== 'undefined' && module.exports != null) {
+    var pdg_edge        = require('./edge.js');
+    var EDGES           = pdg_edge.EDGES;
+    var PDG_Edge        = pdg_edge.PDG_Edge;
+    var Parameter_Edge  = Parameter_Edge;
+
+    var node            = require('./node.js');
+    var PDG_Node        = node.PDG_Node;
+    var EntryNode       = node.EntryNode;
+    var ObjectEntryNode = node.ObjectEntryNode;
+    var CallNode        = node.CallNode;
+    var StatementNode   = node.StatementNode;
+    var FormalPNode     = node.FormalPNode;
+    var ActualPNode     = node.ActualPNode;
+    var ExitNode        = node.ExitNode;
+    var DNODES          = node.DNODES;
+    var ARITY           = node.ARITY;
+    var DistributedNode = node.DistributedNode;
+    exports.PDG = PDG;
+}

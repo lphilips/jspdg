@@ -14,7 +14,7 @@
 var CPSTransform = (function () {
 
     var cps_count = 0,
-        module = {};
+        toreturn = {};
 
     function transformCall(call, nodes, transform, upnode, esp_exp) {
         var asyncCall    = transform.asyncCallF(call)(call, call.name, []),
@@ -67,7 +67,7 @@ var CPSTransform = (function () {
             if (transform.shouldTransform(call))
                 esp_exp = transformVar(esp_exp, call, cps_count);
             callback.addBodyStm(upnode.parsenode);
-            slicednodes = removeNode(slicednodes, upnode);
+            slicednodes = removeNode(slicednodes, upnode, transform.AST);
         }
             /* Data dependent nodes */
             datadeps.map( function (node) {
@@ -113,9 +113,9 @@ var CPSTransform = (function () {
                                     .filter( function (n) {
                                         return n.parsenode && 
                                         (upnode ? n.cnt !== upnode.cnt : true) &&
-                                        ( esp_isVarDecl(n.parsenode) ||
-                                          esp_isVarDeclarator(n.parsenode) ||
-                                          esp_isAssignmentExp(n.parsenode)) 
+                                        ( Aux.isVarDecl(n.parsenode) ||
+                                          Aux.isVarDeclarator(n.parsenode) ||
+                                          Aux.isAssignmentExp(n.parsenode)) 
                             });
                     calldeps.concat(vardecls).map(function (node) {
                         var nodeEntry = getEntryNode(node),
@@ -172,7 +172,7 @@ var CPSTransform = (function () {
         datadep.map( function (n) {
                     if (slicedContains(slicednodes, n) && 
                         transform.shouldTransform(call)) {
-                        bodynode = transform.transformF(slicednodes, n, transform.option); 
+                        bodynode = transform.transformF(slicednodes, n, transform.option, transform.AST); 
                         slicednodes = bodynode.nodes;
                         callbackstms = callbackstms.concat(bodynode);
                     }
@@ -211,7 +211,7 @@ var CPSTransform = (function () {
                     if (slicedContains(slicednodes, node.node) || node.parsednode.cont || 
                         node.node.edges_out.filter(function (e) {return e.to.isCallNode}).length > 0) {
                         asyncCall.getCallback().addBodyStm(node.parsednode)
-                        slicednodes = removeNode(slicednodes, node.node)
+                        slicednodes = removeNode(slicednodes, node.node, transform.AST)
                     }
                 })
             }
@@ -220,7 +220,7 @@ var CPSTransform = (function () {
 
 
         else if (callargs.length < 1 && !transform.shouldTransform(call)) {
-            if (esp_isExpStm(parent)) {
+            if (Aux.isExpStm(parent)) {
                 parent.expression = call.parsenode;
                 call.parsenode = parent;
             }
@@ -239,7 +239,7 @@ var CPSTransform = (function () {
                     if (node.parsednode.cont || slicedContains(slicednodes, node.node) ||
                         node.node.edges_out.filter( function (e) {return e.to.isCallNode}).length > 0) {
                         parsednode.getCallback().addBodyStm(node.parsednode)
-                        slicednodes = removeNode(slicednodes, node.node)
+                        slicednodes = removeNode(slicednodes, node.node, transform.AST)
                     }
                 })
             }
@@ -256,7 +256,7 @@ var CPSTransform = (function () {
                     if (slicedContains(slicednodes, node.node) || node.parsednode.cont || 
                         node.node.edges_out.filter(function (e) {return e.to.isCallNode}).length > 0) {
                         asyncCall.getCallback().addBodyStm(node.parsednode)
-                        slicednodes = removeNode(slicednodes, node.node)
+                        slicednodes = removeNode(slicednodes, node.node, transform.AST)
                     }
                 })
             }
@@ -274,7 +274,7 @@ var CPSTransform = (function () {
                     if (slicedContains(slicednodes, node.node)|| node.parsednode.cont || 
                         node.node.edges_out.filter(function (e) {return e.to.isCallNode}).length>0) {
                         asyncCall.getCallback().addBodyStm(node.parsednode)
-                        slicednodes = removeNode(slicednodes, node.node)
+                        slicednodes = removeNode(slicednodes, node.node, transform.AST)
                     }
                 })
             }
@@ -300,7 +300,7 @@ var CPSTransform = (function () {
 
             callargs.map(function (callarg) {
                     cps_count++;
-                    var cnode          = transformCall(callarg, slicednodes, transform, upnode),
+                    var cnode          = transformCall(callarg, slicednodes, transform, upnode, orig_esp_exp),
                         hasCallArg     = callarg.getActualIn().flatMap(function (a_in) {
                                             return a_in.callArgument()      
                                         }),
@@ -374,7 +374,7 @@ var CPSTransform = (function () {
                             latestcall = false;
                     }
 
-                slicednodes = removeNode(cnode[0], callarg);
+                slicednodes = removeNode(cnode[0], callarg, transform.AST);
                 })
 
             parsednode = latestcall;
@@ -391,20 +391,20 @@ var CPSTransform = (function () {
             parent    = Ast.parent(parsenode, transform.AST),
             /* If parsenode is func decl (function foo() {}), then we don't need the parent.
                Only needed for cases var foo = function () {}) */
-            funcstr   = esp_isFunDecl(parsenode) ? escodegen.generate(parsenode) : escodegen.generate(parent);
+            funcstr   = Aux.isFunDecl(parsenode) ? escodegen.generate(parsenode) : escodegen.generate(parent);
         
             /* If parent is an object property, transform it into var decl + function (for falafel) */
-            if (esp_isProperty(parent)) {
+            if (Aux.isProperty(parent)) {
                 funcstr = parent.key.toString() + "=" + parsenode.toString();
             }
 
-            walkAst(func.parsenode, {
+            Aux.walkAst(func.parsenode, {
                 post : function (node) {
                     var enclosingFun = getEnclosingFunction(node, transform.AST);
                     if (enclosingFun)
                         Ast.augmentAst(enclosingFun);
                     if (enclosingFun && 
-                        esp_isRetStm(node) && 
+                        Aux.isRetStm(node) && 
                         enclosingFun.equals(func.parsenode)) {
                             /* Make sure methods like equal, hashcode are defined on the node*/
                             Ast.augmentAst(enclosingFun);
@@ -424,10 +424,10 @@ var CPSTransform = (function () {
                 }
             })
 
-            if (esp_isFunDecl(parsenode) || esp_isFunExp(parsenode)) {
+            if (Aux.isFunDecl(parsenode) || Aux.isFunExp(parsenode)) {
                 method.setBody(func.parsenode.body.body);
             }
-            else if (esp_isProperty(parent)) {
+            else if (Aux.isProperty(parent)) {
                 method.setBody(func.parsenode.body.body);
             }
 
@@ -444,8 +444,8 @@ var CPSTransform = (function () {
     /* Aux function, returns function (if any) of given statement (parse node) */
     var getEnclosingFunction = function (parsenode, ast) {
         var parent = parsenode;
-        while(parent && !esp_isProgram(parent)) {
-            if (esp_isFunDecl(parent) || esp_isFunExp(parent)) {
+        while(parent && !Aux.isProgram(parent)) {
+            if (Aux.isFunDecl(parent) || Aux.isFunExp(parent)) {
                 break;
             } else {
                 parent = Ast.parent(parent, ast);
@@ -485,13 +485,13 @@ var CPSTransform = (function () {
                 from = edge.from;
             if (from.isEntryNode || from.isDistributedNode || 
                 from.isObjectEntry ||
-                from.isStatementNode && esp_isTryStm(from.parsenode)) {
+                from.isStatementNode && Aux.isTryStm(from.parsenode)) {
                 entry = from;
                 break;
             } else {
                 from.getInEdges(EDGES.CONTROL)
                     .map(function (edge) {
-                        if (!(contains(visited, edge))) {
+                        if (!(Aux.contains(visited, edge))) {
                             visited.push(edge);
                             ins.push(edge);
                         }   
@@ -514,7 +514,7 @@ var CPSTransform = (function () {
             .filter(function (n) {return !n.isFormalNode});
         body.map(function (bodynode) {
             if (bodynode.equals(callnode) || 
-                esp_hasCallStm(bodynode, callnode.parsenode)) {
+                Aux.hasCallStm(bodynode, callnode.parsenode)) {
                 passed = true;
             }
             else if (passed) {
@@ -565,25 +565,25 @@ var CPSTransform = (function () {
                     error  = {type : 'Literal', value:  null},
                     cps = transformCall(call, nodes, transform, node, exp);
 
-                    if (esp_isRetStm(parsenode) && cps[1].isRPC) {
+                    if (Aux.isRetStm(parsenode) && cps[1].isRPC) {
                         if (parsenode.argument) {
                             /* If already transformed (for example binary exp c1 + c2)
                                Then do not make a nested callback call of it */
-                            if (!esp_isCallExp(cps[2]))
+                            if (!Aux.isCallExp(cps[2]))
                                 cps[2] = parseF.createCallCb('callback', error, cps[2]);
                             cps[1] = parseF.RPCReturn(cps[1])
                         }
                         else {
                             /* If already transformed (for example binary exp c1 + c2)
                                Then do not make a nested callback call of it */
-                            if (!esp_isCallExp(cps[2]))
+                            if (!Aux.isCallExp(cps[2]))
                                 cps[2] = parseF.createCallCb('callback', error);
                             cps[1] = parseF.RPCReturn(cps[1])
                         }
                     }
 
                     if (cps[2]) CPSsetExpStm(parsenode, cps[2]);
-                    nodes = removeNode(cps[0], call);
+                    nodes = removeNode(cps[0], call, transform.AST);
 
                     if (outercps) {
                         var callback = outercps.callback;
@@ -612,42 +612,42 @@ var CPSTransform = (function () {
 
 
     var CPSgetExpStm = function (parsenode) {
-        if (esp_isVarDecl(parsenode))
+        if (Aux.isVarDecl(parsenode))
             return parsenode.declarations[0].init
 
-        else if (esp_isVarDeclarator(parsenode)) {
+        else if (Aux.isVarDeclarator(parsenode)) {
             return parsenode.init
         }
 
-        else if (esp_isExpStm(parsenode)) {
+        else if (Aux.isExpStm(parsenode)) {
             var exp = parsenode.expression;
-            if (esp_isAssignmentExp(exp)) 
+            if (Aux.isAssignmentExp(exp)) 
                 return exp.right 
 
-            else if (esp_isBinExp) 
+            else if (Aux.isBinExp) 
                 return exp
         }
 
-        else if (esp_isRetStm(parsenode)) {
+        else if (Aux.isRetStm(parsenode)) {
             return parsenode.argument
         }
     }
 
 
     var CPSsetExpStm = function (parsenode, newexp) {
-        if(esp_isVarDecl(parsenode)) {
+        if(Aux.isVarDecl(parsenode)) {
             newexp.leadingComment = parsenode.declarations[0].leadingComment;
             parsenode.declarations[0].init = newexp
         }
 
-        else if (esp_isExpStm(parsenode)) {
+        else if (Aux.isExpStm(parsenode)) {
             var exp = parsenode.expression;
-            if (esp_isAssignmentExp(exp)) 
+            if (Aux.isAssignmentExp(exp)) 
                 exp.right = newexp
-            else if (esp_isBinExp) 
+            else if (Aux.isBinExp) 
                 parsenode.expression = newexp
         }
-        else if (esp_isRetStm(parsenode)) {
+        else if (Aux.isRetStm(parsenode)) {
             parsenode.argument = newexp
         }
     }
@@ -721,14 +721,14 @@ var CPSTransform = (function () {
         }).length > 0
     }
 
-    var removeNode = function (nodes,node) {
+    var removeNode = function (nodes,node, ast) {
         var callnode = false;
 
         nodes = nodes.remove(node);
         nodes.map(function (n) {
 
             if(n.parsenode) {
-                var parent = Ast.parent(n.parsenode,graphs.AST);
+                var parent = Ast.parent(n.parsenode, ast);
                 if(n.isCallNode && (n.parsenode === node.parsenode || parent === node.parsenode)) {
                     callnode = n
                 }
@@ -739,13 +739,19 @@ var CPSTransform = (function () {
     }
 
 
-    module.transformCall      = transformCall;
-    module.transformArguments = transformArguments;
-    module.transformFunction  = transformFunction;
-    module.transformExp       = transformExp;
-    module.setExpStm          = CPSsetExpStm;
-    module.transformReplyCall = transformReplyCall;
+    toreturn.transformCall      = transformCall;
+    toreturn.transformArguments = transformArguments;
+    toreturn.transformFunction  = transformFunction;
+    toreturn.transformExp       = transformExp;
+    toreturn.setExpStm          = CPSsetExpStm;
+    toreturn.transformReplyCall = transformReplyCall;
 
-    return module;
+    if (typeof module !== 'undefined' && module.exports != null) {
+        InterferenceAnalysis = require('../InterferenceAnalysis.js').InterferenceAnalysis;
+
+        exports.CPSTransform = toreturn;
+    }
+
+    return toreturn;
 
 })();

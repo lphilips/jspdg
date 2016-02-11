@@ -4,7 +4,7 @@
 
 var Comments = (function () {
 
-    var module = {};
+    var toreturn = {};
 
     var beforeHandlers = [];
     var afterHandlers  = [];
@@ -57,7 +57,7 @@ var Comments = (function () {
 
     var isTierAnnotated = function (node) {
         return node.leadingComment &&
-               esp_isBlockStm(node) &&
+               Aux.isBlockStm(node) &&
                (isServerAnnotated(node.leadingComment) ||
                 isClientAnnotated(node.leadingComment))
     }
@@ -85,7 +85,7 @@ var Comments = (function () {
 
     var handleBlockComment = function (comment, pdgNodes) {
         pdgNodes.map(function (pdgNode) {
-            if (esp_isBlockStm(pdgNode.parsenode)) {
+            if (Aux.isBlockStm(pdgNode.parsenode)) {
                 if (isClientAnnotated(comment)) 
                     graphs.PDG.addClientStm(pdgNode)
                 else if (isServerAnnotated(comment))
@@ -131,13 +131,13 @@ var Comments = (function () {
         pdgNodes.map(function (pdgNode) {
             var callnodes;
             if (isBlockingAnnotated(comment)) {
-                if (!esp_isCallExp(pdgNode.parsenode)) {
+                if (!Aux.isCallExp(pdgNode.parsenode)) {
                     callnodes = pdgNode.findCallNodes();
                     callnodes.map(function (callNode) {
                         callNode.parsenode.leadingComment = comment;
                     })
                 } 
-                if (pdgNode.isCallNode && esp_isExpStm(pdgNode.parsenode)) {
+                if (pdgNode.isCallNode && Aux.isExpStm(pdgNode.parsenode)) {
                     pdgNode.parsenode.expression.leadingComment = comment;
                 }
             }
@@ -149,18 +149,24 @@ var Comments = (function () {
     registerAfterHandler(handleBlockingComment);
    // registerAfterHandler(handleBlockComment);
 
-    module.handleBeforeComment   = handleBeforeComment;
-    module.handleAfterComment    = handleAfterComment;
-    module.registerBeforeHandler = registerBeforeHandler;
-    module.registerAfterHandler  = registerAfterHandler;
-    module.isAssumesAnnotated    = isAssumesAnnotated;
-    module.isTierAnnotated       = isTierAnnotated;
-    module.isServerAnnotated     = isServerAnnotated;
-    module.isClientAnnotated     = isClientAnnotated;
-    module.isBlockingAnnotated   = isBlockingAnnotated;
-    module.isSharedAnnotated     = isSharedAnnotated;
-    module.isGeneratedAnnotated  = isGeneratedAnnotated;
-    return module
+    toreturn.handleBeforeComment   = handleBeforeComment;
+    toreturn.handleAfterComment    = handleAfterComment;
+    toreturn.registerBeforeHandler = registerBeforeHandler;
+    toreturn.registerAfterHandler  = registerAfterHandler;
+    toreturn.isAssumesAnnotated    = isAssumesAnnotated;
+    toreturn.isTierAnnotated       = isTierAnnotated;
+    toreturn.isServerAnnotated     = isServerAnnotated;
+    toreturn.isClientAnnotated     = isClientAnnotated;
+    toreturn.isBlockingAnnotated   = isBlockingAnnotated;
+    toreturn.isSharedAnnotated     = isSharedAnnotated;
+    toreturn.isGeneratedAnnotated  = isGeneratedAnnotated;
+
+    if (typeof module !== 'undefined' && module.exports != null) {
+        var ARITY = require('./PDG/node.js').ARITY;
+        exports.Comments = toreturn;
+    }
+
+    return toreturn
 
 
 })()

@@ -93,7 +93,7 @@
     <script type="text/javascript" src="PDGgraph.js"></script>
     <script type="text/javascript" src="pdgGraphs.js"></script>
     <script type="text/javascript" src="lib/viz.js"></script>
-      <script type="text/javascript" src="lib/dagre-d3.js"></script>
+    <script type="text/javascript" src="lib/dagre-d3.js"></script>
     <script type="text/javascript">
 
     // define print method for JIPDA
@@ -109,7 +109,7 @@
                 // First parse and create again via escodegen
                 ast = Ast.createAst(src, {loc:true, owningComments: true, comment: true});
             ast = Hoist.hoist(ast, function (node) {
-                    return esp_isBlockStm(node) && Comments.isTierAnnotated(node)
+                    return Aux.isBlockStm(node) && Comments.isTierAnnotated(node)
                 });
 
 
@@ -196,7 +196,7 @@
                     })
                     var target   = $('#target').val(),
                         asyncomm = $('#asyncomm').val(),
-                        program  = constructProgram(nodes, {target: target, tier: option, asynccomm : asyncomm});
+                        program  = Transpiler.transpile(nodes, {target: target, tier: option, asynccomm : asyncomm}, graphs.AST);
                     return program;
                 },
                 remove    = function (node) {
@@ -233,12 +233,12 @@
             /* Filter out nodes that were added by the assumes statement, or default global variables */
             sortedc = sortedc.filter(function (pdgnode) {
                 if (pdgnode.parsenode)
-                    if (esp_isFunDecl(pdgnode.parsenode) &&
+                    if (Aux.isFunDecl(pdgnode.parsenode) &&
                         assumesnames.indexOf(pdgnode.parsenode.id.name) > -1) {
                         removes = removes.concat(pdgnode);
                         return false;
                     } 
-                    else if (esp_isVarDeclarator(pdgnode.parsenode) &&
+                    else if (Aux.isVarDeclarator(pdgnode.parsenode) &&
                         assumesnames.indexOf(pdgnode.parsenode.id.name) > -1) {
                         removes = removes.concat(pdgnode);
                         return false;
@@ -250,12 +250,12 @@
             });
             sorteds = sorteds.filter(function (pdgnode) {
                 if (pdgnode.parsenode)
-                    if (esp_isFunDecl(pdgnode.parsenode) &&
+                    if (Aux.isFunDecl(pdgnode.parsenode) &&
                         assumesnames.indexOf(pdgnode.parsenode.id.name) > -1) {
                         removes = removes.concat(pdgnode)
                         return false
                     } 
-                    else if (esp_isVarDeclarator(pdgnode.parsenode) &&
+                    else if (Aux.isVarDeclarator(pdgnode.parsenode) &&
                         assumesnames.indexOf(pdgnode.parsenode.id.name) > -1) {
                         removes = removes.concat(pdgnode);
                         return false;
@@ -318,12 +318,12 @@
 
             nodes.map(function (pdgnode) {
                 if (pdgnode.parsenode)
-                    if (esp_isFunDecl(pdgnode.parsenode) &&
+                    if (Aux.isFunDecl(pdgnode.parsenode) &&
                         assumesnames.indexOf(pdgnode.parsenode.id.name) > -1) {
                         removes = removes.concat(pdgnode);
                         return false
                     } 
-                    else if (esp_isVarDeclarator(pdgnode.parsenode) &&
+                    else if (Aux.isVarDeclarator(pdgnode.parsenode) &&
                         assumesnames.indexOf(pdgnode.parsenode.id.name) > -1) {
                         removes = removes.concat(pdgnode);
                         return false;
@@ -336,7 +336,7 @@
             removes.map(function (node) {
                remove(node);
             });
-            program = constructProgram(nodes, {target: 'normal', cps : true});
+            program = Transpiler.transpile(nodes, {target: 'normal', cps : true}, graphs.AST);
             slicededitor.setValue(escodegen.generate(program.program));
         } catch (err) {
             console.log(err.stack);
