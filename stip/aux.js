@@ -191,6 +191,21 @@ var Aux = (function () {
       }
 
 
+      /* Compares a given declarator node (ast-level)
+         with the declaration node of an assignment node (pdg node) */
+      function compareDeclarationNodes (declarationNode, pdgnode) {
+        var pdgDecl = pdgnode.getInEdges(EDGES.DATA)
+                        .map(function (e) {return e.from })
+                        .filter( function (n) {
+                          return n.isStatementNode &&
+                                esp_isVarDeclarator(n.parsenode) &&
+                                n.parsenode.declarations[0].equals(astnode)
+                        })
+        return pdgDecl.length > 0
+      }
+
+
+
       Array.prototype.memberAt =
           function (x)
           {
@@ -250,12 +265,15 @@ var Aux = (function () {
 
     toreturn.walkAst            = walkAst;
 
+    toreturn.compareDeclarationNodes = compareDeclarationNodes;
+
 
 
 
 
     if (typeof module !== 'undefined' && module.exports != null) {
         require('es6-shim');
+        var Pdg = require('../jipda-pdg/pdg/pdg.js').Pdg;
         exports.Aux  = toreturn;
     }
 

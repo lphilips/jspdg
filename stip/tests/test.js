@@ -247,6 +247,7 @@ suite('Tier split - basic', function () {
 });
 
 suite('CPS transform', function () {
+    
     test('variables', function () {
         var ast = cpstransform('var a = 1; var b = 2; var c = a + b;');
         compareAst(escodegen.generate(ast.nosetup), 'var a; var b; var c; a = 1; b = 2; c = a + b;');
@@ -272,12 +273,13 @@ suite('CPS transform', function () {
             'function foo(x, _v1_) {return _v1_(null, x)} var a; foo(42, function(_v2_, _v3_) {a = 2;})',
             {varPattern: /_v\d_/ })
     })
-    
+
     test('without blocking annotation', function () {
         var ast = cpstransform('function foo(x) {return x} foo(42); var a = 2;');
         compareAst(escodegen.generate(ast.nosetup),
             'function foo(x, _v1_) {return _v1_(null, x)} var a; foo(42, function(_v2_, _v3_) {}); a = 2;',
             {varPattern: /_v\d_/})
     })
+
 
 });
