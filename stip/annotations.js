@@ -162,7 +162,7 @@ var Comments = (function () {
     toreturn.isGeneratedAnnotated  = isGeneratedAnnotated;
 
     if (typeof module !== 'undefined' && module.exports != null) {
-        var ARITY = require('./PDG/node.js').ARITY;
+        ARITY = require('./PDG/node.js').ARITY;
         exports.Comments = toreturn;
     }
 

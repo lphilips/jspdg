@@ -199,7 +199,7 @@ var Aux = (function () {
                         .filter( function (n) {
                           return n.isStatementNode &&
                                 esp_isVarDeclarator(n.parsenode) &&
-                                n.parsenode.declarations[0].equals(astnode)
+                                n.parsenode.declarations[0].equals(declarationNode)
                         })
         return pdgDecl.length > 0
       }

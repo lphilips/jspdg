@@ -436,7 +436,7 @@ var Nodeify = (function () {
         if (call.length > 0) {
             var transformer = makeTransformer(sliced.option, sliced.AST),
                 cpsvar      = CPSTransform.transformExp(node, sliced.nodes, transformer)
-            return new Sliced(cpsvar[0], node, cpsvar[1].parsenode)
+            return new Sliced(cpsvar[0], node, sliced.AST, cpsvar[1].parsenode)
         }
         if (object.length > 0) {
             object.map(function (oe) {
@@ -484,7 +484,7 @@ var Nodeify = (function () {
         })
         sliced.nodes = sliced.nodes.remove(node);
 
-        return new Sliced(sliced.nodes, node, node.parsenode); 
+        return new Sliced(sliced.nodes, node, sliced.AST, node.parsenode); 
     }
 
 
@@ -534,7 +534,7 @@ var Nodeify = (function () {
         node.parsenode.block.body = block;
         sliced.nodes = sliced.nodes.remove(node);
 
-        return new Sliced(sliced.nodes, node, node.parsenode);
+        return new Sliced(sliced.nodes, node, sliced.AST,  node.parsenode);
     }
 
     var nodeifyCatchStm = function (sliced) {
@@ -560,7 +560,7 @@ var Nodeify = (function () {
         sliced.nodes = sliced.nodes.remove(node);
         node.parsenode.body.body = body;
 
-        return new Sliced(sliced.nodes, node, node.parsenode)
+        return new Sliced(sliced.nodes, node, sliced.AST, node.parsenode);
     }
 
 
@@ -578,7 +578,7 @@ var Nodeify = (function () {
         }) 
         sliced.nodes = sliced.nodes.remove(node);
 
-        return new Sliced(sliced.nodes, node, node.parsenode);
+        return new Sliced(sliced.nodes, node, sliced.AST, node.parsenode);
     }
 
 
