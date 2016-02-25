@@ -1,3 +1,4 @@
+
 var pre_analyse = function (ast) {
     var anonf_ct    = 0;
     var anonf_name  = 'anonf';
@@ -365,4 +366,5 @@ if (typeof module !== 'undefined' && module.exports != null) {
     var js_libs  = require('./jslibs.js').js_libs;
 
     exports.pre_analyse         = pre_analyse;
+    exports.asyncs              = ["https", "dns", "fs", "proxy"];
 }
