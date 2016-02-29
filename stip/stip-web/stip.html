@@ -87,6 +87,7 @@
     <script type="text/javascript" src="../transpiler/Nodeify.js"></script>
     <script type="text/javascript" src="../transpiler/CT_parse.js"></script>
     <script type="text/javascript" src="../transpiler/slice.js"></script>
+    <script type="text/javascript" src="../transpiler/transpiler.js"></script>
     <script type="text/javascript" src="../lib/esutils.js"></script>
     <script type="text/javascript" src="../lib/esutils_code.js"></script>
     <script type="text/javascript" src="../lib/escodegen.js"></script>
@@ -123,7 +124,10 @@
             $("#graph").empty();
             graphs = new Stip.Graphs(preanalysis.ast, src, preanalysis.primitives);
             Stip.start(graphs);
-            var g = createPDGGraph(graphs.PDG);
+
+            var g = createPDGGraph(graphs.PDG, assumes);
+
+
 
             drawPDGGraph(g[0], g[1], g[2]);
             return graphs; 
@@ -223,7 +227,7 @@
                             remove(e.to)
                         });
                     }
-                }
+                };
             sortedc.sort(function (n1, n2) { 
                 return n1.cnt - n2.cnt;
             }); 

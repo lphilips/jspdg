@@ -1157,7 +1157,6 @@ var Stip = (function () {
             jtc = graphs.JTC,
             parsetype = node.type,
             pdgnode;
-            console.log("PDG(" + parsetype + ")" + node);
 
         if (node.leadingComment) {
             if (Comments.isGeneratedAnnotated(node.leadingComment))

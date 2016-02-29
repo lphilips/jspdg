@@ -9,566 +9,602 @@
  ****************************************************************/
 
 var JSify = (function () {
+ 
 
 
-    var makeShouldTransform = function (cps) {
+    function makeShouldTransform(cps) {
         return function (call) {
             var parsenode = Aux.isExpStm(call.parsenode) ? call.parsenode.expression : call.parsenode;
-            if (cps)
+            if (cps) {
                 if (call.primitive) {
                     return false;
-                } 
+                }
                 else if (Aux.isMemberExpression(parsenode.callee) &&
-                    asyncs.indexOf(parsenode.callee.object.name) >= 0) 
+                    asyncs.indexOf(parsenode.callee.object.name) >= 0) {
                         return true;
-                else
+                    }
+                else {
                     return cps;
-
-            else
+                }
+            }
+            else {
                 return false;
             }
-        },
+        };
+    }
 
-        makeTransformer = function (cps, ast) {
-        return {  AST        : ast, 
-                  transformF : toJavaScript,
-                  callbackF  : JSParse.callback, 
-                  asyncCallF : function (call) { return JSParse.RPC}, 
+    function makeTransformer (transpiler) {
+        return {  AST        : transpiler.ast,
+                  transformF : transpiler.transpile,
+                  callbackF  : JSParse.callback,
+                  asyncCallF : function (call) { return JSParse.RPC; },
                   asyncFuncF : JSParse.asyncFun,
                   parseF     : JSParse,
-                  shouldTransform : makeShouldTransform(cps) ,
-                  option     : cps
-                }
-        },
-        toreturn = {};
+                  shouldTransform : makeShouldTransform(transpiler.options.cps) ,
+                  option     : transpiler.options.cps
+                };
+    }
+
+    var transformer = {};
 
     /* Variable declaration  + Assignment Expression */
-    var sliceVarDecl = function (slicednodes, node, cps, ast) {
-        var entry = node.getOutEdges(EDGES.DATA)
-                        .filter(function (e) {
-                            return e.to.isEntryNode;
-                        })
-                        .map(function (e) { return e.to }),
-            call = node.getOutEdges(EDGES.CONTROL)
-                       .filter(function (e) {
-                            return e.to.isCallNode;
-                       })
-                       .map(function (e) { return e.to }),
-            object = node.getOutEdges(EDGES.DATA)
-                        .filter(function (e) {
-                             return e.to.isObjectEntry;
-                        })
-                        .map(function (e) {return e.to});
-        if (Aux.isVarDeclarator(node.parsenode))
-             node.parsenode = JSParse.createVarDecl(node.parsenode);
-        /* Outgoing data dependency to entry node? */
+    function transformVariableDecl (transpiler) {
+        var node        = transpiler.node,
+            parsenode   = node.parsenode,
+            entry       = node.getOutNodes(EDGES.DATA)
+                        .filter(function (n) {
+                            return n.isEntryNode;
+                        }),
+            call        = node.getOutNodes(EDGES.CONTROL)
+                       .filter(function (n) {
+                            return n.isCallNode;
+                       }),
+            object      = node.getOutNodes(EDGES.DATA)
+                        .filter(function (n) {
+                             return n.isObjectEntry;
+                        }),
+            transpilerDep, transpiled, transpiledNode, transformer;
+        /* Make variable declaration of node */
+        if (Aux.isVarDeclarator(parsenode)) {
+             parsenode = JSParse.createVarDecl(parsenode);
+        }
+        /* Outgoing data dependency to entry node?
+         * function declaration of form var f = function () {}
+         */
         if (entry.length > 0) {
-            var f = toJavaScript(slicednodes, entry[0], cps, ast);
-            slicednodes = f.nodes;
-            slicednodes = slicednodes.remove(entry[0]);
-            
-            if (Aux.isVarDecl(node.parsenode))
-                 if (Aux.isFunDecl(f.parsednode)) {
-                    f.parsednode.id = node.parsenode.declarations[0].id;
-                    f.nodes = f.nodes.remove(entry[0]);
-                    
-                    return new Sliced(slicednodes, node, ast, f.parsednode);
+            entry           = entry[0]; /* always 1, if assigned later on, the new one would be attached to assignment node */
+            transpilerDep   = Transpiler.copyTranspileObject(transpiler, entry);
+            transpiled      = Transpiler.transpile(transpilerDep);
+
+            transpiler.nodes = transpiled.nodes.remove(entry);
+            transpiledNode   = transpiled.transpiledNode;
+            Transpiler.copySetups(transpiled, transpiler);
+
+            /* Variable declaration */
+            if (Aux.isVarDecl(parsenode)) {
+                 if (Aux.isFunDecl(transpiledNode)) {
+                    transpiledNode.id = Aux.getDeclaration(parsenode).id;
+                    transpiler.transpiledNode = transpiledNode;
+
+                    return transpiler;
                  }
                  else {
-                    node.parsenode.declarations[0].init = f.parsednode;
+                    Aux.getDeclaration(parsenode).init = transpiledNode;
                 }
-            else if (Aux.isExpStm(node.parsenode) && 
-                     Aux.isAssignmentExp(node.parsenode.expression)) {
-
-                        if (Aux.isFunDecl(f.parsednode)) {
-                            f.parsednode.id = node.parsenode.expression.left;
-
-                            return new Sliced(slicednodes, node,ast, f.parsednode);
-                        }        
-                        node.parsenode.expression.right = f.parsednode; 
-
             }
+            /* Assignment */
+            else if (Aux.isExpStm(parsenode) &&
+                     Aux.isAssignmentExp(parsenode.expression)) {
 
-                
+                        if (Aux.isFunDecl(transpiledNode)) {
+                            transpiledNode.id = parsenode.expression.left;
+                            transpiler.transpiledNode = transpiledNode;
 
+                            return transpiler;
+                        }
+                        //parsenode.expression.right = f.parsednode;
+            }
         }
         /* Outgoing data dependency to object entry node? */
         if (object.length > 0 && call.length <= 0) {
-            var obj = toJavaScript(slicednodes, object[0], cps, ast);
-            
-            if (Aux.isVarDecl(node.parsenode))
-                node.parsenode.declarations[0].init = obj.parsednode;
-            else if (Aux.isExpStm(node.parsenode) && 
-                Aux.isAssignmentExp(node.parsenode.expression))
-                node.parsenode.right = obj.parsednode; 
-            slicednodes = obj.nodes;
-        }
-        /* Has call nodes in value? */
-        if (call.length > 0) {
-            var transformer = makeTransformer(cps, ast),
-                cpsvar      = CPSTransform.transformExp(node, slicednodes, transformer);
-            if (cpsvar[1])
-                return new Sliced(cpsvar[0], node, ast,cpsvar[1].parsenode)
-            else 
-                return new Sliced(slicednodes, node, ast,node.parsenode)
-        }
-        return new Sliced(slicednodes, node, ast, node.parsenode);
-    }
+            transpilerDep = Transpiler.copyTranspileObject(transpiler, object[0]);
+            transpiled    = Transpiler.transpile(transpilerDep);
+            transpiled.nodes = transpiled.nodes.remove(object[0]);
+            transpiledNode   = transpiled.transpiledNode;
+            Transpiler.copySetups(transpiled, transpiler);
 
+            if (Aux.isVarDecl(parsenode)) {
+                Aux.getDeclaration(parsenode).init = transpiledNode;
+            }
+            else if (Aux.isExpStm(parsenode) &&
+                Aux.isAssignmentExp(parsenode.expression)) {
+                parsenode.right = transpiledNode;
+            }
+
+        }
+        /* Has call nodes in value / right hand side? */
+        if (call.length > 0) {
+            transformer = makeTransformer(transpiler);
+            transpiled  = CPSTransform.transformExp(node, transpiler.nodes, transformer);
+            if (transpiled[1]) {
+                transpiler.nodes = transpiled[0];
+                transpiler.transpiledNode = transpiled[1].parsenode;
+            }
+            else {
+                transpiler.transpiledNode = parsenode;
+            }
+        }
+        transpiler.transpiledNode = parsenode;
+
+        return transpiler;
+    }
+    transformer.transformVariableDecl = transformVariableDecl;
+    transformer.transformAssignmentExp = transformVariableDecl;
 
     /* Binary expression */
-    var sliceBinExp = function (slicednodes, node, cps, ast) {
-        var call = node.getOutEdges(EDGES.CONTROL)
-                       .filter(function (e) {
-                        return e.to.isCallNode
-                    });
+    function transformBinaryExp (transpiler) {
+        var call = node.getOutNodes(EDGES.CONTROL)
+                       .filter(function (n) {
+                        return n.isCallNode;
+                    }),
+            node = transpiler.node,
+            nodes = transpiler.nodes,
+            transpiled, transformer;
         if (call.length > 0) {
-            var transformer = makeTransformer(cps, ast),
-                cpsvar      = CPSTransform.transformExp(node, slicednodes, transformer)
-                return new Sliced(cpsvar[0], node, ast, cpsvar[1].parsenode)
+            transformer = makeTransformer(transpiler);
+            transpiled  = CPSTransform.transformExp(node, nodes, transformer);
+            transpiler.nodes = transpiled[0];
+            transpiler.transpiledNode = transpiled[1].parsenode;
+
+            return transpiler;
         }
-        return new Sliced(slicednodes, node, ast, node.parsenode)
+        transpiler.transpiledNode = node.parsenode;
+
+        return transpiler;
     }
+    transformer.transformBinaryExp = transformBinaryExp;
+
 
     /* Function Expression */
-    var sliceFunExp = function (slicednodes, node, cps, ast) {
-        var parent    = Ast.parent(node.parsenode, ast);
-        if (node.isObjectEntry) 
-            return sliceFunConstructor(slicednodes, node, cps, ast);
-        else {// Body
-             // Formal parameters
-             var form_ins  = node.getFormalIn(),
-                 form_outs = node.getFormalOut(),
-                 parsenode = node.parsenode,
-                 params    = parsenode.params;
-            // Formal in parameters
-            if(form_ins.length > 0) {
-                // Remove parameters that are not in slicednodes
-                for(var i = 0; i < form_ins.length; i++) {
-                    var fp = form_ins[i],
-                         p = params[i];
-                    if(!slicedContains(slicednodes,fp)) {
-                        params.splice(i,1);
+    function transformFunctionExp (transpiler) {
+        var node = transpiler.node,
+            nodes = transpiler.nodes,
+            parsenode = node.parsenode,
+            parent    = Ast.parent(node.parsenode, transpiler.ast),
+            formal_ins, formal_outs, parameters, body, bodynodes, transpiled, i, fp, p;
+
+        if (node.isObjectEntry) {
+            return transformFunctionConstructor(transpiler);
+        }
+        else {
+            /*Formal parameters */
+            formal_ins  = node.getFormalIn();
+            formal_outs = node.getFormalOut();
+            parameters  = parsenode.params;
+            /* Formal in parameters */
+            if (formal_ins.length > 0) {
+                // Remove parameters that are not in dnodes
+                for (i = 0; i < formal_ins.length; i += 1) {
+                    fp = formal_ins[i];
+                    p = parameters[i];
+                    if(!nodesContains(transpiler.nodes, fp)) {
+                        parameters.splice(i, 1);
                     }
-                    slicednodes = slicednodes.remove(fp);
+                    transpiler.nodes = transpiler.nodes.remove(fp);
                 }
-                parsenode.params = params;
-            };
-            // Formal out parameters
-            form_outs.map(function (f_out) {
-                slicednodes = slicednodes.remove(f_out);
+                parsenode.params = parameters;
+            }
+            /* Formal out parameters */
+            formal_outs.map(function (f_out) {
+                transpiler.nodes = transpiler.nodes.remove(f_out);
             });
-            var body = [],
-                bodynodes = node.getOutEdges(EDGES.CONTROL)
-                                .filter(function (e) {
-                                  return !e.to.isFormalNode 
-                                })
-                                .map(function (e) { return e.to });
+            /* Body */
+            body = [];
+            bodynodes = node.getOutNodes(EDGES.CONTROL)
+                        .filter(function (n) {
+                            return !n.isFormalNode;
+                        });
+
             bodynodes.map(function (n) {
-                var bodynode = toJavaScript(slicednodes, n, cps, ast);
-                if(slicedContains(slicednodes, n)) {
-                    body = body.concat(bodynode.parsednode);
+                transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, n));
+                if (nodesContains(nodes, n)) {
+                    body.push(transpiled.transpiledNode);
                 }
-                slicednodes = removeNode(bodynode.nodes,n);
-                });
-
+                transpiler.nodes = transpiled.nodes.remove(n);
+            });
+            /* Overwrite body of parsenode */
             parsenode.body.body = body;
-            if (cps && !(parsenode.id && parsenode.id.name.startsWith('anonf'))) {
-                var transformer = makeTransformer(cps, ast),
-                    cpsfun      = CPSTransform.transformFunction(node, slicednodes, transformer);
 
-                if (Aux.isFunDecl(parsenode) && cpsfun[1].setName)
-                    cpsfun[1].setName(parsenode.id.name);
+            if (transpiler.options.cps &&
+                !(parsenode.id && parsenode.id.name.startsWith('anonf'))) {
+                var transformer = makeTransformer(transpiler),
+                    transformed = CPSTransform.transformFunction(node, transpiler.nodes, transformer);
+
+                transpiler.nodes = transformed[0];
+
+                if (Aux.isFunDecl(parsenode) && transformed[1].setName) {
+                    transformed[1].setName(parsenode.id.name);
+                }
 
                 else if (Aux.isProperty(parent)) {
-                    return new Sliced(cpsfun[0], node, ast, cpsfun[1].parsenode);
-                }
+                    transpiler.transpiledNode = transformed[1].parsenode;
 
-                return new Sliced(cpsfun[0], node, ast, JSParse.createFunDecl(cpsfun[1].parsenode));
+                    return transpiler;
+                }
+                transpiler.transpiledNode = JSParse.createFunDecl(transformed[1].parsenode);
+
+                return transpiler;
             }
 
-            return new Sliced(slicednodes, node,ast,  parsenode);
+            transpiler.transpiledNode = parsenode;
+
+            return transpiler;
         }
     }
+    transformer.transformFunctionExp = transformFunctionExp;
+    transformer.transformFunctionDecl = transformFunctionExp;
 
-    var sliceFunConstructor = function (slicednodes, node, cps, ast) {
-      var constructor = node.getOutEdges(EDGES.OBJMEMBER)
-                        .map(function (e) {return e.to})
-                        .filter(function (n) {return n.isConstructor})[0],
-          properties  = node.getOutEdges(EDGES.OBJMEMBER)
-                        .map(function (e) {return e.to})
-                        .filter(function (n) {return !n.isConstructor}),
-          body        = [],
-          form_ins  = constructor.getFormalIn(),
-          form_outs = constructor.getFormalOut(),
-          parsenode = node.parsenode,
-          params    = parsenode.params;
-        // Formal in parameters
-        if(form_ins.length > 0) {
-            // Remove parameters that are not in slicednodes
-            for (var i = 0; i < form_ins.length; i++) {
-                var fp = form_ins[i],
-                     p = params[i];
-                
-                if(!slicedContains(slicednodes,fp)) {
-                    params.splice(i,1);
+
+    function transformFunctionConstructor (transpiler) {
+        var node        = transpiler.node,
+            parsenode   = node.parsenode,
+            constructor = node.getOutNodes(EDGES.OBJMEMBER)
+                        .filter(function (n) {return n.isConstructor; })[0],
+            properties  = node.getOutNodes(EDGES.OBJMEMBER)
+                        .filter(function (n) {return !n.isConstructor; }),
+            body        = [],
+            formal_ins  = constructor.getFormalIn(),
+            formal_outs = constructor.getFormalOut(),
+            parameters  = parsenode.params,
+            transpiled, transpiledNode, i, fp, p;
+
+        /* Formal in parameters */
+        if(formal_ins.length > 0) {
+            /* Remove parameters that are not in nodes */
+            for (i = 0; i < formal_ins.length; i += 1) {
+                fp = formal_ins[i];
+                p = parameters[i];
+
+                if(!nodesContains(nodes, fp)) {
+                    parameters.splice(i,1);
                 }
-                slicednodes = slicednodes.remove(fp);
+                transpiler.nodes = transpiler.nodes.remove(fp);
             }
-            node.parsenode.params = params;
-        };
-        // Formal out parameters
-        form_outs.map(function (f_out) {
-            slicednodes = slicednodes.remove(f_out)
-        })
-
-      properties.map(function (property) {
-        var propnode;
-        if (slicedContains(slicednodes, property)) {
-            var propnode = toJavaScript(slicednodes, property, cps, ast);
-            body = body.concat(propnode.parsednode);
-            slicednodes = removeNode(propnode.nodes, property)
+            node.parsenode.params = parameters;
         }
-      })
-      node.parsenode.body.body = body;
-      slicednodes = slicednodes.remove(node);
-      slicednodes = slicednodes.remove(constructor);
-      
-      return new Sliced(slicednodes, node, ast, node.parsenode);
+
+        /* Formal out parameters */
+        formal_outs.map(function (f_out) {
+            transpiler.nodes = transpiler.nodes.remove(f_out);
+        });
+
+        properties.map(function (property) {
+            var propnode;
+            if (nodesContains(nodes, property)) {
+                transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, property));
+                transpiledNode = transpiled.transpiledNode;
+                body.push(transpiledNode);
+                transpiler.nodes = transpiled.nodes.remove(property);
+            }
+        });
+        /* Overwrite body */
+        parsenode.body.body = body;
+        transpiler.nodes = transpiler.nodes.remove(node);
+        transpiler.nodes = transpiler.nodes.remove(constructor);
+        transpiler.transpiledNode = parsenode;
+        return transpiler;
     }
 
-    var sliceCallExp = function (slicednodes, node, cps, ast) {
-        var actual_ins  = node.getActualIn(),
-            actual_outs = node.getActualOut(),  
-            parent      = Ast.parent(node.parsenode, ast);
+
+    function transformCallExp (transpiler) {
+        var node        = transpiler.node,
+            parsenode   = node.parsenode,
+            actual_ins  = node.getActualIn(),
+            actual_outs = node.getActualOut(),
+            parent      = Ast.parent(node.parsenode, transpiler.ast);
+
+        arguments = actual_ins.filter(function (a_in) {
+            return nodesContains(transpiler.nodes, a_in);
+        }).map(function (a_in) {
+            return a_in.parsenode;
+        });
+       
         actual_ins.map(function (a_in) {
-            slicednodes = slicednodes.remove(a_in);
-        })
+            transpiler.nodes = transpiler.nodes.remove(a_in);
+            a_in.getOutNodes(EDGES.CONTROL)
+                .filter(function (n) {
+                    return n.isCallNode
+                })
+                .map(function (n) {
+                    transpiler.nodes = transpiler.nodes.remove(n)
+                })
+        });
         actual_outs.map(function (a_out) {
-            slicednodes = slicednodes.remove(a_out);
-        })
-        if (cps) {
-            var transformer = makeTransformer(cps, ast),
+            transpiler.nodes = transpiler.nodes.remove(a_out);
+        });
+
+        if (transpiler.options.cps) {
+            var transformer = makeTransformer(transpiler),
                 parsenode   = node.parsenode,
-                cpscall     = CPSTransform.transformCall(node, slicednodes, transformer, false, parent);   
-            
-            if (transformer.shouldTransform(node) && 
+                transformed = CPSTransform.transformCall(node, transpiler.nodes, transformer, false, parent);
+
+            transpiler.nodes = transformed[0];
+
+            if (transformer.shouldTransform(node) &&
                 Aux.isMemberExpression(parsenode.callee)) {
-                node.parsenode.arguments = cpscall[1].getArguments();
-                
-                return new Sliced(cpscall[0], node, ast,parent);
+                node.parsenode.arguments = transformed[1].getArguments();
+
+                transpiler.transformedNode = parent;
+
+                return transpiler;
             }
-           
-            else
-                
-                return new Sliced(cpscall[0], node, ast,cpscall[1].parsenode)
+
+            else {
+                transpiler.transpiledNode = transformed[1].parsenode;
+
+                return transpiler;
+            }
         }
         
-        return new Sliced(slicednodes, node,ast, parent)
-    }
+        Pdg.getCallExpression(node.parsenode).arguments = arguments;
+        if (Aux.isExpStm(parent) && Aux.isCallExp(parent.expression)) {
+            transpiler.transpiledNode = parent;
+        }
+        else {
+            transpiler.transpiledNode = node.parsenode;
+        }
 
-    var sliceRetStm = function (slicednodes, node, cps, ast) {
-        var call = node.getOutEdges(EDGES.CONTROL)
-                       .filter(function (e) {
-                        return  e.to.isCallNode
+        transpiler.nodes = transpiler.nodes;
+        return transpiler;
+    }
+    transformer.transformCallExp = transformCallExp;
+
+
+    function transformReturnStm (transpiler) {
+        var node      = transpiler.node,
+            parsenode = node.parsenode,
+            call      = node.getOutNodes(EDGES.CONTROL)
+                       .filter(function (n) {
+                        return n.isCallNode;
                        }),
-            object = node.getOutEdges(EDGES.CONTROL)
-                        .map(function (e) {return e.to})
+            object    = node.getOutNodes(EDGES.CONTROL)
                         .filter(function (n) {
-                            return n.isObjectEntry
+                            return n.isObjectEntry;
                         });
+
         if (call.length > 0) {
-            var transformer = makeTransformer(cps, ast),
-                cpsvar      = CPSTransform.transformExp(node, slicednodes, transformer)
-            
-            return new Sliced(cpsvar[0], node, ast, cpsvar[1].parsenode)
+            var transformer = makeTransformer(transpiler),
+                transformed = CPSTransform.transformExp(node, transpiler.nodes, transformer);
+
+            transpiler.nodes = transformed[0];
+            transpiler.transpiledNode = transformed[1].parsenode;
+
+            return transpiler;
         }
-        
+
         if (object.length > 0) {
+
             object.map(function (oe) {
-                var formout = oe.getOutEdges(EDGES.DATA)
-                                .filter(function (e) {return e.to.isFormalNode});
-                var objnode = toJavaScript(slicednodes, oe, cps, ast);
-                node.parsenode.argument = objnode.parsednode;
-                slicednodes = removeNode(objnode.nodes, oe);
-                slicednodes.remove(formout);
-            })
+                var formout    = oe.getOutNodes(EDGES.DATA)
+                                .filter(function (n) {return n.isFormalNode; });
+                var transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, oe));
+                parsenode.argument = transpiled.transpiledNode;
+                transpiler.nodes = transpiled.nodes.remove(oe);
+                transpiler.nodes = transpiled.nodes.remove(formout);
+            });
         }
-        slicednodes = slicednodes.remove(node);
-        
-        return new Sliced(slicednodes, node, ast,node.parsenode)
-    }
 
-    var sliceBlockStm = function (slicednodes, node, cps, ast) {
-        var body = [],
+        transpiler.nodes = transpiler.nodes.remove(node);
+        transpiler.transpiledNode = parsenode;
+        return transpiler;
+    }
+    transformer.transformReturnStm = transformReturnStm;
+
+
+    function transformBlockStm (transpiler) {
+        var node = transpiler.node,
+            body = [],
             parsenode = node.parsenode,
-            bodynodes = node.getOutEdges(EDGES.CONTROL)
-                            .map(function (e) {return e.to});
+            bodynodes = node.getOutNodes(EDGES.CONTROL),
+            transpiled;
+
         bodynodes.map(function (n) {
-            var bodynode = toJavaScript(slicednodes, n, cps, ast);
-            
-            if (slicedContains(slicednodes, n)) {
-                    body = body.concat(bodynode.parsednode)
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, n));
+
+            if (nodesContains(transpiler.nodes, n)) {
+                    body.push(transpiled.transpiledNode);
             }
-            slicednodes = removeNode(bodynode.nodes, n);    
+            transpiler.nodes = transpiled.nodes.remove(n);
         });
-        slicednodes = slicednodes.remove(node);
+        transpiler.nodes = transpiler.nodes.remove(node);
         parsenode.body = body;
-        
-        return new Sliced(slicednodes, node, ast, parsenode);
+        transpiler.transpiledNode = parsenode;
+        return transpiled;
     }
+    transformer.transformBlockStm = transformBlockStm;
 
 
-    var sliceIfStm = function (slicednodes, node, cps, ast) {
-        var conseq = node.getOutEdges(EDGES.CONTROL)
-                        .filter(function (e) {return e.label === true }) // explicit check necessary
-                        .map(function (e) {return e.to}),
-            altern = node.getOutEdges(EDGES.CONTROL)
-                        .filter(function (e) {return e.label === false})  // explicit check necessary
-                        .map(function (e) {return e.to});
+    function transformIfStm (transpiler) {
+        var node      = transpiler.node,
+            parsenode = node.parsenode,
+            conseq    = node.getOutEdges(EDGES.CONTROL)
+                        .filter(function (e) {return e.label === true; }) // explicit check necessary
+                        .map(function (e) {return e.to; }),
+            altern     = node.getOutEdges(EDGES.CONTROL)
+                        .filter(function (e) {return e.label === false; })  // explicit check necessary
+                        .map(function (e) {return e.to;}),
+            transpiled;
+
         conseq.map(function (consnode) {
-            var jsnode = toJavaScript(slicednodes, consnode, cps, ast);
-            slicednodes = removeNode(jsnode.nodes, consnode);
-            node.parsenode.consequent = jsnode.parsednode;
-        })
-        altern.map(function (altnode) {
-            var jsnode = toJavaScript(slicednodes, altnode, cps, ast);
-            slicednodes = removeNode(jsnode.nodes, altnode);
-            node.parsenode.alternate = jsnode.parsednode;
-        })
-        slicednodes = slicednodes.remove(node);
-        
-        return new Sliced(slicednodes, node, ast,node.parsenode);
-    }
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, consnode));
+            transpiler.nodes = transpiled.nodes.remove(consnode);
+            parsenode.consequent = transpiled.transpiledNode;
+        });
 
-    var sliceObjExp = function (slicednodes, node, cps, ast) {
-        var prop = node.getOutEdges(EDGES.OBJMEMBER)
-                       .map(function (e) {
-                            return e.to
-                        }),
+        altern.map(function (altnode) {
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, altnode));
+            transpiler.nodes = transpiled.nodes.remove(altnode);
+            parsenode.alternate = transpiled.transpiledNode;
+        });
+        transpiler.nodes = transpiler.nodes.remove(node);
+        transpiler.transpiledNode = parsenode;
+
+        return transpiler;
+    }
+    transformer.transformIfStm = transformIfStm;
+
+
+    function transformObjectExp (transpiler) {
+        var node = transpiler.node,
+            prop = node.getOutNodes(EDGES.OBJMEMBER),
             properties = [],
-            parsenode  = node.parsenode;
+            parsenode  = node.parsenode,
+            transpiled;
+
         prop.map(function (property) {
-            if (slicedContains(slicednodes, property)) {
-                var propnode = toJavaScript(slicednodes, property, cps, ast);
-                properties = properties.concat(propnode.parsednode);
-                slicednodes = removeNode(propnode.nodes, property)
+            if (nodesContains(transpiler.nodes, property)) {
+                transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, property));
+                properties.push(transpiled.transpiledNode);
+                transpiler.nodes = transpiled.nodes.remove(property);
             }
         });
-        slicednodes = slicednodes.remove(node);
+
+        transpiler.nodes = transpiler.nodes.remove(node);
         parsenode.properties = properties;
-        
-        return new Sliced(slicednodes, node, ast, parsenode);
+        transpiler.transpiledNode = parsenode;
+        return transpiler;
     }
+    transformer.transformObjectExp = transformObjectExp;
 
 
-    var sliceNewExpression = function (slicednodes, node, cps, ast) {
-        var call   = node.getOutEdges(EDGES.OBJMEMBER)
-                        .map(function (e) {return e.to})
-                        .filter(function (n) {return n.isCallNode})[0],
-            parsenode = node.parsenode,
-            a_ins     = call.getActualIn(),
-            a_outs    = call.getActualOut();
-        
-        slicednodes = removeNode(slicednodes, call);
-        a_outs.map(function (a_out) {
-            
-            if (slicedContains(slicednodes, a_out)) 
-              slicednodes = removeNode(slicednodes, a_out)
-        })
-        parsenode.arguments = a_ins.filter(function (a_in) {
-            
-            return slicedContains(slicednodes, a_in)    
-        }).map(function (a_in) {return a_in.parsenode});
-        slicednodes = slicednodes.remove(node);
-        
-        return new Sliced(slicednodes, node, ast, parsenode);
+
+    function transformNewExp (transpiler) {
+        var node        = transpiler.node,
+            call        = node.getOutNodes(EDGES.OBJMEMBER)
+                        .filter(function (n) {return n.isCallNode; })[0],
+            parsenode   = node.parsenode,
+            actual_ins  = call.getActualIn(),
+            actual_outs = call.getActualOut();
+
+        transpiler.nodes = transpiler.nodes.remove(call);
+        actual_outs.map(function (a_out) {
+            if (nodesContains(transpiler.nodes, a_out)) {
+                transpiler.nodes = transpiler.nodes.remove(a_out);
+            }
+        });
+
+        parsenode.arguments = actual_ins.filter(function (a_in) {
+            return nodesContains(transpiler.nodes, a_in);
+        }).map(function (a_in) { return a_in.parsenode; });
+
+        transpiler.nodes = transpiler.nodes.remove(node);
+        transpiler.transpiledNode = parsenode;
+
+        return transpiler;
     }
+    transformer.transformNewExp = transformNewExp;
 
-    var sliceProperty = function (slicednodes, node, cps, ast) {
-        var entries = node.getOutEdges(EDGES.DATA)
-                          .map( function (e) {return e.to})
-                          .filter( function (n) { return n.isEntryNode}),
-            calls   = node.getOutEdges(EDGES.CONTROL)
-                          .map( function (e) { return e.to})
-                          .filter( function (n) { return n.isCallNode});
+    function transformProperty (transpiler) {
+        var node    = transpiler.node,
+            entries = node.getOutNodes(EDGES.DATA)
+                          .filter( function (n) { return n.isEntryNode; }),
+            calls   = node.getOutNodes(EDGES.CONTROL)
+                          .filter( function (n) { return n.isCallNode; }),
+            transpiled;
+
         entries.map(function (entry) {
-            var entrynode = toJavaScript(slicednodes, entry, cps, ast);
-            node.parsenode.value = entrynode.parsednode;
-            slicednodes = removeNode(entrynode.nodes, entry)
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, entry));
+            node.parsenode.value = transpiled.transpiledNode;
+            transpiler.nodes = transpiled.nodes.remove(entry);
         });
+
         calls.map(function (call) {
-            var callnode   = toJavaScript(slicednodes, entry, cps, ast);
-            slicednodes = removeNode (callnode.nodes, entry);
-        })
-        slicednodes = slicednodes.remove(node);
-        
-        return new Sliced(slicednodes, node, ast,node.parsenode);
-    }
-
-
-    var sliceTryStm = function (slicednodes, node, cps, ast) {
-        var block      = [],
-            handlers   = [],
-            blocknodes = node.getOutEdges(EDGES.CONTROL)
-                        .map(function (e) {return e.to});
-            calls      = blocknodes.filter(function (n) { return n.isCallNode}),
-            catches    = calls.flatMap(function (call) {
-                         return call.getOutEdges(EDGES.CONTROL)
-                            .map(function (e) {return e.to})
-                            .filter(function (n) {
-                                return ! n.isExitNode && 
-                                  n.parsenode && 
-                                  Aux.isCatchStm(n.parsenode)});
-                        });
-        blocknodes.map(function (blocknode) {
-            var jsnode = toJavaScript(slicednodes, blocknode, cps, ast);
-            slicednodes = removeNode(jsnode.nodes, blocknode);
-            block.push(jsnode.parsednode);
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, entry));
+            transpiler.nodes = transpiled.nodes.remove(call);
         });
+
+        transpiler.nodes = transpiler.nodes.remove(node);
+        transpiler.transpiledNode = node.parsenode;
+
+        return transpiler;
+    }
+    transformer.transformProperty = transformProperty;
+
+
+    function transformTryStm (transpiler) {
+        var node       = transpiler.node,
+            block      = [],
+            handlers   = [],
+            blocknodes = node.getOutNodes(EDGES.CONTROL),
+            calls      = blocknodes.filter(function (n) { return n.isCallNode; }),
+            catches    = calls.flatMap(function (call) {
+                         return call.getOutNodes(EDGES.CONTROL)
+                            .filter(function (n) {
+                                return !n.isExitNode &&
+                                  n.parsenode &&
+                                  Aux.isCatchStm(n.parsenode);});
+                        }),
+            transpiled;
+
+        blocknodes.map(function (blocknode) {
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, blocknode));
+            transpiler.nodes = transpiled.nodes.remove(blocknode);
+            block.push(transpiled.transpiledNode);
+        });
+
         catches.map(function (catchnode) {
-            var jsnode = toJavaScript(slicednodes, catchnode, cps, ast);
-            slicednodes = removeNode(jsnode.nodes, catchnode);
-        })
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpile, catchnode));
+            transpiler.nodes = transpiled.nodes.remove(catchnode);
+        });
 
         node.parsenode.block.body = block;
-        slicednodes = slicednodes.remove(node);
-        
-        return new Sliced(slicednodes, node, ast, node.parsenode);
-    }
+        transpiler.nodes = transpiler.nodes.remove(node);
+        transpiler.transpiledNode = node.parsenode;
 
-    var sliceThrowStm = function (slicednodes, node, cps, ast) {
-        var excexit = node.getOutEdges(EDGES.CONTROL)
-                        .map(function (e) {return e.to})
-                        .filter(function (n) {return n.isExitNode});
+        return transpiler;
+    }
+    transformer.transformTryStm = transformTryStm;
+
+
+    function transformThrowStm (transpiler) {
+        var node    = transpiler.node,
+            excexit = node.getOutNodes(EDGES.CONTROL)
+                        .filter(function (n) {return n.isExitNode; }),
+            transpiled;
+
         excexit.map(function (exitnode) {
-            var jsnode = toJavaScript(slicednodes, exitnode, cps, ast);
-            slicednodes = removeNode(jsnode.nodes, exitnode);
-            node.argument = jsnode.parsenode;
-        })
-        slicednodes = slicednodes.remove(node);
-        return new Sliced(slicednodes, node, ast, node.parsenode);
-    }
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, exitnode));
+            transpiler.nodes = transpiled.nodes.remove(exitnode);
+            node.parsenode.argument = transpiled.transpiledNode;
+        });
 
-    var removeNode = function (nodes, node, cps) {
-        var callnode = false;
-        nodes = nodes.remove(node);
-            
-            return nodes;
-    }
+        transpiler.nodes = transpiler.nodes.remove(node);
+        transpiler.transpiledNode = node.parsenode;
 
-    var slicedContains = function (nodes, node, cps) {
+        return transpiler;
+    }
+    transformer.transformThrowStm = transformThrowStm;
+
+    function noTransformation (transpiler) {
+        transpiler.transpiledNode = false;
+        return transpiler;
+    }
+    transformer.transformActualParameter = noTransformation;
+    transformer.transformFormalParameter = noTransformation;
+    transformer.transforEcitNode = noTransformation;
+
+    function nodesContains (nodes, node, cps) {
         return nodes.filter(function (n) {
-            if(n.isCallNode) {
-                
-                return n.parsenode === node.parsenode
-            } else
-            
-            return n.id === node.id
-        }).length > 0
+            return n.id === node.id;
+        }).length > 0;
     }
 
 
-    // Non distributed version.
-    var toJavaScript = function (slicednodes, node, cps, ast) {
-        if(node.isActualPNode || node.isFormalNode || node.isExitNode || !node.parsenode) {
-            
-            return new Sliced(slicednodes, node, ast, false);
-        }
-        var parent = Ast.parent(node.parsenode, ast);
-        /*if(parent && Aux.isRetStm(parent) && !node.isObjectEntry) {
-            node.parsenode = parent
-        } */
-        if(parent && Aux.isExpStm(parent) && !(Aux.isCallExp(node.parsenode))) {
-            node.parsenode = parent
-        }
-        if (Aux.isExpStm(node.parsenode) && Aux.isCallExp(node.parsenode.expression)) {
-            node.parsenode = node.parsenode.expression
-        }
-        console.log('JSIFY(' + node.parsenode.type + ') ' + node.parsenode);
-        switch (node.parsenode.type) {
-            case 'VariableDeclaration': 
-                return sliceVarDecl(slicednodes, node, cps, ast);
-            case 'VariableDeclarator':
-                return sliceVarDecl(slicednodes, node, cps, ast);
-            case 'FunctionExpression':
-                return sliceFunExp(slicednodes, node, cps, ast);
-            case 'FunctionDeclaration':
-                return sliceFunExp(slicednodes, node, cps, ast);
-            case 'BlockStatement':
-                return sliceBlockStm(slicednodes, node, cps, ast);
-            case 'CallExpression':
-                return sliceCallExp(slicednodes, node, cps, ast);
-            case 'BinaryExpression':
-                return sliceBinExp(slicednodes, node, cps, ast);
-            case 'IfStatement':
-                return sliceIfStm(slicednodes, node, cps, ast);
-            case 'ObjectExpression':
-                return sliceObjExp(slicednodes, node, cps, ast);
-            case 'Property':
-                return sliceProperty(slicednodes, node, cps, ast);
-            case 'NewExpression' :
-                return sliceNewExpression(slicednodes, node, cps, ast);
-            case 'ThrowStatement' :
-                return sliceThrowStm(slicednodes, node, cps, ast);
-            case 'TryStatement' :
-                return sliceTryStm(slicednodes, node, cps, ast);
-
-            default: 
-                if (Aux.isRetStm(node.parsenode)// && 
-                    /*node.getOutEdges(EDGES.CONTROL).filter(function (e) {
-                            return e.to.isCallNode
-                        }).length > 0)*/)
-                    return sliceRetStm(slicednodes, node, cps, ast)
-                
-                if (Aux.isExpStm(node.parsenode) && Aux.isAssignmentExp(node.parsenode.expression))
-                    return sliceVarDecl(slicednodes, node, cps, ast)
-                
-                if (Aux.isExpStm(node.parsenode) && Aux.isBinExp(node.parsenode.expression))
-                    return sliceBinExp(slicednodes, node, cps, ast)
-                
-                return new Sliced(slicednodes, node, ast, node.parsenode);
-        }
-    }
-
-    var Sliced = function (nodes, node, ast, parsednode) {
-        this.nodes       = nodes;
-        this.node        = node;
-        this.parsednode  = parsednode;
-
-        this.setup       = [];
-        this.footer      = [];
-        
-        this.method      = {};
-        this.methods     = [];
-        this.streams     = [];
-        this.AST         = ast;
-
-        this.cloudtypes  = {};
-    }
-
-    var cloneSliced = function (sliced, nodes, node) {
-        var clone = new Sliced(nodes, node);
-
-        clone.methods    = sliced.methods;
-        clone.setup      = sliced.setup;
-        clone.streams    = sliced.streams;
-        clone.cloudtypes = sliced.cloudtypes;
-        clone.option     = sliced.option;
-        clone.AST        = sliced.AST;
-
-        return clone;
-    }
-
-
-
-    toreturn.transpile = toJavaScript;
-
-
-    if (typeof module !== 'undefined' && module.exports != null) {
+    if (typeof module !== 'undefined' && module.exports !== null) {
         JSParse = require('./JS_parse.js').JSParse;
-        exports.JSify  = toreturn;
+        exports.JSify = transformer;
     }
 
-    return toreturn;
+    return transformer;
+
 })();

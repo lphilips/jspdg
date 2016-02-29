@@ -139,22 +139,37 @@ var Aux = (function () {
                 else
                   call = true;
             });
+            
             return call;
+
         } catch (e) {
             calls = node.getOutEdges(EDGES.CONTROL)
                       .filter(function (e) {return e.to})
                       .filter(function (n) {return n.isCallNode})
                       .filter(function (c) {return callnode.equals(c.parsenode)});
+            
             return calls.length > 0;
         }
       }
 
+
+      function getDeclaration (variableDecl) {
+        if (esp_isVarDecl(variabledeclaration)) 
+          /* Variable Declaration */
+          return variableDecl.declarations[0];
+
+        else
+          /* Variable Declarator */
+          return variableDecl
+
+      }
 
       //
       // Walk the tree, ignore x-* properties
       //
       function walkAst(ast, callback) {
             if (typeof ast !== 'object' || !ast) {
+                  
                   return;
             }
 
@@ -167,9 +182,7 @@ var Aux = (function () {
             //Object.keys(ast).forEach(function (key) {
             for (key in ast) {
                   child = ast[key];
-                  //if (key.substr(0,2) === 'x-') {
-                   // return;
-                  //}
+
 
                   if (!key.startsWith("_") && key !== 'parent' && key !== '_parent') {
                     if (child instanceof Array ) {
@@ -262,6 +275,7 @@ var Aux = (function () {
     toreturn.getCalledName  = esp_getCalledName;
     toreturn.inTryStatement = esp_inTryStatement;
     toreturn.hasCallStm     = esp_hasCallStm;
+    toreturn.getDeclaration = getDeclaration
 
     toreturn.walkAst            = walkAst;
 

@@ -1,13 +1,12 @@
-var Transpiler = (function () {
+var CodeGenerator = (function () {
 
         var toreturn = {};
 
-        var toCode = function (option, slicednodes, node, ast) {
+        var toCode = function (option, nodes, node, ast) {
             switch (option.target) {
                 case 'normal':
-                    return JSify.transpile(slicednodes, node, option.cps, ast)
-                case 'meteor':
-                    return Meteorify.transpile(slicednodes, node, ast)
+                    return Transpiler.transpile(Transpiler.createTranspileObject(node, nodes, ast, option, JSify, [], []));
+                    //return Meteorify.transpile(slicednodes, node, ast)
                 case 'node.js':
                     return Nodeify.transpile(slicednodes, node, option, ast)
             }
@@ -23,7 +22,7 @@ var Transpiler = (function () {
             }
         }
 
-        var addFooter = function (option, sliced) {
+        var addCloseUp = function (option, transpiled) {
             /*switch (option.target) {
                 case 'node.js':
                     if(option.tier === 'client')
@@ -31,33 +30,33 @@ var Transpiler = (function () {
                     else 
                         sliced.footer = nodeFooterS();
             }*/
-            return sliced;
+            return transpiled;
         }
 
-        var addHeader = function (option, sliced) {
+        var addSetUp = function (option, transpiled) {
             switch (option.target) {
                 case 'node.js':
                     if(option.tier === 'client')
-                        sliced.setup = sliced.setup.concat(NodeParse.createClient());
+                        transpiled.setup.push(NodeParse.createClient());
                     else
-                        sliced.setup = sliced.setup.concat(NodeParse.createServer());
+                        transpiled.setup.push(NodeParse.createServer());
             }
-            return sliced;
+            return transpiled;
         }
 
         /*
          * Transformation needed on the body code
          */
-        var transformBody = function (option, slicing, body, methods) {
+        var transformBody = function (option, transpiled, body, methods) {
             switch (option.target) {
                 case 'node.js':
                     if (option.tier === 'client') {
                         var methodsDecl = NodeParse.methodsClient();
                         methodsDecl.expression.arguments[0].properties = methods;
                         /* Add cloud types declarations */
-                        for(var name in slicing.cloudtypes) {
-                            if(slicing.cloudtypes.hasOwnProperty(name)) {
-                                var cloudtype = slicing.cloudtypes[name];
+                        for(var name in  transpiled.cloudtypes) {
+                            if(transpiled.cloudtypes.hasOwnProperty(name)) {
+                                var cloudtype = transpiled.cloudtypes[name];
                                 body = [cloudtype.declarationC].concat(body);
                             }
                         }
@@ -70,9 +69,9 @@ var Transpiler = (function () {
                         methodsDecl.expression.arguments[0].properties = methods;
 
                         /* Declare cloud types + add their declarations as well (for use on server side as well) */
-                        for(var name in slicing.cloudtypes) {
-                            if(slicing.cloudtypes.hasOwnProperty(name)) {
-                                var cloudtype = slicing.cloudtypes[name];
+                        for(var name in transpiled.cloudtypes) {
+                            if(transpiled.cloudtypes.hasOwnProperty(name)) {
+                                var cloudtype = transpiled.cloudtypes[name];
                                 body = [cloudtype.declarationS].concat(cloudtype.declarationC).concat(body);
                             }
                         }
@@ -95,7 +94,7 @@ var Transpiler = (function () {
                         return body.concat(methodsDecl);
                     }
             }
-            return body
+            return body;
         }
 
         /* 
@@ -107,95 +106,68 @@ var Transpiler = (function () {
                     return {
                         'type' : 'Program',
                         'body' : body ? body : [] 
-                        }
+                        };
                     },
                 program = createProgram(),
                 nosetup = createProgram(),
-                slicing, 
-                methods = [];
+                methods = [],
+                transpiled;
 
             //program.body = addPrimitives(option);
             while (nodes.length > 0) {
                 var n = nodes.shift();
                 if(n.parsenode) {
-                    slicing = toCode(option, nodes, n, ast);
-                    if(slicing.parsednode) {
-                        if (Aux.isBlockStm(slicing.parsednode) &&
-                            Comments.isTierAnnotated(slicing.parsednode))
+                    transpiled = toCode(option, nodes, n, ast);
+                    if(transpiled.transpiledNode) {
+                        if (Aux.isBlockStm(transpiled.transpiledNode) &&
+                            Comments.isTierAnnotated(transpiled.transpiledNode))
 
-                            program.body = program.body.concat(slicing.parsednode.body);
+                            program.body = program.body.concat(transpiled.transpiledNode.body);
                         else
-                            program.body.push(slicing.parsednode);
+                            program.body.push(transpiled.transpiledNode);
                     }
-                    nodes = slicing.nodes;  
+                    nodes = transpiled.nodes;  
                     nodes.remove(n);
-                    option.cloudtypes = slicing.cloudtypes;
-                    methods = methods.concat(slicing.methods);
+                    option.cloudtypes = transpiled.cloudtypes;
+                    methods = methods.concat(transpiled.methods);
                 }
             };
 
-            addHeader(option, slicing);
-            addFooter(option, slicing);
-            program.body = transformBody(option, slicing, program.body, methods);
+            addSetUp(option, transpiled);
+            addCloseUp(option, transpiled);
+            program.body = transformBody(option, transpiled, program.body, methods);
             nosetup.body = program.body;
-            program.body = slicing.setup.concat(program.body).concat(slicing.footer);
-            console.log(program);
+            program.body = transpiled.setup.concat(program.body).concat(transpiled.closeup);
+            //console.log(program);
 
             if (option.tier === 'client') {
-                program.cloudtypes = slicing.cloudtypes;
+                program.cloudtypes = transpiled.cloudtypes;
             }
 
             return {
                 program : program,
-                setup   : createProgram(slicing.setup),
+                setup   : createProgram(transpiled.setup),
                 nosetup : nosetup
             }
-        }
-
-        var Sliced = function (nodes, node, parsednode , ast) {
-            this.nodes       = nodes;
-            this.node        = node;
-            this.parsednode  = parsednode;
-
-            this.setup       = [];
-            this.footer      = [];
-            
-            this.method      = {};
-            this.methods     = [];
-            this.streams     = [];
-
-            this.AST         = AST;
-            this.cloudtypes  = {};
-        }
-
-        var cloneSliced = function (sliced, nodes, node) {
-            var clone = new Sliced(nodes, node);
-
-            clone.methods    = sliced.methods;
-            clone.setup      = sliced.setup;
-            clone.streams    = sliced.streams;
-            clone.cloudtypes = sliced.cloudtypes;
-            clone.option     = sliced.option;
-            clone.AST        = sliced.AST;
-
-            return clone;
         }
 
         var setUpContains = function (sliced, name) {
 
             return sliced.setup.filter(function (pars) {
                 
-                return pars.type === "VariableDeclaration" && 
-                    pars.declarations[0].id.name === name
+                return pars.type === "VariableDeclaration" &&
+                    pars.declarations[0].id.name === name;
             }).length > 0;
-        }
+        };
 
 
         toreturn.transpile = constructProgram;
+
         if (typeof module !== 'undefined' && module.exports != null) {
             Nodeify = require('./Nodeify.js').Nodeify;
             JSify   = require('./JSify.js').JSify;
-            exports.Transpiler  = toreturn;
+            Transpiler = require('./transpiler.js').Transpiler;
+            exports.CodeGenerator = toreturn;
         }
 
         return toreturn;

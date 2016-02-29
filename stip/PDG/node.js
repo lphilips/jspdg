@@ -10,12 +10,16 @@
 *  - expression       (original expr of an esprima exp. node)   *
 *****************************************************************/
 
-/* global counter for nodes */
-var cnt = 0;
+var counter = (function () {
+    var cnt = 0;
+    return function () {
+        return cnt += 1;
+    };
+})();
 
 var PDG_Node = function (id) {
     this.id         = id;
-    this.cnt        = cnt++;
+    this.cnt        = counter();
     this.edges_in   = [];
     this.edges_out  = [];
     this.expression = [];
@@ -86,6 +90,14 @@ PDG_Node.prototype.getOutEdges = function (type) {
         })
     else
         return this.edges_out
+}
+
+PDG_Node.prototype.getOutNodes = function (edgeType) {
+    return this.getOutEdges(edgeType).map(function (e) { return e.to })
+}
+
+PDG_Node.prototype.getInNodes = function (edgeType) {
+    return this.getInEdges(edgeType).map(function (e) {return e.from })
 }
 
 PDG_Node.prototype.toString = function () {
@@ -262,7 +274,7 @@ PDG_Node.prototype.dataDependentNodes = function(crossTier, includeActualP) {
 
 /* Entry nodes, denoted by "e+index". (Entry) */
 var EntryNode = function (id, parsenode) {
-  PDG_Node.call(this,'e'+id);
+  PDG_Node.call(this,'e' + id);
   this.parsenode     = parsenode;
   this.isEntryNode   = true;
   this.isCalled      = false;
@@ -591,7 +603,8 @@ PDG_Node.prototype.getdtype = function (recheck) {
         // Follow function declarations in form var x  = function () { }
         else if (e.to.parsenode && Aux.isFunExp(e.to.parsenode) &&
                  e.from.parsenode && (Aux.isVarDeclarator(e.from.parsenode) ||
-                 Aux.isVarDecl(e.from.parsenode) || Aux.isProperty(e.from.parsenode))) 
+                 Aux.isVarDecl(e.from.parsenode) || Aux.isProperty(e.from.parsenode) ||
+                 (Aux.isExpStm(e.from.parsenode) && Aux.isAssignmentExp(e.from.parsenode.expression)))) 
             return true
         else if (e.to.parsenode &&
                 ( Aux.isObjExp(e.to.parsenode) || 
@@ -691,4 +704,5 @@ if (typeof module !== 'undefined' && module.exports != null) {
     exports.ARITY               = ARITY;
     exports.DistributedNode     = DistributedNode;
     exports.arityEquals         = arityEquals;
+
 }

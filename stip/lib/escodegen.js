@@ -41,7 +41,6 @@
         esprima = require('./esprima.js');
         esutils = require('./esutils.js');
         require('./esutils_code.js');
-        console.log(esutils);
     }
 
     var Syntax,

@@ -1,4 +1,8 @@
+/* mocha --ui tdd tests/test.js  */
+
 var compareAst = require('compare-ast');
+
+
 
 /* Libraries */
 var esprima         = require('../lib/esprima.js');
