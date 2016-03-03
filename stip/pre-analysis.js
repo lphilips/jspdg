@@ -303,13 +303,20 @@ var pre_analyse = function (ast) {
                     var bodyFirst  = [];
                     var bodyLast   = [];
                     node.arguments = node.arguments.map(function (arg) {
+                        var comment = isBlockAnnotated(arg);
                         if (Aux.isFunExp(arg)) {
                             var name = anonf_name + ++anonf_ct;
                             var func = createFunDecl(name, arg.params);
                             var call = createCall(name);
-                            var comment = isBlockAnnotated(arg);
+                            
 
                             call.leadingComment = {type: "Block", value:"@generated", range: [0,16]};
+                            if (comment && Comments.isClientAnnotated(comment)) {
+                                call.clientCalls = 1;
+                            }
+                            else if (comment && Comments.isServerAnnotated(comment)) {
+                                call.serverCalls = 1;
+                            }
                             func.body = arg.body;
                             func.params.map(function (param) {
                                 call.expression.arguments = call.expression.arguments.concat({
@@ -325,6 +332,12 @@ var pre_analyse = function (ast) {
                         else if (Aux.isIdentifier(arg) && fundefsC[arg.name]) {
                             call = createCall(arg.name);
                             call.leadingComment = {type: "Block", value:"@generated"};
+                            if (comment && Comments.isClientAnnotated(comment)) {
+                                call.clientCalls = 1;
+                            }
+                            else if (comment && Comments.isServerAnnotated(comment)) {
+                                call.serverCalls = 1;
+                            }
                             bodyLast = bodyLast.concat(call);
                             return arg;
                         }

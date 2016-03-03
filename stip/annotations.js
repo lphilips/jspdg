@@ -52,7 +52,7 @@ var Comments = (function () {
     }
 
     var isGeneratedAnnotated = function (comment) {
-        return comment.value.indexOf(generated_annotation) != -1;
+        return comment && comment.value.indexOf(generated_annotation) != -1;
     }
 
     var isTierAnnotated = function (node) {

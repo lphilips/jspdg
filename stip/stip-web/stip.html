@@ -200,7 +200,7 @@
                     })
                     var target   = $('#target').val(),
                         asyncomm = $('#asyncomm').val(),
-                        program  = Transpiler.transpile(nodes, {target: target, tier: option, asynccomm : asyncomm}, graphs.AST);
+                        program  = CodeGenerator.transpile(nodes, {target: target, tier: option, asynccomm : asyncomm}, graphs.AST);
                     return program;
                 },
                 remove    = function (node) {
@@ -340,7 +340,7 @@
             removes.map(function (node) {
                remove(node);
             });
-            program = Transpiler.transpile(nodes, {target: 'normal', cps : true}, graphs.AST);
+            program = CodeGenerator.transpile(nodes, {target: 'normal', cps : true}, graphs.AST);
             slicededitor.setValue(escodegen.generate(program.program));
         } catch (err) {
             console.log(err.stack);

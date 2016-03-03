@@ -8,7 +8,7 @@ var CodeGenerator = (function () {
                     return Transpiler.transpile(Transpiler.createTranspileObject(node, nodes, ast, option, JSify, [], []));
                     //return Meteorify.transpile(slicednodes, node, ast)
                 case 'node.js':
-                    return Nodeify.transpile(slicednodes, node, option, ast)
+                    return Transpiler.transpile(Transpiler.createTranspileObject(node, nodes, ast, option, Nodeify, [], []));
             }
         }
 

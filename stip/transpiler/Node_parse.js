@@ -71,7 +71,7 @@ var NodeParse = (function () {
 
     var RPC = function (call, fname, args) {
         return { parsenode  : 
-                        {   callnode  : call,
+                        {   callnode  : Pdg.getCallExpression(call),
                             type      : "ExpressionStatement",
                             expression: {
                                 type      : "CallExpression",

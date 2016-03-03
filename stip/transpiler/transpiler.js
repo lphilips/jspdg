@@ -14,7 +14,7 @@
  */
 var Transpiler = (function () {
 
-    function createTranspileObject (node, nodes, ast, options, transform, setup, closeup) {
+    function createTranspileObject (node, nodes, ast, options, transform, setup, closeup, methods) {
         return {
             node        : node,
             nodes       : nodes,
@@ -22,26 +22,35 @@ var Transpiler = (function () {
             options     : options,
             transform   : transform,
             setup       : setup ? setup : [],
-            closeup     : closeup ? closeup : []
+            closeup     : closeup ? closeup : [],
+            method      : false,
+            methods     : [],
         };
 
     }
 
-    function copyTranspileObject (transpiler, newnode) {
-        return createTranspileObject(
+    function copyTranspileObject (transpiler, newnode, nodes) {
+        var copy = createTranspileObject(
             newnode ? newnode : transpiler.node,
-            transpiler.nodes,
+            nodes ? nodes : transpiler.nodes,
             transpiler.ast,
             transpiler.options,
             transpiler.transform,
             transpiler.setup,
-            transpiler.closeup
+            transpiler.closeup,
+            transpiler.methods
             );
+        if (transpiler.parseUtils)
+            copy.parseUtils = transpiler.parseUtils;
+        if (transpiler.transformCPS)
+            copy.transformCPS = transpiler.transformCPS;
+        return copy;
     }
 
     function copySetups (transpilerFrom, transpilerTo) {
-        transpilerTo.setup = transpilerFrom.setup;
-        transpilerTo.closeup = transpilerFrom.closeup;
+        transpilerTo.setup = transpilerFrom.setup.concat(transpilerTo.setup);
+        transpilerTo.closeup = transpilerFrom.closeup.concat(transpilerTo.closeup);
+        transpilerTo.methods = transpilerFrom.methods.concat(transpilerTo.methods);
     }
 
     function transpile (transpiler) {
@@ -122,6 +131,8 @@ var Transpiler = (function () {
                     return transformer.transformTryStm(transpiler);
                 case 'ReturnStatement' :
                     return transformer.transformReturnStm(transpiler);
+                case 'CatchClause' :
+                    return transformer.transformCatchClause(transpiler);
 
             }
         }

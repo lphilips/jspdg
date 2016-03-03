@@ -14,7 +14,7 @@ var JSify = (function () {
 
     function makeShouldTransform(cps) {
         return function (call) {
-            var parsenode = Aux.isExpStm(call.parsenode) ? call.parsenode.expression : call.parsenode;
+            var parsenode = Pdg.getCallExpression(call.parsenode);
             if (cps) {
                 if (call.primitive) {
                     return false;
@@ -34,6 +34,17 @@ var JSify = (function () {
     }
 
     function makeTransformer (transpiler) {
+        transpiler.parseUtils = {
+            createRPC : function (call) { return JSParse.RPC; },
+            createCallback : JSParse.callback,
+            shouldTransform : makeShouldTransform(transpiler.options.cps),
+            createAsyncFunction : JSParse.asyncFun,
+            createCbCall : JSParse.createCallCb,
+            createRPCReturn : JSParse.createReturnStm,
+        };
+        transpiler.transformCPS = CPSTransform;
+
+
         return {  AST        : transpiler.ast,
                   transformF : transpiler.transpile,
                   callbackF  : JSParse.callback,
@@ -124,11 +135,12 @@ var JSify = (function () {
         }
         /* Has call nodes in value / right hand side? */
         if (call.length > 0) {
-            transformer = makeTransformer(transpiler);
-            transpiled  = CPSTransform.transformExp(node, transpiler.nodes, transformer);
+            makeTransformer(transpiler);
+            transpiled  = CPSTransform.transformExp(transpiler);
             if (transpiled[1]) {
                 transpiler.nodes = transpiled[0];
                 transpiler.transpiledNode = transpiled[1].parsenode;
+                return transpiler;
             }
             else {
                 transpiler.transpiledNode = parsenode;
@@ -151,8 +163,8 @@ var JSify = (function () {
             nodes = transpiler.nodes,
             transpiled, transformer;
         if (call.length > 0) {
-            transformer = makeTransformer(transpiler);
-            transpiled  = CPSTransform.transformExp(node, nodes, transformer);
+            makeTransformer(transpiler);
+            transpiled  = CPSTransform.transformExp(transpiler);
             transpiler.nodes = transpiled[0];
             transpiler.transpiledNode = transpiled[1].parsenode;
 
@@ -207,7 +219,7 @@ var JSify = (function () {
 
             bodynodes.map(function (n) {
                 transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, n));
-                if (nodesContains(nodes, n)) {
+                if (nodesContains(transpiler.nodes, n)) {
                     body.push(transpiled.transpiledNode);
                 }
                 transpiler.nodes = transpiled.nodes.remove(n);
@@ -217,21 +229,21 @@ var JSify = (function () {
 
             if (transpiler.options.cps &&
                 !(parsenode.id && parsenode.id.name.startsWith('anonf'))) {
-                var transformer = makeTransformer(transpiler),
-                    transformed = CPSTransform.transformFunction(node, transpiler.nodes, transformer);
+                 transformer = makeTransformer(transpiler);
+                 transpiled = CPSTransform.transformFunction(transpiler);
 
-                transpiler.nodes = transformed[0];
+                transpiler.nodes = transpiled[0];
 
-                if (Aux.isFunDecl(parsenode) && transformed[1].setName) {
-                    transformed[1].setName(parsenode.id.name);
+                if (Aux.isFunDecl(parsenode) && transpiled[1].setName) {
+                    transpiled[1].setName(parsenode.id.name);
                 }
 
                 else if (Aux.isProperty(parent)) {
-                    transpiler.transpiledNode = transformed[1].parsenode;
+                    transpiler.transpiledNode = transpiled[1].parsenode;
 
                     return transpiler;
                 }
-                transpiler.transpiledNode = JSParse.createFunDecl(transformed[1].parsenode);
+                transpiler.transpiledNode = JSParse.createFunDecl(transpiled[1].parsenode);
 
                 return transpiler;
             }
@@ -265,7 +277,7 @@ var JSify = (function () {
                 fp = formal_ins[i];
                 p = parameters[i];
 
-                if(!nodesContains(nodes, fp)) {
+                if(!nodesContains(transpiler.nodes, fp)) {
                     parameters.splice(i,1);
                 }
                 transpiler.nodes = transpiler.nodes.remove(fp);
@@ -280,7 +292,7 @@ var JSify = (function () {
 
         properties.map(function (property) {
             var propnode;
-            if (nodesContains(nodes, property)) {
+            if (nodesContains(transpiler.nodes, property)) {
                 transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, property));
                 transpiledNode = transpiled.transpiledNode;
                 body.push(transpiledNode);
@@ -301,7 +313,8 @@ var JSify = (function () {
             parsenode   = node.parsenode,
             actual_ins  = node.getActualIn(),
             actual_outs = node.getActualOut(),
-            parent      = Ast.parent(node.parsenode, transpiler.ast);
+            parent      = Ast.parent(node.parsenode, transpiler.ast),
+            transformed;
 
         arguments = actual_ins.filter(function (a_in) {
             return nodesContains(transpiler.nodes, a_in);
@@ -324,17 +337,19 @@ var JSify = (function () {
         });
 
         if (transpiler.options.cps) {
-            var transformer = makeTransformer(transpiler),
-                parsenode   = node.parsenode,
-                transformed = CPSTransform.transformCall(node, transpiler.nodes, transformer, false, parent);
+            makeTransformer(transpiler);
+            transformed = CPSTransform.transformCall(transpiler, false, parent);
 
             transpiler.nodes = transformed[0];
 
-            if (transformer.shouldTransform(node) &&
-                Aux.isMemberExpression(parsenode.callee)) {
+            if (transpiler.parseUtils.shouldTransform(node) &&
+                Aux.isMemberExpression(Pdg.getCallExpression(parsenode).callee)) {
                 node.parsenode.arguments = transformed[1].getArguments();
 
-                transpiler.transformedNode = parent;
+                if (Aux.isExpStm(parsenode)) {
+                    transpiler.transpiledNode = node.parsenode;
+                } else 
+                    transpiler.transpiledNode = parent;
 
                 return transpiler;
             }
@@ -345,7 +360,7 @@ var JSify = (function () {
                 return transpiler;
             }
         }
-        
+
         Pdg.getCallExpression(node.parsenode).arguments = arguments;
         if (Aux.isExpStm(parent) && Aux.isCallExp(parent.expression)) {
             transpiler.transpiledNode = parent;
@@ -354,7 +369,7 @@ var JSify = (function () {
             transpiler.transpiledNode = node.parsenode;
         }
 
-        transpiler.nodes = transpiler.nodes;
+        transpiler.nodes = transpiler.nodes.remove(node);
         return transpiler;
     }
     transformer.transformCallExp = transformCallExp;
@@ -370,11 +385,12 @@ var JSify = (function () {
             object    = node.getOutNodes(EDGES.CONTROL)
                         .filter(function (n) {
                             return n.isObjectEntry;
-                        });
+                        }),
+            transformed;
 
         if (call.length > 0) {
-            var transformer = makeTransformer(transpiler),
-                transformed = CPSTransform.transformExp(node, transpiler.nodes, transformer);
+            transformer = makeTransformer(transpiler);
+            transformed = CPSTransform.transformExp(transpiler);
 
             transpiler.nodes = transformed[0];
             transpiler.transpiledNode = transformed[1].parsenode;
@@ -419,7 +435,7 @@ var JSify = (function () {
         transpiler.nodes = transpiler.nodes.remove(node);
         parsenode.body = body;
         transpiler.transpiledNode = parsenode;
-        return transpiled;
+        return transpiler;
     }
     transformer.transformBlockStm = transformBlockStm;
 
@@ -565,6 +581,33 @@ var JSify = (function () {
     }
     transformer.transformTryStm = transformTryStm;
 
+    function transformCatchStm (transpiler) {
+        var node = transpiler.node,
+            bodynodes = node.getOutNodes(EDGES.CONTROL)
+                        .filter (function (n) {
+                            return !n.isActualPNode;
+                        }),
+            body = [],
+            transpiled;
+
+        bodynodes.map(function (n) {
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, n));
+            if (nodesContains(transpiler.nodes, n)) {
+                body.push(transpiled.transpiledNode);
+            }
+            transpiler.nodes = transpiled.nodes.remove(n);
+            Transpiler.copySetups(transpiled, transpiler);
+        })
+
+        transpiler.nodes = transpiler.nodes.remove(node);
+        node.parsenode.body.body = body;
+        transpiler.transpiledNode = node.parsenode;
+        
+        return transpiler;
+    }
+
+    transformer.transformCatchClause = transformCatchStm;
+
 
     function transformThrowStm (transpiler) {
         var node    = transpiler.node,
@@ -591,7 +634,7 @@ var JSify = (function () {
     }
     transformer.transformActualParameter = noTransformation;
     transformer.transformFormalParameter = noTransformation;
-    transformer.transforEcitNode = noTransformation;
+    transformer.transformExitNode = noTransformation;
 
     function nodesContains (nodes, node, cps) {
         return nodes.filter(function (n) {

@@ -64,9 +64,10 @@ var JSParse = (function () {
      */
 
     var RPC = function (call, fname, args) {
-      var callee;
-      if (Aux.isMemberExpression(call.parsenode.callee)) 
-        callee =  call.parsenode.callee;
+      var callnode = Pdg.getCallExpression(call.parsenode),
+          callee;
+      if (Aux.isMemberExpression(callnode.callee)) 
+        callee =  callnode.callee;
       else
         callee = {
                   type: "Identifier",
