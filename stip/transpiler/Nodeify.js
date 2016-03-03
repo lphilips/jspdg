@@ -726,6 +726,7 @@ var Nodeify = (function () {
     if (typeof module !== 'undefined' && module.exports != null) {
         EDGES = require('../PDG/edge.js').EDGES;
         nodereq = require('../PDG/node.js');
+        asyncs  = require('../pre-analysis').asyncs;
         DNODES = nodereq.DNODES;
         arityEquals = nodereq.arityEquals;
         ARITY = nodereq.ARITY;
