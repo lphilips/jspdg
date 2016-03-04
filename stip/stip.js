@@ -1315,7 +1315,8 @@ var Stip = (function () {
     start = function (graphs) {
         /* Regenerate AST such that tags have the correct ordering,
            because pre-analysis could have added new node with wrong tag number */
-        graphs.AST = Ast.createAst(escodegen.generate(graphs.AST));
+       // graphs.AST = Ast.createAst(escodegen.generate(graphs.AST), {loc: true, owningComments: true, comment: true});
+       // Ast.augmentAst(graphs.AST);
 
         makePDGNode(graphs, graphs.AST);
     }

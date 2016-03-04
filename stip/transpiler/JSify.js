@@ -155,16 +155,15 @@ var JSify = (function () {
 
     /* Binary expression */
     function transformBinaryExp (transpiler) {
-        var call = node.getOutNodes(EDGES.CONTROL)
+        var node = transpiler.node,
+            call = node.getOutNodes(EDGES.CONTROL)
                        .filter(function (n) {
                         return n.isCallNode;
                     }),
-            node = transpiler.node,
-            nodes = transpiler.nodes,
-            transpiled, transformer;
+            transpiled;
         if (call.length > 0) {
             makeTransformer(transpiler);
-            transpiled  = CPSTransform.transformExp(transpiler);
+            transpiled  = transpiler.transformCPS.transformExp(transpiler);
             transpiler.nodes = transpiled[0];
             transpiler.transpiledNode = transpiled[1].parsenode;
 
@@ -376,44 +375,51 @@ var JSify = (function () {
 
 
     function transformReturnStm (transpiler) {
-        var node      = transpiler.node,
-            parsenode = node.parsenode,
-            call      = node.getOutNodes(EDGES.CONTROL)
+        var node = transpiler.node,
+            call = node.getOutNodes(EDGES.CONTROL)
                        .filter(function (n) {
-                        return n.isCallNode;
+                        return  n.isCallNode
                        }),
-            object    = node.getOutNodes(EDGES.CONTROL)
+            object = node.getOutNodes(EDGES.CONTROL)
                         .filter(function (n) {
-                            return n.isObjectEntry;
+                            return n.isObjectEntry
                         }),
-            transformed;
+            excexits = node.getOutNodes(EDGES.CONTROL)
+                        .filter(function (n) {
+                            return n.isExitNode;
+                        }),
+            transpiled;
+
+        makeTransformer(transpiler);
 
         if (call.length > 0) {
-            transformer = makeTransformer(transpiler);
-            transformed = CPSTransform.transformExp(transpiler);
-
-            transpiler.nodes = transformed[0];
-            transpiler.transpiledNode = transformed[1].parsenode;
+            transpiled = transpiler.transformCPS.transformExp(transpiler);
+            transpiler.nodes = transpiled[0];
+            transpiler.transpiledNode = transpiled[1].parsenode;
 
             return transpiler;
         }
-
         if (object.length > 0) {
-
             object.map(function (oe) {
-                var formout    = oe.getOutNodes(EDGES.DATA)
-                                .filter(function (n) {return n.isFormalNode; });
-                var transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, oe));
-                parsenode.argument = transpiled.transpiledNode;
+                var formout = oe.getOutNodes(EDGES.DATA)
+                                .filter(function (n) {return n.isFormalNode});
+                transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, oe));
+                node.parsenode.argument = transpiled.transpiledNode;
                 transpiler.nodes = transpiled.nodes.remove(oe);
-                transpiler.nodes = transpiled.nodes.remove(formout);
-            });
+                transpiler.nodes = transpiler.nodes.remove(formout);
+            })
         }
-
+        if (excexits.length > 0) {
+            excexits.map(function (en) {
+                transpiler.nodes = transpiler.nodes.remove(en);
+            })
+        }   
         transpiler.nodes = transpiler.nodes.remove(node);
-        transpiler.transpiledNode = parsenode;
+        transpiler.transpiledNode = node.parsenode;
+
         return transpiler;
     }
+
     transformer.transformReturnStm = transformReturnStm;
 
 
@@ -427,14 +433,16 @@ var JSify = (function () {
         bodynodes.map(function (n) {
             transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, n));
 
-            if (nodesContains(transpiler.nodes, n)) {
-                    body.push(transpiled.transpiledNode);
+            if (nodesContains(transpiler.nodes, n) && transpiled.transpiledNode) {
+                body.push(transpiled.transpiledNode);
             }
             transpiler.nodes = transpiled.nodes.remove(n);
+            Transpiler.copySetups(transpiled, transpiler);
         });
         transpiler.nodes = transpiler.nodes.remove(node);
         parsenode.body = body;
         transpiler.transpiledNode = parsenode;
+
         return transpiler;
     }
     transformer.transformBlockStm = transformBlockStm;
@@ -443,6 +451,9 @@ var JSify = (function () {
     function transformIfStm (transpiler) {
         var node      = transpiler.node,
             parsenode = node.parsenode,
+            test      = node.getOutEdges(EDGES.CONTROL)
+                        .filter(function (e) { return e.label !== true && e.label !== false })
+                        .map(function (e) { return e.to }),
             conseq    = node.getOutEdges(EDGES.CONTROL)
                         .filter(function (e) {return e.label === true; }) // explicit check necessary
                         .map(function (e) {return e.to; }),
@@ -450,6 +461,10 @@ var JSify = (function () {
                         .filter(function (e) {return e.label === false; })  // explicit check necessary
                         .map(function (e) {return e.to;}),
             transpiled;
+
+        test.map(function (testnode) {
+            transpiler.nodes = transpiler.nodes.remove(testnode);  /* TODO not just remove them */
+        });
 
         conseq.map(function (consnode) {
             transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, consnode));
@@ -548,31 +563,44 @@ var JSify = (function () {
 
 
     function transformTryStm (transpiler) {
-        var node       = transpiler.node,
-            block      = [],
-            handlers   = [],
+        var block      = [],
+            node       = transpiler.node,
             blocknodes = node.getOutNodes(EDGES.CONTROL),
-            calls      = blocknodes.filter(function (n) { return n.isCallNode; }),
-            catches    = calls.flatMap(function (call) {
-                         return call.getOutNodes(EDGES.CONTROL)
-                            .filter(function (n) {
-                                return !n.isExitNode &&
-                                  n.parsenode &&
-                                  Aux.isCatchStm(n.parsenode);});
+            /* Nodes that are calls are have calls in them */
+            callnodes  = blocknodes.filter(function (n) { return Aux.hasCallStm(n)}),
+            /* Get the actual calls */
+            calls      = callnodes.flatMap(function (cn) { 
+                            if (cn.isCallNode) 
+                                return [cn];
+                            else return cn.findCallNodes();  
                         }),
-            transpiled;
+            catches    = calls.flatMap(function (call) {
+                            return call.getOutNodes(EDGES.CONTROL)
+                                      .filter(function (n) {
+                                         return ! n.isExitNode && 
+                                           n.parsenode && 
+                                           Aux.isCatchStm(n.parsenode)})
+                        }),
+            handler, transpiled;
 
-        blocknodes.map(function (blocknode) {
-            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, blocknode));
-            transpiler.nodes = transpiled.nodes.remove(blocknode);
-            block.push(transpiled.transpiledNode);
+        blocknodes.map(function (node) {
+            if (nodesContains(transpiler.nodes, node)) {
+                transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, node));
+                transpiler.nodes = transpiled.nodes.remove(node);
+                block.push(transpiled.transpiledNode);
+            }
         });
 
-        catches.map(function (catchnode) {
-            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpile, catchnode));
-            transpiler.nodes = transpiled.nodes.remove(catchnode);
-        });
+        catches.map(function (node) {
+            if (nodesContains(transpiler.nodes, node)) {
+                transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, node));
+                handler = transpiled.transpiledNode;
+                transpiler.nodes = transpiled.nodes.remove(node);
+            }
+        })
 
+
+        node.parsenode.handler = handler;
         node.parsenode.block.body = block;
         transpiler.nodes = transpiler.nodes.remove(node);
         transpiler.transpiledNode = node.parsenode;
@@ -619,6 +647,7 @@ var JSify = (function () {
             transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, exitnode));
             transpiler.nodes = transpiled.nodes.remove(exitnode);
             node.parsenode.argument = transpiled.transpiledNode;
+            Transpiler.copySetups(transpiled, transpiler);
         });
 
         transpiler.nodes = transpiler.nodes.remove(node);
@@ -628,12 +657,18 @@ var JSify = (function () {
     }
     transformer.transformThrowStm = transformThrowStm;
 
-    function noTransformation (transpiler) {
+    function noTransformationDefined (transpiler) {
         transpiler.transpiledNode = false;
         return transpiler;
     }
-    transformer.transformActualParameter = noTransformation;
-    transformer.transformFormalParameter = noTransformation;
+    transformer.transformActualParameter = noTransformationDefined;
+    transformer.transformFormalParameter = noTransformationDefined;
+
+    function noTransformation (transpiler) {
+        transpiler.transpiledNode = transpiler.node.parsenode;
+        return transpiler;
+    }
+
     transformer.transformExitNode = noTransformation;
 
     function nodesContains (nodes, node, cps) {

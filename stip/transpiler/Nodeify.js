@@ -13,6 +13,10 @@ var Nodeify = (function () {
 
     var transformer = {};
     
+    if (typeof module !== 'undefined' && module.exports != null) {
+        JSify = require('./JSify').JSify;
+    }
+
     function makeTransformer (transpiler) {
         switch (transpiler.options.asynccomm) {
         case 'callbacks':
@@ -148,26 +152,7 @@ var Nodeify = (function () {
     transformer.transformAssignmentExp = nodeifyVarDecl;
 
     /* Binary Expression */
-    function nodeifyBinExp (transpiler) {
-        var node = transpiler.node,
-            call = node.getOutNodes(EDGES.CONTROL)
-                       .filter(function (n) {
-                            return n.isCallNode
-                       }),
-            transpiled;
-        makeTransformer(transpiler);
-        if (call.length > 0) {
-            transpiled = transpiler.transformCPS.transformExp(transpiler);
-            transpiler.transpiledNode = transpiled[1].parsenode;
-            transpiler.nodes = transpiled[0];
-
-            return transpiler;
-        }
-        transpiler.transpiledNode = node.parsenode;
-
-        return transpiler;
-    }
-    transformer.transformBinaryExp = nodeifyBinExp;
+    transformer.transformBinaryExp = JSify.transformBinaryExp;
 
 
     /* Function expression */
@@ -365,7 +350,7 @@ var Nodeify = (function () {
             }
             /* CASE 1 : defined on server, called by server */
             else if(node.isServerNode()) {
-                transpiler.transpiledNode = parent;
+                transpiler.transpiledNode = Aux.isExpStm(node.parsenode) ? node.parsenode : parent;
             }       
 
             return transpiler;
@@ -419,301 +404,68 @@ var Nodeify = (function () {
     transformer.transformCallExp = nodeifyCallExp;
 
 
-    function nodeifyRetStm (transpiler) {
-        var node = transpiler.node,
-            call = node.getOutNodes(EDGES.CONTROL)
-                       .filter(function (n) {
-                        return  n.isCallNode
-                       }),
-            object = node.getOutNodes(EDGES.CONTROL)
-                        .filter(function (n) {
-                            return n.isObjectEntry
-                        }),
-            transpiled;
-            makeTransformer(transpiler);
-
-        if (call.length > 0) {
-            transpiled = transpiler.transformCPS.transformExp(transpiler);
-            transpiler.nodes = transpiled[0];
-            transpiled.transpiledNode = transpiled[1].parsenode;
-
-            return transpiler;
-        }
-        if (object.length > 0) {
-            object.map(function (oe) {
-                var formout = oe.getOutNodes(EDGES.DATA)
-                                .filter(function (n) {return n.isFormalNode});
-                transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, oe));
-                node.parsenode.argument = transpiled.transpiledNode;
-                transpiler.nodes = transpiled.nodes.remove(oe);
-                transpiler.nodes = transpiler.nodes.remove(formout);
-            })
-        }
-        transpiler.nodes = transpiler.nodes.remove(node);
-        transpiler.transpiledNode = node.parsenode;
-
-        return transpiler;
-    }
-    transformer.transformReturnStm = nodeifyRetStm;
+    /* Return Statement */
+    transformer.transformReturnStm = JSify.transformReturnStm;
 
 
+    /* If statement */
+    transformer.transformIfStm = JSify.transformIfStm;
 
-    function nodeifyIfStm (transpiler) {
-        var node   = transpiler.node,
-            test   = node.getOutEdges(EDGES.CONTROL)
-                        .filter(function (e) { return e.label !== true && e.label !== false })
-                        .map(function (e) { return e.to }),   /* TODO not just remove them */
-            conseq = node.getOutEdges(EDGES.CONTROL)
-                        .filter(function (e) {return e.label === true}) // explicit check necessary
-                        .map(function (e) {return e.to}),
-            altern = node.getOutEdges(EDGES.CONTROL)
-                        .filter(function (e) {return e.label === false}) // explicit check necessary
-                        .map(function (e) {return e.to}),
-            transpiled;
-        
-        test.map(function (testnode) {
-            transpiler.nodes = transpiler.nodes.remove(testnode);  /* TODO not just remove them */
-        });
-
-        conseq.map(function (consnode) {
-            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, consnode));
-            transpiler.nodes = transpiled.nodes.remove(consnode);
-            node.parsenode.consequent = transpiled.transpiledNode;
-        });
-
-        altern.map(function (altnode) {
-            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, altnode));
-            transpiler.nodes = transpiled.nodes.remove(altnode);
-            node.parsenode.alternate = transpiled.transpiledNode;
-        });
-        transpiler.nodes = transpiler.nodes.remove(node);
-        transpiler.transpiledNode = node.parsenode;
-
-        return transpiler;
-    }
-    transformer.transformIfStm = nodeifyIfStm;
+    /* Try Statement */
+    transformer.transformTryStm = JSify.transformTryStm;
 
 
-    function nodeifyTryStm (transpiler) {
-        var block      = [],
-            node       = transpiler.node,
-            blocknodes = node.getOutNodes(EDGES.CONTROL),
-            /* Nodes that are calls are have calls in them */
-            callnodes  = blocknodes.filter(function (n) { return Aux.hasCallStm(n)}),
-            /* Get the actual calls */
-            calls      = callnodes.flatMap(function (cn) { 
-                            if (cn.isCallNode) 
-                                return [cn];
-                            else return cn.findCallNodes();  
-                        }),
-            catches    = calls.flatMap(function (call) {
-                            return call.getOutNodes(EDGES.CONTROL)
-                                      .filter(function (n) {
-                                         return ! n.isExitNode && 
-                                           n.parsenode && 
-                                           Aux.isCatchStm(n.parsenode)})
-                        }),
-            handler, transpiled;
+    /* Catch Statement */
+    transformer.transformCatchClause = JSify.transformCatchClause;
 
-        blocknodes.map(function (node) {
-            if (nodesContains(transpiler.nodes, node)) {
-                transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, node));
-                transpiler.nodes = transpiled.nodes.remove(node);
-                block.push(transpiled.transpiledNode);
-            }
-        });
-
-        catches.map(function (node) {
-            if (nodesContains(transpiler.nodes, node)) {
-                transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, node));
-                handler = transpiled.transpiledNode;
-                transpiler.nodes = transpiled.nodes.remove(node);
-            }
-        })
+    /* Throw Statement */
+    transformer.transformThrowStm =  JSify.transformThrowStm;
 
 
-        node.parsenode.handler = handler;
-        node.parsenode.block.body = block;
-        transpiler.nodes = transpiler.nodes.remove(node);
-        transpiler.transpiledNode = node.parsenode;
-
-        return transpiler;
-    }
-    transformer.transformTryStm = nodeifyTryStm;
+    /* Block Statement */
+    transformer.transformBlockStm = JSify.transformBlockStm;
 
 
-    function nodeifyCatchStm (transpiler) {
-        var node      = transpiler.node,
-            bodynodes = node.getOutNodes(EDGES.CONTROL)
-                        .filter( function (n) {
-                            return !n.isActualPNode;
-                        }),
-            body      = [],
-            transpiled;
-
-        bodynodes.map(function (n) {
-            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, n));
-            if(nodesContains(transpiler.nodes, n) ) {
-                body.push(transpiled.transpiledNode);
-            }
-            transpiler.nodes = transpiled.nodes.remove(n);
-            Transpiler.copySetups(transpiled, transpiler);
-        })
-
-        transpiler.nodes = transpiler.nodes.remove(node);
-        node.parsenode.body.body = body;
-        transpiler.transpiledNode = node.parsenode;
-
-        return transpiler;
-    }
-    transformer.transformCatchClause = nodeifyCatchStm;
+    /* Object Expression */
+    transformer.transformObjectExp = JSify.transformObjectExp;
 
 
-    function nodeifyThrowStm (transpiler) {
-        var node    = transpiler.node,
-            excexit = node.getOutNodes(EDGES.CONTROL)
-                        .filter(function (n) {return n.isExitNode; }),
-            transpiled;
-        excexit.map(function (node) {
-            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, node));
-            node.parsenode.argument = transpiled.transpiledNode;
-            transpiler.nodes = transpiled.nodes.remove(node);
-            Transpiler.copySetups(transpiled, transpiler);
-        }) 
-        transpiler.nodes = transpiler.nodes.remove(node);
-        transpiler.transpiledNode = node.parsenode;
-
-        return transpiler;
-    }
-    transformer.transformThrowStm = nodeifyThrowStm;
+    /* New Expression */
+    transformer.transformNewExp = JSify.transformNewExp;
 
 
-    /* Block statement */
-    function nodeifyBlockStm (transpiler) {
-        var body        = [],
-            node        = transpiler.node,
-            parsenode   = node.parsenode,
-            bodynodes   = node.edges_out.filter(function (e) {
-              return e.equalsType(EDGES.CONTROL)
-                }).map(function (e) { return e.to }),
-            transpiled;
-        /* nodeify every body node */
-        bodynodes.map(function (n) {
-            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, n));
-            if( nodesContains(transpiler.nodes, n) && transpiled.transpiledNode) {
-                    body.push(transpiled.transpiledNode);
-            }
-            transpiler.nodes = transpiled.nodes.remove(n);   
-            Transpiler.copySetups(transpiled, transpiler)
-        });
-
-        transpiler.nodes = transpiler.nodes.remove(node);
-        parsenode.body = body;
-        transpiler.transpiledNode = parsenode;
-
-        return transpiler;
-    }
-    transformer.transformBlockStm = nodeifyBlockStm;
-
-
-    function nodeifyObjExpression (transpiler) {
-        var node = transpiler.node,
-            prop = node.getOutNodes(EDGES.OBJMEMBER),
-            properties = [],
-            parsenode  = node.parsenode,
-            transpiled;
-
-        prop.map(function (property) {
-            //if (nodesContains(sliced.nodes, property)) {
-                transpiled = Transpiler.transpiler(Transpiler.copyTranspileObject(transpiler, property));
-                properties = properties.concat(transpiled.transpiledNode);
-                transpiler.nodes = transpiled.nodes.remove(property);
-            //}
-        });
-
-        transpiler.nodes = transpiler.nodes.remove(node);
-        parsenode.properties = properties;
-        transpiler.transpiledNode = parsenode;
-
-        return transpiler;
-    }
-    transformer.transformObjectExp = nodeifyObjExpression;
-
-
-    function nodeifyNewExpression (transpiler) {
-        var node      = transpiler.node,
-            call      = node.getOutNodes(EDGES.OBJMEMBER)
-                        .filter(function (n) {return n.isCallNode})[0],
-            parsenode = node.parsenode,
-            a_ins     = call.getActualIn(),
-            a_outs    = call.getActualOut();
-        
-        transpiler.nodes = transpiler.nodes.remove(call);
-        a_outs.map(function (a_out) {
-            if (nodesContains(transpiler.nodes, a_out)) 
-              transpiler.nodes = transpiler.nodes.remove(a_out);
-        });
-        parsenode.arguments = a_ins.filter(function (a_in) {
-            return nodesContains(transpiler.nodes, a_in)    
-        }).map(function (a_in) {return a_in.parsenode});
-
-        transpiler.nodes = transpiler.nodes.remove(node);
-        transpiler.transpiledNode = parsenode;
-
-        return transpiler;
-    }
-    transformer.transformNewExp = nodeifyNewExpression;
-
-
-    function nodeifyProperty (transpiler) {
-        var node    = transpiler.node,
-            entries = node.getOutNodes(EDGES.DATA)
-                          .filter( function (n) { return n.isEntryNode}),
-            calls   = node.getOutNodes(EDGES.CONTROL)
-                          .filter( function (n) { return n.isCallNode}),
-            transpiled;
-
-        entries.map(function (entry) {
-            transpiled =  Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, entry));
-            node.parsenode.value = transpiled.transpiledNode;
-            transpiler.nodes = transpiled.nodes.remove(entry);
-        });
-
-        calls.map(function (call) {
-            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, call));
-            transpiler.nodes = transpiled.nodes.remove(call);
-        });
-
-        transpiler.nodes = transpiler.nodes.remove(node);
-        transpiler.transpiledNode = node.parsenode;
-
-        return transpiler;
-    }
-    transformer.transformProperty = nodeifyProperty;
+    /* Object Property */
+    transformer.transformProperty = JSify.transformProperty;
 
     
-    function noTransformation (transpiler) {
+    function noTransformationDefined (transpiler) {
         transpiler.transpiledNode = false;
         return transpiler;
     }
-    transformer.transformActualParameter = noTransformation;
-    transformer.transformFormalParameter = noTransformation;
+
+    function noTransformation (transpiler) {
+        transpiler.transpiledNode = transpiler.node.parsenode;
+        return transpiler;
+    }
+
+    transformer.transformActualParameter = noTransformationDefined;
+    transformer.transformFormalParameter = noTransformationDefined;
     transformer.transformExitNode = noTransformation;
 
     /* Aux function: checks if two argument lists are the same */
     var argumentsEqual = function (args1, args2) {
         if (args1 && args2) {
             if(args1.length !== args2.length)
-                return false
+                return false;
             else 
                 for (var i = 0; i < args1.length; i++) {
                     if (escodegen.generate(args1[i]) !== escodegen.generate(args2[i]))
-                        return false
+                        return false;
                 }
-            return true
+            return true;
         }
         else 
-            return false
+            return false;
     }
 
 
@@ -735,7 +487,7 @@ var Nodeify = (function () {
         exports.Nodeify  = transformer;
     }
 
-    return transformer
+    return transformer;
 
 
 })()
