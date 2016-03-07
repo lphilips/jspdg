@@ -30,7 +30,7 @@ function tiersplit (src) {
     ast = Hoist.hoist(ast, function (node) {
         return Aux.isBlockStm(node) && Comments.isTierAnnotated(node)
     });
-    var pre_analysis = pre_analyse(ast),
+    var pre_analysis = pre_analyse(ast, []),
         genast       = pre_analysis.ast,
         assumes      = pre_analysis.assumes,
         shared       = pre_analysis.shared,

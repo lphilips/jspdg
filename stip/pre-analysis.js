@@ -1,5 +1,9 @@
 
-var pre_analyse = function (ast) {
+/* Gets the ast and an array of strings, which represent names of functions 
+   that are used as callback functions on the client side.
+   Calls for these functions are automatically added in the client side block.
+*/
+var pre_analyse = function (ast, callbackFunctionsC) {
     var anonf_ct    = 0;
     var anonf_name  = 'anonf';
     var primitives  = ["$", "console", "window"]; 
@@ -18,18 +22,18 @@ var pre_analyse = function (ast) {
     var fundefsC    = [];
     var sharedblock;
 
-    var function_args = function (callnode) {
+    function function_args (callnode) {
         return callnode.arguments.filter(function (arg) {
             return Aux.isFunExp(arg) ||
                    (Aux.isIdentifier(arg) && fundefsC[arg.name])
         }) 
     }
     
-    var createIdentifier = function (id) {
+    function createIdentifier (id) {
         return {type:'Identifier', name:id};
     }
 
-    var createDeclaration = function (id) {
+    function createDeclaration  (id) {
         return { type:'VariableDeclaration', 
                 declarations: [{
                     type:'VariableDeclarator',
@@ -40,7 +44,7 @@ var pre_analyse = function (ast) {
             }
     }
 
-    var createAssignment = function (id, value) {
+    function createAssignment  (id, value) {
         return {
             type: 'ExpressionStatement',
             expression : {
@@ -52,7 +56,7 @@ var pre_analyse = function (ast) {
         }
     }
 
-    var createFunction = function (arg, id) {
+    function createFunction  (arg, id) {
         return {    
             type:"ExpressionStatement",
             expression: {
@@ -64,7 +68,7 @@ var pre_analyse = function (ast) {
         }
     }
 
-    var createReturnValue = function (type) {
+    function createReturnValue  (type) {
         switch (type) {
             case "Num": 
                 return  {
@@ -92,7 +96,7 @@ var pre_analyse = function (ast) {
 
     }
 
-    var createFunExp = function (args, returntype) {
+    function createFunExp  (args, returntype) {
         var funexp =  {
                     type: "FunctionExpression",
                     id: null,
@@ -114,7 +118,7 @@ var pre_analyse = function (ast) {
         return funexp;
     }
 
-    var createFunDecl = function (id, args, returntype) {
+    function createFunDecl (id, args, returntype) {
         var fundecl =  {
             "type": "FunctionDeclaration",
             "id": {
@@ -139,7 +143,7 @@ var pre_analyse = function (ast) {
         return fundecl;
     }
 
-    var createCall = function (id) {
+    function createCall (id) {
         var call = {
             type:"ExpressionStatement",
             expression: {
@@ -155,7 +159,7 @@ var pre_analyse = function (ast) {
 
 
     /* Gets annotation of form '@assumes [variable, function(x)]' */
-    var extractAssumes = function (string) {
+    function extractAssumes (string) {
         var regexp = /\[.*?\]/,
             assumesS, assumesA;
         if (string.search(regexp >= 0)) {
@@ -179,7 +183,7 @@ var pre_analyse = function (ast) {
     }
 
     var comments;
-    var getComments = function (node) {
+    function getComments (node) {
         if (!comments) {
             var parent = node;
             while (!Aux.isProgram(parent)) {
@@ -190,7 +194,7 @@ var pre_analyse = function (ast) {
         return comments;
     }
 
-    var isBlockAnnotated = function (node) {
+    function isBlockAnnotated (node) {
        var parent = node,
             annotation;
         while(!Aux.isProgram(parent)) {
@@ -206,7 +210,7 @@ var pre_analyse = function (ast) {
         return;
     }
 
-    var getCurrentBlock = function (node) {
+    function getCurrentBlock (node) {
         var parent = node;
         while(!Aux.isProgram(parent)) {
             if (Aux.isBlockStm(parent)) {
@@ -218,6 +222,30 @@ var pre_analyse = function (ast) {
         return parent;
     }
 
+
+    function generateCallbackCalls() {
+        var calls = [];
+        callbackFunctionsC.map(function (cb) {
+            var call = createCall(cb);
+            var func = fundefsC[cb];
+
+
+            call.leadingComment = {type: "Block", value:"@generated", range: [0,16]};
+            call.clientCalls = 1;
+
+            if (func) {
+                func.params.map(function (param) {
+                    call.expression.arguments = call.expression.arguments.concat({
+                        "type": "Literal",
+                        "value": null
+                    });
+                });
+                calls.push(call);
+            }
+        });
+
+        return calls;
+    }
 
     Aux.walkAst(ast, {
 
@@ -257,6 +285,9 @@ var pre_analyse = function (ast) {
                     node.body = node.body.concat(node.updateLast)
                 }
                    
+                if (comment && Comments.isClientAnnotated(comment)) {
+                    node.body = node.body.concat(generateCallbackCalls());
+                }
             }
 
             /* If a node is tagged as primitive, add it to the primitive definitions.

@@ -110,12 +110,12 @@
                 // First parse and create again via escodegen
                 ast = Ast.createAst(src, {loc:true, owningComments: true, comment: true});
             ast = Hoist.hoist(ast, function (node) {
-                    return Aux.isBlockStm(node) && Comments.isTierAnnotated(node)
+                    return Aux.isBlockStm(node) && Comments.isTierAnnotated(node);
                 });
 
 
             /* Pre analysis step (uses falafel, so does not work on AST but string representation */
-            var preanalysis = pre_analyse(ast);
+            var preanalysis = pre_analyse(ast, []);
             src = escodegen.generate(preanalysis.ast);
             console.log(src);
             assumes = preanalysis.assumes;
