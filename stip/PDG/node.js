@@ -565,19 +565,19 @@ DistributedNode = function (type) {
 
 PDG_Node.prototype.isClientNode = function () {
     this.dtype = this.getdtype();
-    return  this.dtype.value === DNODES.CLIENT.value
+    return  this.dtype.value === DNODES.CLIENT.value;
    // return !this.dtype || this.dtype.value === DNODES.CLIENT.value
 }
 
 PDG_Node.prototype.isServerNode = function () {
     this.dtype = this.getdtype();
-    return this.dtype.value === DNODES.SERVER.value
+    return this.dtype.value === DNODES.SERVER.value;
     //return !this.dtype || this.dtype.value === DNODES.SERVER.value
 }
 
 PDG_Node.prototype.isSharedNode = function () {
     this.dtype = this.getdtype();
-    return !this.dtype || this.dtype.value === DNODES.SHARED.value
+    return !this.dtype || this.dtype.value === DNODES.SHARED.value;
 }
 
 PDG_Node.prototype.equalsdtype = function (node) {
@@ -599,22 +599,27 @@ PDG_Node.prototype.getdtype = function (recheck) {
     var filterIncoming = function (e) {
         // Ignore cycles
         if (e.to.equals(e.from)) 
-          return false
+          return false;
         // Follow function declarations in form var x  = function () { }
         else if (e.to.parsenode && Aux.isFunExp(e.to.parsenode) &&
                  e.from.parsenode && (Aux.isVarDeclarator(e.from.parsenode) ||
                  Aux.isVarDecl(e.from.parsenode) || Aux.isProperty(e.from.parsenode) ||
                  (Aux.isExpStm(e.from.parsenode) && Aux.isAssignmentExp(e.from.parsenode.expression)))) 
-            return true
+            return true;
         else if (e.to.parsenode &&
                 ( Aux.isObjExp(e.to.parsenode) || 
                   Aux.isNewExp(e.to.parsenode) ) &&
                 e.from.parsenode &&
-                Aux.isVarDeclarator(e.from.parsenode))
-            if (e.from.parsenode.init === e.to.parsenode)
-                return true
+                (Aux.isVarDeclarator(e.from.parsenode) ||
+                (Aux.isExpStm(e.from.parsenode) && Aux.isAssignmentExp(e.from.parsenode.expression))))
+            if (e.from.parsenode.init &&
+                e.from.parsenode.init.equals(e.to.parsenode))
+                return true;
+            else if (e.from.parsenode.expression &&
+                e.from.parsenode.expression.right.equals(e.to.parsenode))
+                return true;
             else 
-                return false
+                return false;
 
         else if (e.to.parsenode && 
                  ( Aux.isObjExp(e.to.parsenode) || 
@@ -623,13 +628,13 @@ PDG_Node.prototype.getdtype = function (recheck) {
                  ( Aux.isVarDeclarator(e.from.parsenode) ||
                    Aux.isVarDecl(e.from.parsenode) || 
                    Aux.isProperty(e.from.parsenode)))
-            return true
+            return true;
         
 
         else if (e.to.isObjectEntry && e.from.parsenode 
                  && Aux.isVarDeclarator(e.from.parsenode) &&
                  e.from.parsenode.init === e.to.parsenode)
-            return true
+            return true;
         // Follow edge from argument to its call node
         else if (e.from.isActualPNode && e.to.isCallNode) 
             return e.from.direction !== -1

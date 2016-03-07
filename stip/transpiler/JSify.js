@@ -120,7 +120,7 @@ var JSify = (function () {
         if (object.length > 0 && call.length <= 0) {
             transpilerDep = Transpiler.copyTranspileObject(transpiler, object[0]);
             transpiled    = Transpiler.transpile(transpilerDep);
-            transpiled.nodes = transpiled.nodes.remove(object[0]);
+            transpiler.nodes = transpiled.nodes.remove(object[0]);
             transpiledNode   = transpiled.transpiledNode;
             Transpiler.copySetups(transpiled, transpiler);
 
@@ -131,7 +131,7 @@ var JSify = (function () {
                 Aux.isAssignmentExp(parsenode.expression)) {
                 parsenode.right = transpiledNode;
             }
-
+            transpiler.nodes = transpiler.nodes.remove(object[0]);
         }
         /* Has call nodes in value / right hand side? */
         if (call.length > 0) {

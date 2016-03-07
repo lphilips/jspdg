@@ -154,15 +154,28 @@ var union = function (array) {
   return a
 }
 
-PDG.prototype.slice = function (node) { 
+PDG.prototype.slice = function (criterion) { 
   
-  var contains = function (equal, set) {
+  function contains (equal, set) {
     for (var i = 0; i < set.length; i++) {
       if(equal(set[i]))
         return true;
     }
     return false;
-  };
+  }
+
+  /* get assignments on variable declaration left in AST from original slicing criterion */
+  function getAssignments (statementNode) {
+    var assignments = [];
+    if (statementNode.isStatementNode && Aux.isVarDeclarator(statementNode.parsenode)) {
+        assignments = statementNode.getOutNodes(EDGES.DATA)
+                      .filter(function (n) {return n.isStatementNode &&
+                        n.cnt < criterion.cnt && 
+                      ( (Aux.isExpStm(n.parsenode) && Aux.isAssignmentExp(n.parsenode.expression)) ||
+                         Aux.isAssignmentExp(n.parsenode)) })
+    }
+    return assignments;
+  }
 
   var traverse_backward = function (nodes, set, ignore) {
     nodes.map(function (node) {
@@ -170,10 +183,14 @@ PDG.prototype.slice = function (node) {
           equal     = function (id) {return function (n) {return n.id === id}};
       if(!(contains(equal(node.id), set))) {
         set.push(node);
+        getAssignments(node).map(function (n) {
+           traverse_backward([n], set, ignore);
+        });
         node.edges_in.map(function (edge) {
           var from     = edge.from,
               fdtype   = from.getdtype(true),
               type_eq  = function (t) {return edge.type.value === t.value};
+
           /* While traversing backward, don't follow edges from a formal parameter
              to a node contained in another distributed component 
              Also don't follow a remote call edge from the current call node*/
@@ -194,7 +211,7 @@ PDG.prototype.slice = function (node) {
   }
 
   /* two passes of the algorithm */
-  var first_pass    = traverse_backward([node],[], [EDGES.PAROUT, EDGES.REMOTEPAROUT, EDGES.REMOTEPARIN]),
+  var first_pass    = traverse_backward([criterion],[], [EDGES.PAROUT, EDGES.REMOTEPAROUT, EDGES.REMOTEPARIN]),
       second_pass   = traverse_backward(first_pass,[],[EDGES.PARIN, EDGES.REMOTEPARIN, EDGES.REMOTEPAROUT, EDGES.CALL]);
   return union(first_pass.concat(second_pass)); 
 };

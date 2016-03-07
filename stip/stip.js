@@ -473,7 +473,7 @@ var Stip = (function () {
                                             .filter(function (n) {return n.isObjectEntry})[0]
                            // } 
                             if (!objectentry) {
-                                addDataDep(declarationNode, stmNode);
+                              //  addDataDep(declarationNode, stmNode);
                             }
                             else {
                                 if (objectentry.getMember) {

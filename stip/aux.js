@@ -154,7 +154,7 @@ var Aux = (function () {
 
 
       function getDeclaration (variableDecl) {
-        if (esp_isVarDecl(variabledeclaration)) 
+        if (esp_isVarDecl(variableDecl)) 
           /* Variable Declaration */
           return variableDecl.declarations[0];
 

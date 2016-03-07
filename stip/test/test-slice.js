@@ -139,7 +139,28 @@ suite('Slicing', function () {
     test('call argument', function () {
         var ast = slice('var y = 10; function foo(x) {return x+y;} foo(foo(42));', 'foo(42)');
         compareAst(escodegen.generate(ast.nosetup),
-            'var y; y = 10; function foo(x) {return x + y;} foo(foo(42));',
+            'var y; function foo(x) {return x + y;} y = 10; foo(foo(42));',
+            {varPattern: /_v\d_/ })
+    });
+
+    test('assignments', function () {
+        var ast = slice('var sum = 10; function foo(x) {sum = sum + 1; return sum + x;} foo(2); sum = 3;', 'foo(2);');
+        compareAst(escodegen.generate(ast.nosetup),
+            'var sum; function foo(x) {sum = sum + 1; return sum + x;} sum = 10; foo(2);',
+            {varPattern: /_v\d_/ })
+    });
+
+    test('object literal', function () {
+        var ast = slice('var p = {x:0, y:1, z: 2}; var d = p.x * p.y; var f = p.z + p.y;', 'd = p.x * p.y;');
+        compareAst(escodegen.generate(ast.nosetup),
+            'var p; var d; p = { x : 0, y : 1}; d = p.x * p.y;',
+            {varPattern: /_v\d_/ })
+    });
+
+    test('property as argument', function () {
+        var ast = slice('function f (x) { return x; } var p = {x :0, y:0, z:2}; var d = f(p.x);' , 'd = f(p.x);');
+        compareAst(escodegen.generate(ast.nosetup),
+            'function f (x) {return x;} var p; var d; p = {x:0}; d = f(p.x)',
             {varPattern: /_v\d_/ })
     });
 
