@@ -480,6 +480,12 @@ var Stip = (function () {
                                     member = objectentry.getMember(property);
                                     if (member)
                                         addDataDep(member, hasEntryParent ? stmNode : upnode);
+                                    /* Adding a new member */
+                                    else if (Aux.isExpStm(upnode.parsenode) &&
+                                            Aux.isAssignmentExp(upnode.parsenode.expression)) {
+                                        objectentry.addMember(upnode.parsenode.expression.left.property.name, upnode);
+                                    }
+
                                     else {
                                         /* TODO follow complete chain */
                                         var protoentry = objectentry.getOutEdges(EDGES.PROTOTYPE)

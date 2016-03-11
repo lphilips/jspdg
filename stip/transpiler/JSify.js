@@ -493,7 +493,8 @@ var JSify = (function () {
             transpiled;
 
         prop.map(function (property) {
-            if (nodesContains(transpiler.nodes, property)) {
+            if (nodesContains(transpiler.nodes, property) &&
+                !(Aux.isExpStm(property.parsenode) && Aux.isAssignmentExp(property.parsenode.expression))) {
                 transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, property));
                 properties.push(transpiled.transpiledNode);
                 transpiler.nodes = transpiled.nodes.remove(property);

@@ -164,5 +164,10 @@ suite('Slicing', function () {
             {varPattern: /_v\d_/ })
     });
 
+    test('adding property', function () {
+        var ast = slice('var z = {y : 1}; z.x = 2; var d = z.x * 2;', 'd = z.x * 2;');
+        compareAst(escodegen.generate(ast.nosetup),
+            'var z; var d; z = {}; z.x = 2; d = z.x * 2;')
+    })
 
 });
