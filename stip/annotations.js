@@ -128,20 +128,49 @@ var Comments = (function () {
 
     /* Move @blocking annotations to the attached call nodes as well */
     var handleBlockingComment = function (comment, pdgNodes) {
-        pdgNodes.map(function (pdgNode) {
-            var callnodes;
-            if (isBlockingAnnotated(comment)) {
-                if (!Aux.isCallExp(pdgNode.parsenode)) {
-                    callnodes = pdgNode.findCallNodes();
-                    callnodes.map(function (callNode) {
-                        callNode.parsenode.leadingComment = comment;
-                    })
-                } 
-                if (pdgNode.isCallNode && Aux.isExpStm(pdgNode.parsenode)) {
-                    pdgNode.parsenode.expression.leadingComment = comment;
+        var first;
+        if (pdgNodes[0].isEntryNode) {
+            pdgNodes.map(function (pdgNode) {
+                var callnodes;
+                if (isBlockingAnnotated(comment)) {
+                    if (!Aux.isCallExp(pdgNode.parsenode)) {
+                        callnodes = pdgNode.findCallNodes();
+                        /* Sort on original order */
+                        callnodes.sort(function (n1, n2) {
+                            return n1.cnt - n2.cnt;
+                        })
+
+                        callnodes.map(function (callNode) {
+                            if (!first) {
+                                callNode.parsenode.leadingComment = comment;
+                                first = true;
+                            }
+                        })
+                    } 
+                    if (pdgNode.isCallNode && Aux.isExpStm(pdgNode.parsenode) && !first) {
+                        pdgNode.parsenode.expression.leadingComment = comment;
+                        first = true;
+                    }
                 }
-            }
-        })
+            })
+        }
+        
+        else {
+             pdgNodes.map(function (pdgNode) {
+                var callnodes;
+                if (isBlockingAnnotated(comment)) {
+                    if (!Aux.isCallExp(pdgNode.parsenode)) {
+                        callnodes = pdgNode.findCallNodes();
+                        callnodes.map(function (callNode) {
+                            callNode.parsenode.leadingComment = comment;
+                        })
+                    } 
+                    if (pdgNode.isCallNode && Aux.isExpStm(pdgNode.parsenode)) {
+                        pdgNode.parsenode.expression.leadingComment = comment;
+                    }
+                }
+            })
+        }
     }
 
     registerAfterHandler(handleReplyComment);

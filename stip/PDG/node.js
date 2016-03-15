@@ -372,9 +372,15 @@ ObjectEntryNode.prototype = new EntryNode();
 
 ObjectEntryNode.prototype.getMember = function (id) {
     var found = this.members[id];
+    var chain;
     if (id.name)
         id = id.name
     found =  this.members[id];
+    if (!found) {
+        chain = this.getOutNodes(EDGES.PROTOTYPE)[0];
+        if (chain)
+            return chain.getMember(id);
+    }
     return found;
 }
 

@@ -487,7 +487,6 @@ var Stip = (function () {
                                     }
 
                                     else {
-                                        /* TODO follow complete chain */
                                         var protoentry = objectentry.getOutEdges(EDGES.PROTOTYPE)
                                                     .map(function (e) {return e.to})[0],
                                             memberstm    = protoentry.getMember(property);
@@ -595,22 +594,26 @@ var Stip = (function () {
                  },
                  declaration = Pdg.declarationOf(getObject(parsenode.callee), graphs.AST),
                  PDG_node = graphs.ATP.getNode(declaration),
-                 handle = function (pdgnode) {
+                 handle = function (pdgnode, objectentry) {
                     var hasEntryParent = upnode.isEntryNode ||
                                (upnode.parsenode && (Aux.isIfStm(upnode.parsenode) ||
                                Aux.isForStm(upnode.parsenode) || Aux.isCatchStm(upnode.parsenode) ||
                                Aux.isThrowStm(upnode.parsenode)));
                     //if (pdgnode.primitive) {
                         var calledname = Aux.getCalledName(parsenode);
-                        var objectentry = pdgnode.getOutEdges(EDGES.DATA)  //TODO : this is for var -> OE, should also work for EntryNode -> Return -> OE
+                        var objectentry = objectentry ? objectentry : pdgnode.getOutEdges(EDGES.DATA)  //TODO : this is for var -> OE, should also work for EntryNode -> Return -> OE
                                             .map(function (e) {return e.to})
                                             .filter(function (n) {return n.isObjectEntry})[0];
                         callnode.name = calledname;
+                        if (!objectentry && pdgnode.isEntryNode) {
+                            objectentry = pdgnode.getOutNodes(EDGES.CONTROL).filter(function (n) {return n.isStatementNode && Aux.isRetStm(n.parsenode)}).flatMap(function (n) {return n.getOutNodes(EDGES.DATA)}).filter(function (n) {return n.isObjectEntry})[0];
+                        }
                         /* If no object entry, we can't connect an OE node with the referred node,
                            e.g. as the result of a map, filter call. Make data ref to declaration node */
                         if (!objectentry && !pdgnode.equals(upnode)) {
                             addDataDep(pdgnode, callnode);
                             addToPDG(callnode, upnode, graphs);
+                            handleActualParameters(graphs, parsenode, callnode);
                             callnode.primitive = primitive;
                         }
                         else if (!pdgnode.equals(upnode)) {
@@ -705,7 +708,8 @@ var Stip = (function () {
                     }                
                     /* call is of form othercall().thiscall */
                     else if (node.isEntryNode) {
-                        //TODO : handle should return OE node
+                        var objectentry = node.getOutNodes(EDGES.CONTROL).filter(function (n) {return n.isStatementNode && Aux.isRetStm(n.parsenode)}).flatMap(function (n) {return n.getOutNodes(EDGES.DATA)}).filter(function (n) {return n.isObjectEntry})[0];
+                        handle(node, objectentry);
                     }
                     else if (node.isStatementNode && 
                             Aux.isExpStm(node.parsenode) &&

@@ -204,6 +204,57 @@ var Aux = (function () {
       }
 
 
+      function clone (node) {
+          if (Array.isArray(node)) {
+              return node.map(clone);
+          }
+          if ("object" !== typeof node) {
+              return node;
+          }
+          if (node === null) {
+              return null;
+          }
+
+          var copy = {};
+          var forEach = function (xs, fn) {
+              if (xs.forEach) return xs.forEach(fn);
+              for (var i = 0; i < xs.length; i++) {
+                  fn.call(xs, xs[i], i, xs);
+              }
+          };
+          var objectKeys = Object.keys || function (obj) {
+              var keys = [];
+              for (var key in obj) keys.push(key);
+              return keys;
+          };
+
+
+          forEach(objectKeys(node), function(name) {
+              // ignore auto generated
+              if (name[0] === "$") return;
+
+              var value = node[name],
+                  cvalue;
+
+              //recursion!
+              if (Array.isArray(value)) {
+                  cvalue = value.map(clone);
+              } else if ("object" === typeof value) {
+                  cvalue = clone(value);
+              }
+
+              // Note that undefined fields will be visited too, according to
+              // the rules associated with node.type, and default field values
+              // will be substituted if appropriate.
+              copy[name] = cvalue || value;
+          });
+
+          // enumerable?
+          copy.$cloned = true;
+
+          return copy;
+      }
+
       /* Compares a given declarator node (ast-level)
          with the declaration node of an assignment node (pdg node) */
       function compareDeclarationNodes (declarationNode, pdgnode) {
@@ -272,10 +323,12 @@ var Aux = (function () {
     toreturn.isProgram          = esp_isProgram;
     toreturn.isArrayExp         = esp_isArrayExp;
 
-    toreturn.getCalledName  = esp_getCalledName;
-    toreturn.inTryStatement = esp_inTryStatement;
-    toreturn.hasCallStm     = esp_hasCallStm;
-    toreturn.getDeclaration = getDeclaration
+    toreturn.getCalledName      = esp_getCalledName;
+    toreturn.inTryStatement     = esp_inTryStatement;
+    toreturn.hasCallStm         = esp_hasCallStm;
+    toreturn.getDeclaration     = getDeclaration;
+
+    toreturn.clone              = clone;
 
     toreturn.walkAst            = walkAst;
 

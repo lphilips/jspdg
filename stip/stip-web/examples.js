@@ -241,11 +241,13 @@ var add = 32;
 var example5 = uncomment( function (){/*
 var foo = function (x) { return x }
 @blocking
-foo(42);
-var a = foo(1);
-var b = foo(2);
-var c = a * 2;
-var d = b * 2;
+{
+    foo(42);
+    var a = foo(1);
+    var b = foo(2);
+    var c = a * 2;
+    var d = b * 2;
+}
 @blocking
 var e = foo(3);
 @blocking

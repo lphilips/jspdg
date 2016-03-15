@@ -120,11 +120,15 @@ var CodeGenerator = (function () {
                     transpiled = toCode(option, nodes, n, ast);
                     if(transpiled.transpiledNode) {
                         if (Aux.isBlockStm(transpiled.transpiledNode) &&
-                            Comments.isTierAnnotated(transpiled.transpiledNode))
+                            (Comments.isTierAnnotated(transpiled.transpiledNode) ||
+                                transpiled.transpiledNode.leadingComment && Comments.isBlockingAnnotated(transpiled.transpiledNode.leadingComment)))
 
-                            program.body = program.body.concat(transpiled.transpiledNode.body);
+                            program.body = program.body
+                                        .concat(transpiled.setupNode)
+                                        .concat(transpiled.transpiledNode.body)
+                                        .concat(transpiled.closeupNode);
                         else
-                            program.body.push(transpiled.transpiledNode);
+                            program.body = program.body.concat(transpiled.getTransformed());
                     }
                     nodes = transpiled.nodes;  
                     nodes.remove(n);

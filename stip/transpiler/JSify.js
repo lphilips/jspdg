@@ -313,6 +313,7 @@ var JSify = (function () {
             actual_ins  = node.getActualIn(),
             actual_outs = node.getActualOut(),
             parent      = Ast.parent(node.parsenode, transpiler.ast),
+            callexp     = Aux.clone(Pdg.getCallExpression(node.parsenode)),
             transformed;
 
         arguments = actual_ins.filter(function (a_in) {
@@ -329,21 +330,26 @@ var JSify = (function () {
                 })
                 .map(function (n) {
                     transpiler.nodes = transpiler.nodes.remove(n)
-                })
+                });
         });
         actual_outs.map(function (a_out) {
             transpiler.nodes = transpiler.nodes.remove(a_out);
         });
 
-        if (transpiler.options.cps) {
-            makeTransformer(transpiler);
+        makeTransformer(transpiler);
+
+        if (transpiler.options.cps && 
+            transpiler.parseUtils.shouldTransform(node)) {
+            
             transformed = CPSTransform.transformCall(transpiler, false, parent);
-
             transpiler.nodes = transformed[0];
+            
 
-            if (transpiler.parseUtils.shouldTransform(node) &&
-                Aux.isMemberExpression(Pdg.getCallExpression(parsenode).callee)) {
+            if (Aux.isMemberExpression(Pdg.getCallExpression(parsenode).callee)) {
+                
                 node.parsenode.arguments = transformed[1].getArguments();
+
+                transpiler.closeupNode = transformed[1].getCallback().getBody();
 
                 if (Aux.isExpStm(parsenode)) {
                     transpiler.transpiledNode = node.parsenode;
@@ -360,15 +366,19 @@ var JSify = (function () {
             }
         }
 
-        Pdg.getCallExpression(node.parsenode).arguments = arguments;
+        callexp.arguments = arguments;
+
         if (Aux.isExpStm(parent) && Aux.isCallExp(parent.expression)) {
+            var parent = Aux.clone(parent);
+            parent.expression = callexp;
             transpiler.transpiledNode = parent;
         }
         else {
+            node.parsenode.expression = callexp;
             transpiler.transpiledNode = node.parsenode;
         }
 
-        transpiler.nodes = transpiler.nodes.remove(node);
+        //transpiler.nodes = transpiler.nodes.remove(node);
         return transpiler;
     }
     transformer.transformCallExp = transformCallExp;
@@ -434,7 +444,7 @@ var JSify = (function () {
             transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, n));
 
             if (nodesContains(transpiler.nodes, n) && transpiled.transpiledNode) {
-                body.push(transpiled.transpiledNode);
+                body = body.concat(transpiled.getTransformed());
             }
             transpiler.nodes = transpiled.nodes.remove(n);
             Transpiler.copySetups(transpiled, transpiler);
@@ -588,7 +598,7 @@ var JSify = (function () {
             if (nodesContains(transpiler.nodes, node)) {
                 transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, node));
                 transpiler.nodes = transpiled.nodes.remove(node);
-                block.push(transpiled.transpiledNode);
+                body = body.concat(transpiled.getTransformed());
             }
         });
 
@@ -622,7 +632,7 @@ var JSify = (function () {
         bodynodes.map(function (n) {
             transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, n));
             if (nodesContains(transpiler.nodes, n)) {
-                body.push(transpiled.transpiledNode);
+                body = body.concat(transpiled.getTransformed());
             }
             transpiler.nodes = transpiled.nodes.remove(n);
             Transpiler.copySetups(transpiled, transpiler);

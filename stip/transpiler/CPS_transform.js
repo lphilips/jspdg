@@ -73,7 +73,7 @@ var CPSTransform = (function () {
         }
         /* Data dependent nodes */
         datadeps.map( function (node) {
-            var incont = insideContinuation(callnode, node),
+            var incont = insideContinuation(callnode, node, transpiler),
                 dataentry = getEntryNode(node),
                 datanodes;
 
@@ -171,7 +171,7 @@ var CPSTransform = (function () {
         
         /* Sort on original order */
         datadep.sort(function (n1, n2) {
-                        return n1.cnt - n2.cnt;
+            return n1.cnt - n2.cnt;
         })
 
         datadep.map( function (n) {
@@ -180,6 +180,7 @@ var CPSTransform = (function () {
                 transpiler.parseUtils.shouldTransform(callnode)) {
                 transpiled = Transpiler.transpile(transpilerDataDep);
                 nodes = transpiled.nodes;
+                transpiled.transpiledNode.cnt = transpiled.node.cnt;
                 callbackstms = callbackstms.concat(transpiled);
             }
         });
@@ -216,12 +217,18 @@ var CPSTransform = (function () {
                     if (nodesContains(nodes, transpiled.node) || transpiled.transpiledNode.cont || 
                         transpiled.node.edges_out.filter(function (e) {return e.to.isCallNode}).length > 0) {
 
-                        asyncCall.getCallback().addBodyStm(transpiled.transpiledNode);
+                        asyncCall.getCallback().addBodyStms(transpiled.getTransformed());
                         nodes = nodes.remove(transpiled.node);
                     }
                 })
             }
-            transpiledNode = asyncCall;
+            if (transpiledNode !== asyncCall && transpiler.parseUtils.shouldTransform(callnode)) {
+                transpiledNode.parsenode.cont(asyncCall);
+                transpiledNode.parsenode.cont = asyncCall.parsenode.cont;
+                transpiledNode.parsenode.callnode = callnode;
+            } 
+            else if (transpiler.parseUtils.shouldTransform(callnode))
+                transpiledNode = asyncCall;
         }
 
 
@@ -244,7 +251,7 @@ var CPSTransform = (function () {
                        Does not apply for transformed call statements */
                     if (transpiled.transpiledNode.cont || nodesContains(nodes, transpiled.node) ||
                         transpiled.node.edges_out.filter( function (e) {return e.to.isCallNode}).length > 0) {
-                        transpiledNode.getCallback().addBodyStm(transpiled.transpiledNode);
+                        transpiledNode.getCallback().addBodyStms(transpiled.getTransformed());
                         nodes = nodes.remove(transpiled.node);
                     }
                 })
@@ -261,7 +268,7 @@ var CPSTransform = (function () {
                        Does not apply for transformed call statements */
                     if (nodesContains(nodes, transpiled.node) || transpiled.transpiledNode.cont || 
                         transpiled.node.edges_out.filter(function (e) {return e.to.isCallNode}).length > 0) {
-                        asyncCall.getCallback().addBodyStm(transpiled.transpiledNode);
+                        asyncCall.getCallback().addBodyStms(transpiled.getTransformed());
                         nodes = nodes.remove(transpiled.node);
                     }
                 })
@@ -279,7 +286,7 @@ var CPSTransform = (function () {
                        Does not apply for transformed call statements */
                     if (nodesContains(nodes, transpiled.node)|| transpiled.transpiledNode.cont || 
                         transpiled.node.edges_out.filter(function (e) {return e.to.isCallNode}).length>0) {
-                        asyncCall.getCallback().addBodyStm(transpiled.transpiledNode);
+                        asyncCall.getCallback().addBodyStms(transpiled.getTransformed());
                         nodes = nodes.remove(transpiled.node);
                     }
                 })
@@ -334,7 +341,11 @@ var CPSTransform = (function () {
                                        e.g. node is of form  rpc(notransform(transform(x))),
                                        transform(x) should be replaced with latest result parameter  */
                                     node.replaceArg(latestcall.parsenode.callnode.parsenode, replc);
-                                    node.callback.setBody(node.callback.getBody().concat(callb.getBody().slice(1)));
+                                    node.callback.setBody(node.callback.getBody()
+                                            .concat(callb.getBody().slice(1))
+                                            .sort(function (n1, n2) {
+                                                return n1.cnt - n2.cnt;
+                                            }));
                                     callb.setBody([node.parsenode]);
                                 }
                             }
@@ -462,9 +473,11 @@ var CPSTransform = (function () {
         return parent; 
     }
 
-    /* Aux function, indicating whether a statement is inside the continuation of a call annotated with @blocking */
-    var insideContinuation = function (startingpoint, statement) {
+    /* Aux function, indicating whether a statement is inside the continuation of a call annotated with @blocking 
+       Could be that call is in @blocking block */
+    var insideContinuation = function (startingpoint, statement, transpiler) {
         var remainder = getRemainderStms(startingpoint),
+            blockComm = isBlockAnnotated(startingpoint.parsenode, transpiler.ast),
             cont      = false,
             passed    = false;
         remainder.map(function (remstm) {
@@ -475,8 +488,27 @@ var CPSTransform = (function () {
                 cont = remstm;
             if (remstm.equals(statement))
                 passed = true;
-        })
-        return cont;
+        });
+        if (blockComm && Comments.isBlockingAnnotated(blockComm))
+            return false;
+        else
+            return cont;
+    }
+
+
+    function isBlockAnnotated (node, ast) {
+       var parent = node,
+            annotation;
+        while(!Aux.isProgram(parent)) {
+            if (Aux.isBlockStm(parent) && parent.leadingComment) {
+                break;
+            }
+            parent = Ast.parent(parent, ast);
+        }
+        if (Aux.isBlockStm(parent)) {
+            return parent.leadingComment;
+        }
+        return;
     }
 
 
@@ -517,8 +549,7 @@ var CPSTransform = (function () {
             remainder = [],
             entry     = getEntryNode(callnode), 
             body, remainder; 
-        body = entry.getOutEdges(EDGES.CONTROL)
-            .map(function (e) {return e.to})
+        body = entry.getOutNodes(EDGES.CONTROL)
             .filter(function (n) {return !n.isFormalNode});
         body.map(function (bodynode) {
             if (bodynode.equals(callnode) || 

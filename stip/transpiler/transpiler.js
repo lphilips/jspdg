@@ -25,6 +25,14 @@ var Transpiler = (function () {
             closeup     : closeup ? closeup : [],
             method      : false,
             methods     : [],
+            setupNode   : [],
+            closeupNode : [],
+            getTransformed : function () {
+                var nodes = this.setupNode.concat(this.transpiledNode).concat(this.closeupNode);
+                //this.setupNode = [];
+                //this.closeupNode = [];
+                return nodes;
+            }
         };
 
     }
@@ -44,6 +52,8 @@ var Transpiler = (function () {
             copy.parseUtils = transpiler.parseUtils;
         if (transpiler.transformCPS)
             copy.transformCPS = transpiler.transformCPS;
+        //copy.setupNode = transpiler.setupNode;
+        //copy.closeupNode = transpiler.closeupNode;
         return copy;
     }
 
@@ -51,6 +61,8 @@ var Transpiler = (function () {
         transpilerTo.setup = transpilerFrom.setup.concat(transpilerTo.setup);
         transpilerTo.closeup = transpilerFrom.closeup.concat(transpilerTo.closeup);
         transpilerTo.methods = transpilerFrom.methods.concat(transpilerTo.methods);
+        transpilerTo.closeupNode = transpilerFrom.closeupNode.concat(transpilerTo.closeupNode);
+        transpilerTo.setupNode = transpilerFrom.setupNode.concat(transpilerTo.setupNode);
     }
 
     function transpile (transpiler) {

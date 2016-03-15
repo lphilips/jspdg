@@ -47,6 +47,9 @@ var JSParse = (function () {
                   addBodyStm : function (stm) {
                     this.parsenode.body.body.push(stm);
                   },
+                  addBodyStms : function (stms) {
+                    this.parsenode.body.body = this.parsenode.body.body.concat(stms);
+                  },
                   setBody    : function (body) {
                     this.parsenode.body.body = body
                   },
@@ -65,6 +68,7 @@ var JSParse = (function () {
 
     var RPC = function (call, fname, args) {
       var callnode = Pdg.getCallExpression(call.parsenode),
+          parsenode,
           callee;
       if (Aux.isMemberExpression(callnode.callee)) 
         callee =  callnode.callee;
@@ -73,7 +77,7 @@ var JSParse = (function () {
                   type: "Identifier",
                   name: fname
         };
-      return { parsenode  : {
+      parsenode = {
                         callnode  : call,
                         type      : "ExpressionStatement",
                         expression: {
@@ -81,7 +85,9 @@ var JSParse = (function () {
                             callee: callee,
                             arguments: args ? args : []
                         }
-                    },
+                    };
+      Ast.augmentAst(parsenode);
+      return {    parsenode  : parsenode,
                   addArg    : function (arg) {
                     this.parsenode.expression.arguments = this.parsenode.expression.arguments.concat(arg)
                   },
