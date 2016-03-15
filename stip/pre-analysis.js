@@ -3,7 +3,7 @@
    that are used as callback functions on the client side.
    Calls for these functions are automatically added in the client side block.
 */
-var pre_analyse = function (ast, callbackFunctionsC) {
+var pre_analyse = function (ast, toGenerate) { 
     var anonf_ct    = 0;
     var anonf_name  = 'anonf';
     var primitives  = ["$", "console", "window"];
@@ -15,6 +15,7 @@ var pre_analyse = function (ast, callbackFunctionsC) {
     var primtoadd   = {};
     var fundefsC    = [];
     var sharedblock;
+    var generatedIdentifiers;
 
     function function_args (callnode) {
         return callnode.arguments.filter(function (arg) {
@@ -217,7 +218,7 @@ var pre_analyse = function (ast, callbackFunctionsC) {
 
     function generateCallbackCalls() {
         var calls = [];
-        callbackFunctionsC.map(function (cb) {
+        toGenerate.callbacks.map(function (cb) {
             var call = createCall(cb);
             var func = fundefsC[cb];
 
@@ -232,11 +233,26 @@ var pre_analyse = function (ast, callbackFunctionsC) {
                         value: null
                     });
                 });
+                Ast.augmentAst(call);
                 calls.push(call);
             }
         });
 
         return calls;
+    }
+
+
+    function generateIdentifiers() {
+        var identifiers = [];
+        toGenerate.identifiers.map(function (name) {
+            var id = createIdentifier(name);
+            id.leadingComment = {type: "Block", value:"@generated", range: [0,16]};
+            Ast.augmentAst(id);
+            identifiers.push(id);
+        })
+        generatedIdentifiers = identifiers;
+        return identifiers;
+
     }
 
     Aux.walkAst(ast, {
@@ -280,6 +296,7 @@ var pre_analyse = function (ast, callbackFunctionsC) {
 
                 if (comment && Comments.isClientAnnotated(comment)) {
                     node.body = node.body.concat(generateCallbackCalls());
+                    node.body = node.body.concat(generateIdentifiers());
                 }
             }
 
@@ -392,11 +409,12 @@ var pre_analyse = function (ast, callbackFunctionsC) {
     ast.body = js_libs.getLibraries().concat(anonfSh).concat(callSh).concat(ast.body);
 
     return  {
-        ast        : ast,
-        assumes    : js_libs.getLibraries().concat(assumes),
-        shared     : sharedblock,
-        primitives : primitives,
-        asyncs     : asyncs
+        ast         : ast,
+        assumes     : js_libs.getLibraries().concat(assumes),
+        shared      : sharedblock,
+        primitives  : primitives,
+        asyncs      :  asyncs,
+        identifiers : generatedIdentifiers
     };
 };
 

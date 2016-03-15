@@ -46,7 +46,7 @@ function slice (src, statementsrc) {
     ast = Hoist.hoist(ast, function (node) {
         return Aux.isBlockStm(node) && Comments.isTierAnnotated(node)
     });
-    var pre_analysis = pre_analyse(ast, []),
+    var pre_analysis = pre_analyse(ast, {callabcks: [], identifiers: []}),
         genast       = pre_analysis.ast,
         assumes      = pre_analysis.assumes,
         shared       = pre_analysis.shared,

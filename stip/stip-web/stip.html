@@ -117,7 +117,7 @@
 
 
             /* Pre analysis step (uses falafel, so does not work on AST but string representation */
-            var preanalysis = pre_analyse(ast, []);
+            var preanalysis = pre_analyse(ast, {callbacks: [], identifiers: []});
             src = escodegen.generate(preanalysis.ast);
             console.log(src);
             assumes = preanalysis.assumes;

@@ -30,7 +30,7 @@ function tiersplit (src) {
     ast = Hoist.hoist(ast, function (node) {
         return Aux.isBlockStm(node) && Comments.isTierAnnotated(node)
     });
-    var pre_analysis = pre_analyse(ast, []),
+    var pre_analysis = pre_analyse(ast, {callbacks: [], identifiers: []}),
         genast       = pre_analysis.ast,
         assumes      = pre_analysis.assumes,
         shared       = pre_analysis.shared,
@@ -142,7 +142,7 @@ function cpstransform (src) {
                         (Comments.isTierAnnotated(node) || 
                             (node.leadingComment && Comments.isBlockingAnnotated(node.leadingComment)));
     });
-    var pre_analysis = pre_analyse(ast),
+    var pre_analysis = pre_analyse(ast, {callbacks: [], identifiers: []}),
         genast       = pre_analysis.ast,
         assumes      = pre_analysis.assumes,
         shared       = pre_analysis.shared,
@@ -296,10 +296,10 @@ suite('CPS transform', function () {
 
     test('blocking delimited block2', function () {
         var ast = cpstransform('function foo(x) {return x} /* @blocking */ { var z = foo(foo(42)); var a = z + 101;} foo(4);');
-        console.log(escodegen.generate(ast.nosetup));
         compareAst(escodegen.generate(ast.nosetup),
             'function foo(x, _v1_) {return _v1_(null, x)} var z; var a; foo(42, function(_v2_, _v3_) {foo(_v3_, function (_v4_, _v5_) {z = _v5_; a = z + 101;});}); foo(4, function (_v6_, _v7_){});',
             {varPattern: /_v\d_/ })        
     })
+    
 
 });
