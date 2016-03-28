@@ -300,6 +300,6 @@ suite('CPS transform', function () {
             'function foo(x, _v1_) {return _v1_(null, x)} var z; var a; foo(42, function(_v2_, _v3_) {foo(_v3_, function (_v4_, _v5_) {z = _v5_; a = z + 101;});}); foo(4, function (_v6_, _v7_){});',
             {varPattern: /_v\d_/ })        
     })
-    
+
 
 });

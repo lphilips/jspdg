@@ -305,23 +305,26 @@ var Nodeify = (function () {
             actual_outs = node.getActualOut(),  
             parent      = Ast.parent(node.parsenode, transpiler.ast),
             entryNode   = node.getEntryNode()[0],
+            callargs    = 0,
             transpiled;
         makeTransformer(transpiler);
 
+        arguments = actual_ins.filter(function (a_in) {
+            return nodesContains(transpiler.nodes, a_in);
+        }).map(function (a_in) {
+            return a_in.parsenode;
+        });
+       
         actual_ins.map(function (a_in) {
-            a_in.getOutNodes(EDGES.CONTROL)
-                .map(function (n) {
-                    /* TODO: parsenode */
-                    transpiler.nodes = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, n)).nodes;
-                })
             transpiler.nodes = transpiler.nodes.remove(a_in);
             a_in.getOutNodes(EDGES.CONTROL)
                 .filter(function (n) {
-                    return n.isCallNode;
+                    return n.isCallNode
                 })
                 .map(function (n) {
+                    callargs++;
                     transpiler.nodes = transpiler.nodes.remove(n);
-                })
+                });
         });
         actual_outs.map(function (a_out) {
             transpiler.nodes = transpiler.nodes.remove(a_out);
@@ -342,7 +345,7 @@ var Nodeify = (function () {
         if (entryNode.isServerNode()) {
             /* CASE 2 */
             if (node.isClientNode()) {
-                transpiled = transpiler.transformCPS.transformCall(transpiler, parent);
+                transpiled = transpiler.transformCPS.transformCall(transpiler, false, parent);
                 transpiler.nodes = transpiled[0];
                 transpiler.transpiledNode = transpiled[1].parsenode;
 
@@ -358,7 +361,7 @@ var Nodeify = (function () {
         else if (entryNode.isClientNode()) {
             /* CASE  4 : defined on client, called by client */
             if(node.isClientNode()) {
-                transpiled = transpiler.transformCPS.transformCall(node, transpiler.nodes, transformer, parent);
+                transpiled = transpiler.transformCPS.transformCall(transpiler, false, parent);
                 transpiler.nodes = transpiled[0];
                 transpiler.transpiledNode= transpiled[1].parsenode;
 
@@ -382,7 +385,7 @@ var Nodeify = (function () {
         /* Shared function */
         else if (entryNode.isSharedNode()) {
             if (node.parsenode.leadingComment && Comments.isBlockingAnnotated(node.parsenode.leadingComment)) {
-                transpiled = transformer.transformCPS.transformCall(node, transpiler.nodes, transformer, parent);
+                transpiled = transformer.transformCPS.transformCall(transpiler, false, parent);
                 transpiler.nodes = transpiled[0];
                 transpiler.transpiledNode = transpiled[1].parsenode;
             }

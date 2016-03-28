@@ -288,7 +288,6 @@ var Stip = (function () {
             formout = handleFormalOutParameters(graphs, stmNode, graphs.PDG.entryNode, true);
             stmNode.addEdgeOut(formout, EDGES.DATA);
         }
-        
         return [stmNode];    
     }
 

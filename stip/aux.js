@@ -232,6 +232,7 @@ var Aux = (function () {
           forEach(objectKeys(node), function(name) {
               // ignore auto generated
               if (name[0] === "$") return;
+              if (name[0] === "_") return;
 
               var value = node[name],
                   cvalue;

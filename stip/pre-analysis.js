@@ -6,7 +6,7 @@
 var pre_analyse = function (ast, toGenerate) { 
     var anonf_ct    = 0;
     var anonf_name  = 'anonf';
-    var primitives  = ["$", "console", "window"];
+    var primitives  = ["$", "console", "window", "Math"];
     var asyncs      = ["https", "dns", "fs", "proxy"];
     var anonfSh     = [];
     var callSh      = [];

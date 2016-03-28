@@ -58,6 +58,9 @@ var JSParse = (function () {
                   },
                   getResPar  : function () {
                     return this.parsenode.params[1];
+                  },
+                  getResParCnt : function () {
+                    return cnt;
                   }
               };
     };
