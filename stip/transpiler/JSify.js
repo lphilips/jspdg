@@ -389,7 +389,7 @@ var JSify = (function () {
         callexp.arguments = arguments;
 
         if (Aux.isExpStm(parent) && Aux.isCallExp(parent.expression)) {
-            var parent = Aux.clone(parent);
+            parent = Aux.clone(parent);
             parent.expression = callexp;
             transpiler.transpiledNode = parent;
         }
@@ -398,7 +398,6 @@ var JSify = (function () {
             transpiler.transpiledNode = node.parsenode;
         }
 
-        //transpiler.nodes = transpiler.nodes.remove(node);
         return transpiler;
     }
     transformer.transformCallExp = transformCallExp;
@@ -470,6 +469,7 @@ var JSify = (function () {
                 body = body.concat(transpiled.getTransformed());
             }
             transpiler.nodes = transpiled.nodes.remove(n);
+            transpiled.closeupNode = transpiled.setupNode = [];
             Transpiler.copySetups(transpiled, transpiler);
         });
         transpiler.nodes = transpiler.nodes.remove(node);
@@ -547,8 +547,9 @@ var JSify = (function () {
 
     function transformNewExp (transpiler) {
         var node        = transpiler.node,
-            call        = node.getOutNodes(EDGES.OBJMEMBER)
-                        .filter(function (n) {return n.isCallNode; })[0],
+            upnode      = node.getInNodes(EDGES.DATA)[0],
+            call        = upnode.getOutNodes(EDGES.CONTROL)
+                            .filter(function (n) {return n.isCallNode; })[0],
             parsenode   = node.parsenode,
             actual_ins  = call.getActualIn(),
             actual_outs = call.getActualOut();
@@ -622,7 +623,7 @@ var JSify = (function () {
             if (nodesContains(transpiler.nodes, node)) {
                 transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, node));
                 transpiler.nodes = transpiled.nodes.remove(node);
-                body = body.concat(transpiled.getTransformed());
+                block = block.concat(transpiled.getTransformed());
             }
         });
 
@@ -706,6 +707,7 @@ var JSify = (function () {
 
     transformer.transformExitNode = noTransformation;
     transformer.transformActualParameter = noTransformation;
+    transformer.transformMemberExpression = noTransformation;
 
     function nodesContains (nodes, node, cps) {
         return nodes.filter(function (n) {

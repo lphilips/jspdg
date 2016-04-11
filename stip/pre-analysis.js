@@ -25,7 +25,9 @@ var pre_analyse = function (ast, toGenerate) {
     }
 
     function createIdentifier (id) {
-        return {type:'Identifier', name:id};
+        var identifier = {type:'Identifier', name:id};
+        Ast.augmentAst(identifier);
+        return identifier;
     }
 
     function createDeclaration  (id) {
@@ -152,6 +154,26 @@ var pre_analyse = function (ast, toGenerate) {
         return call;
     }
 
+
+    function createObjectArgument () {
+        var object = {type: "ObjectExpression", properties: []};
+        Ast.augmentAst(object);
+        return {
+            object : object,
+            addProperty : function (identifier, value) {
+                object.properties.push({
+                    type: "Property",
+                    key: identifier,
+                    value: value,
+                    computed: false,
+                    kind: "init"
+                })
+            },
+            hasProperties : function () {
+                return object.properties.length > 0;
+            }
+        }
+    }
 
     /* Gets annotation of form '@assumes [variable, function(x)]' */
     function extractAssumes (string) {
@@ -337,10 +359,10 @@ var pre_analyse = function (ast, toGenerate) {
 
                 if (primitives.indexOf(name) >= 0 ) {
                     node.primitive = true;
-                    node.parent = Ast.parent(node, ast);
-                    if (Aux.isExpStm(node.parent) || Aux.isVarDecl(node.parent) ||
-                        Aux.isAssignmentExp(node.parent) || Aux.isVarDeclarator(node.parent)) {
-                        node.parent.primitive = name;
+                    node._parent = Ast.parent(node, ast);
+                    if (Aux.isExpStm(node._parent) || Aux.isVarDecl(node._parent) ||
+                        Aux.isAssignmentExp(node._parent) || Aux.isVarDeclarator(node._parent)) {
+                        node._parent.primitive = name;
                     }
 
                 }
@@ -355,7 +377,7 @@ var pre_analyse = function (ast, toGenerate) {
                             name = anonf_name + ++anonf_ct;
                             var func = createFunDecl(name, arg.params);
                             var call = createCall(name);
-
+                            var objectarg = createObjectArgument();
 
                             call.leadingComment = {type: "Block", value:"@generated", range: [0,16]};
                             if (comment && Comments.isClientAnnotated(comment)) {
@@ -366,11 +388,30 @@ var pre_analyse = function (ast, toGenerate) {
                             }
                             func.body = arg.body;
                             func.params.map(function (param) {
+                                /* Are parameters used in body as object? 
+                                   Call it with an object literal that has those properties */
+                                Aux.walkAst(func.body, {
+                                    pre: function (node) {
+                                        if (Aux.isCallExp(node) && Aux.isMemberExpression(node.callee) &&
+                                            Aux.isIdentifier(node.callee.object) && param.name == node.callee.object.name) {
+                                            objectarg.addProperty(node.callee.property, createFunExp([], false));
+                                        }
+                                        else if (Aux.isMemberExpression(node) && Aux.isIdentifier(node.property) &&
+                                            !(Aux.isCallExp(Ast.parent(node, ast)))) {
+                                            objectarg.addProperty(node.property, {type: "Literal",value: null});
+                                        }
+                                    }
+                                });
+
                                 call.expression.arguments = call.expression.arguments.concat({
                                         type: "Literal",
                                         value: null
                                     });
                             });
+                            if (objectarg.hasProperties()) {
+                                Ast.augmentAst(objectarg.object);
+                                call.expression.arguments = [objectarg.object];
+                            }
                             Ast.augmentAst(func);
                             bodyFirst.push(func);
                             bodyLast.push(call);

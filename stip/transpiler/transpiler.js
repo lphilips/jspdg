@@ -107,6 +107,8 @@ var Transpiler = (function () {
                     return transformer.transformCallExp(transpiler);
                 case 'BinaryExpression':
                     return transformer.transformBinaryExp(transpiler);
+                case 'MemberExpression':
+                    return transformer.transformMemberExpression (transpiler);
 
             }
 

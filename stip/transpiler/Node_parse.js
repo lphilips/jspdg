@@ -15,7 +15,21 @@ var NodeParse = (function () {
             kind            : 'var'
         };
     };
+
+
+    var createLiteral = function (name) {
+        return {
+            type            : 'Literal',
+            value           : name
+        }
+    }
        
+    var createIdentifier = function (id) {
+        return {
+            type            : 'Identifier',
+            name            : id
+        }
+    }
 
     var createExp = function (exp) {
         return {
@@ -315,6 +329,113 @@ var NodeParse = (function () {
 
 
 
+    var createDataGetter = function (name) {
+        return {
+            type: "ExpressionStatement",
+            expression: {
+                type: "CallExpression",
+                callee: {
+                    type: "MemberExpression",
+                    computed: false,
+                    object: {
+                        type: "Identifier",
+                        name: "store"
+                    },
+                    property: {
+                        type: "Identifier",
+                        name: "get"
+                    }
+                },
+                arguments: [
+                    {
+                        type: "Literal",
+                        value: name
+                    }
+                ]
+            }
+        }
+    }
+
+    var createDataSetter = function (name, value) {
+        return {
+            type: "ExpressionStatement",
+            expression: {
+                type: "CallExpression",
+                callee: {
+                    type: "MemberExpression",
+                    computed: false,
+                    object: {
+                        type: "Identifier",
+                        name: "store"
+                    },
+                    property: {
+                        type: "Identifier",
+                        name: "set"
+                    }
+                },
+                "arguments": [
+                    {
+                        "type": "Literal",
+                        "value": name,
+                    },
+                    value
+                ]
+            }
+        }
+    }
+
+    var createGetterVarDecl = function (name) {
+        return {
+            "type": "ExpressionStatement",
+            "expression": {
+                "type": "AssignmentExpression",
+                "operator": "=",
+                "left": {
+                    "type": "Identifier",
+                    "name": name
+                },
+                "right": {
+                    "type": "CallExpression",
+                    "callee": {
+                        "type": "MemberExpression",
+                        "computed": false,
+                        "object": {
+                            "type": "Identifier",
+                            "name": "store"
+                        },
+                        "property": {
+                            "type": "Identifier",
+                            "name": "get"
+                        }
+                    },
+                    "arguments": [
+                        {
+                            "type": "Literal",
+                            "value": name
+                        }
+                    ]
+                }
+            }
+        }
+    }
+
+    var createStore = function () {
+        return [esprima.parse('var store = new Store();').body[0]]
+    }
+
+    var createStoreClient = function () {
+        return createStore().concat([
+            esprima.parse('store.localStore(localStorage);').body[0],
+            esprima.parse('store.connectClient(client);').body[0]
+            ])
+    }
+
+    var createStoreServer = function () {
+        return createStore().concat([
+            esprima.parse('store.connectServer(server);').body[0]
+            ]);
+    }
+
     var createServer = function () {
         return esprima.parse('var server = new ServerRpc(serverHttp, {})').body[0];
     };
@@ -332,20 +453,27 @@ var NodeParse = (function () {
     };
 
 
-    toreturn.createVarDecl   = createVarDecl;
-    toreturn.createExp       = createExp;
-    toreturn.callback        = callback;
-    toreturn.RPC             = RPC;
-    toreturn.RPCReturn       = RPCReturn;
-    toreturn.asyncFun        = asyncFun;
-    toreturn.methodsClient   = methodsClient;
-    toreturn.methodsServer   = methodsServer; 
-    toreturn.createServer    = createServer;
-    toreturn.createClient    = createClient;
-    toreturn.createBroadcast = broadcast;
-    toreturn.asyncReplyC     = asyncReplyC;
-    toreturn.createReturnStm = createReturnStm;
-    toreturn.createCallCb    = createCallCb;
+    toreturn.createVarDecl      = createVarDecl;
+    toreturn.createLiteral      = createLiteral;
+    toreturn.createIdentifier   = createIdentifier
+    toreturn.createExp          = createExp;
+    toreturn.callback           = callback;
+    toreturn.RPC                = RPC;
+    toreturn.RPCReturn          = RPCReturn;
+    toreturn.asyncFun           = asyncFun;
+    toreturn.methodsClient      = methodsClient;
+    toreturn.methodsServer      = methodsServer; 
+    toreturn.createServer       = createServer;
+    toreturn.createClient       = createClient;
+    toreturn.createBroadcast    = broadcast;
+    toreturn.asyncReplyC        = asyncReplyC;
+    toreturn.createReturnStm    = createReturnStm;
+    toreturn.createCallCb       = createCallCb;
+    toreturn.createDataSetter   = createDataSetter;
+    toreturn.createDataGetter   = createDataGetter;
+    toreturn.createGetterVarDecl = createGetterVarDecl;
+    toreturn.createStoreClient  = createStoreClient;
+    toreturn.createStoreServer  = createStoreServer;
 
     if (typeof module !== 'undefined' && module.exports != null) {
         esprima         = require('../lib/esprima.js');

@@ -146,19 +146,19 @@ PDG_Node.prototype.enclosingObjectEntry = function () {
     var ins     = this.getInEdges(EDGES.CONTROL).slice(),
         visited = [],
         entry;
-    if (this.objectEntry) 
-        return this.objectEntry;
+    if (this._objectEntry) 
+        return this._objectEntry;
     while (ins.length > 0) {
         var edge  = ins.shift(),
             from  = edge.from;
-        if (from.isObjectEntry) {
+        if (from._isObjectEntry) {
             entry = from;
-            this.objectEntry = from;
+            this._objectEntry = from;
             break;
         } 
-        else if (from.parsenode && from.parsenode.objectentry) {
-            this.objectEntry = from.parsenode.objectentry;
-            entry = this.objectEntry;
+        else if (from.parsenode && from.parsenode._objectentry) {
+            this._objectEntry = from.parsenode._objectentry;
+            entry = this._objectEntry;
             break;
         }
         else {

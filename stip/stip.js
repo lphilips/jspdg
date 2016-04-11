@@ -2,7 +2,7 @@ var Stip = (function () {
 
     var module = {};
 
-    var arrayprims  = ["filter", "count", "push", "search", "length", "map", "append", "concat", "forEach", "slice"];
+    var arrayprims  = ["filter", "count", "push", "search", "length", "map", "append", "concat", "forEach", "slice", "find"];
     var stringprims = ["startsWith", "charAt", "charCodeAt", "search", "indexOf"];
 
     var isPrimitive = function (callname) {
@@ -172,7 +172,7 @@ var Stip = (function () {
         /* TODO functies moeten aparte object members worden, niet in constructor functie */
         next_node.body.body.map(function (prop) {
             var propNode, parsenode;
-            prop.objectentry = objectEntry;
+            prop._objectentry = objectEntry;
             propNode  = makePDGNode(graphs, prop, entryNode)[0];
             parsenode = propNode.parsenode;
             if (Aux.isExpStm(parsenode) && Aux.isAssignmentExp(parsenode.expression)) {
@@ -377,6 +377,7 @@ var Stip = (function () {
             objectentry = graphs.PDG.makeObjEntry(node),
             fouts       = entry.getFormalOut(),
             protoentry;
+        
         upnode.addEdgeOut(objectentry, EDGES.DATA);
         /* Call to constructor function */
         if (calledf.length > 0) {
@@ -385,7 +386,7 @@ var Stip = (function () {
             objectentry.constructorNode = entry;
         }
 
-        handleCallExpression(graphs, node, objectentry);
+        handleCallExpression(graphs, node, upnode);//objectentry);
         
         return [objectentry];
     }
@@ -472,7 +473,10 @@ var Stip = (function () {
                                             .filter(function (n) {return n.isObjectEntry})[0]
                            // } 
                             if (!objectentry) {
-                              //  addDataDep(declarationNode, stmNode);
+                                if (!hasEntryParent)
+                                    addDataDep(declarationNode, upnode);
+                                else
+                                    addDataDep(declarationNode, stmNode);
                             }
                             else {
                                 if (objectentry.getMember) {
@@ -579,9 +583,7 @@ var Stip = (function () {
             upnode.primitive = true;
         }
         // Callee = member expression en de left hand side, declaration = primitive set
-        /*
-         *  TODO
-         */
+
         if (Aux.isMemberExpression(parsenode.callee)) { 
             var  getObject = function (member) {
                     if (member.object && Aux.isIdentifier(member.object))
@@ -608,12 +610,29 @@ var Stip = (function () {
                             objectentry = pdgnode.getOutNodes(EDGES.CONTROL).filter(function (n) {return n.isStatementNode && Aux.isRetStm(n.parsenode)}).flatMap(function (n) {return n.getOutNodes(EDGES.DATA)}).filter(function (n) {return n.isObjectEntry})[0];
                         }
                         /* If no object entry, we can't connect an OE node with the referred node,
-                           e.g. as the result of a map, filter call. Make data ref to declaration node */
+                           e.g. as the result of a map, filter call. Make data ref to declaration node 
+                           + add actual out parameter with data ref to upnode*/
                         if (!objectentry && !pdgnode.equals(upnode)) {
+                            var actual_out = new ActualPNode(++graphs.PDG.funIndex, -1)
                             addDataDep(pdgnode, callnode);
                             addToPDG(callnode, upnode, graphs);
                             handleActualParameters(graphs, parsenode, callnode);
                             callnode.primitive = primitive;
+                            callnode.addEdgeOut(actual_out, EDGES.CONTROL);
+
+                            if (!hasEntryParent) {
+                                actual_out.addEdgeOut(upnode, EDGES.DATA)
+                            }
+                            callnode.getActualIn().map(function (a_in) {
+                                var entry = a_in.getInNodes(EDGES.DATA).filter(function (n) {return n.isEntryNode});
+                                if (entry.length > 0) {
+                                    entry[0].getFormalOut().map(function (f_out) {
+                                        f_out.addEdgeOut(actual_out, EDGES.DATA);
+                                    })
+                                }
+                                a_in.addEdgeOut(actual_out, EDGES.SUMMARY);
+                            }) 
+
                         }
                         else if (!pdgnode.equals(upnode)) {
                             /* Get object property */
@@ -679,8 +698,6 @@ var Stip = (function () {
                             callnode.addEdgeOut(actual_out, EDGES.CONTROL);  
                         })
 
-
-
                             if (!hasEntryParent) {
                                 pdgnode.addEdgeOut(upnode, EDGES.DATA)
                             } else {
@@ -704,11 +721,20 @@ var Stip = (function () {
                         Aux.isObjExp(node.parsenode.init)) {
                         res = handle(node);
                         break;
+                    }
+                    if (node.isStatementNode &&
+                        Aux.isVarDeclarator(node.parsenode) &&
+                        !node.parsenode.init) {
+                        addDataDep(node, callnode);
                     }                
                     /* call is of form othercall().thiscall */
                     else if (node.isEntryNode) {
                         var objectentry = node.getOutNodes(EDGES.CONTROL).filter(function (n) {return n.isStatementNode && Aux.isRetStm(n.parsenode)}).flatMap(function (n) {return n.getOutNodes(EDGES.DATA)}).filter(function (n) {return n.isObjectEntry})[0];
                         handle(node, objectentry);
+                    }
+                    else if (node.isFormalNode) {
+                        addDataDep(node, callnode);
+                        addToPDG(callnode, upnode, graphs);
                     }
                     else if (node.isStatementNode && 
                             Aux.isExpStm(node.parsenode) &&
@@ -728,6 +754,10 @@ var Stip = (function () {
             else if (primitive) {
                 callnode.primitive = true;
                 addToPDG(callnode, upnode, graphs);
+            }
+            else if (Aux.isNewExp(parsenode.callee.object)) {
+                var objectentry = makePDGNode(graphs, parsenode.callee.object, upnode);
+                return handle(callnode, objectentry[0]);
             }
             else {
                 graphs.ATP.installListener(declaration, handle);
@@ -799,7 +829,7 @@ var Stip = (function () {
                                             .map(function (e) {return e.to})
                                             .filter(function (n) {return n.isObjectEntry});
                             upnodeform.map(function (objectentry) {
-                                addDataDep(upnode, objectentry)
+                                addDataDep(upnode, objectentry);
                             })                      
                         }    
 
@@ -820,7 +850,7 @@ var Stip = (function () {
 
                 if(!callnode.name.startsWith('anonf'))
                     entrynode.addCall(callnode);
-                return [callnode]
+                return [callnode];
             };
 
         /* generated calls should add call info to entry node */

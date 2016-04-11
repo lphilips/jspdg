@@ -157,11 +157,14 @@ var Aux = (function () {
         if (esp_isVarDecl(variableDecl)) 
           /* Variable Declaration */
           return variableDecl.declarations[0];
-
         else
           /* Variable Declarator */
           return variableDecl
+      }
 
+      function hasInitValue (variableDecl) {
+        var decl = getDeclaration(variableDecl);
+        return decl.init !== null;
       }
 
       //
@@ -328,6 +331,7 @@ var Aux = (function () {
     toreturn.inTryStatement     = esp_inTryStatement;
     toreturn.hasCallStm         = esp_hasCallStm;
     toreturn.getDeclaration     = getDeclaration;
+    toreturn.hasInitValue       = hasInitValue;
 
     toreturn.clone              = clone;
 

@@ -86,8 +86,6 @@ var CPSTransform = (function () {
 
         /* Upnode is given + of type var decl, assignment, etc */
         if(upnode && upnode.dataDependentNodes) {
-            /* Put it in callback, together with all statements dependent on the variable */
-            // datadeps = datadeps.concat(upnode.dataDependentNodes(false, true));
             if (!esp_exp) {
                 esp_exp = CPSgetExpStm(upnode.parsenode);
             }
@@ -96,6 +94,7 @@ var CPSTransform = (function () {
             callback.addBodyStm(upnode.parsenode);
             nodes = nodes.remove(upnode);
         }
+
         /* Data dependent nodes */
         datadeps.map( function (node) {
             var incont = insideContinuation(callnode, node, transpiler),
@@ -519,13 +518,13 @@ var CPSTransform = (function () {
                         node.__upnode.equals(func.parsenode)) {
                             /* Make sure methods like equal, hashcode are defined on the node*/
                             Ast.augmentAst(enclosingFun);
-                            /* callnode property is added if return statement is already transformed to a cps call 
+                            /* callnode property is added if return statement is already transformed to a cps call
                                No need to wrap it in a callback call again */
                             if (node.argument && !node.callnode) {
                                 node.type = "ReturnStatement";
                                 node.argument = transpiler.parseUtils.createCbCall('callback', {type: 'Literal', value: null}, node.argument);
                             }
-                            /* callnode property is added if return statement is already transformed to a cps call 
+                            /* callnode property is added if return statement is already transformed to a cps call
                                No need to wrap it in a callback call again */
                             else if (!node.callnode) {
                                 node.type = "ReturnStatement";
@@ -562,10 +561,10 @@ var CPSTransform = (function () {
                 parent = Ast.parent(parent, ast);
             }
         }
-        return parent; 
+        return parent;
     }
 
-    /* Aux function, indicating whether a statement is inside the continuation of a call annotated with @blocking 
+    /* Aux function, indicating whether a statement is inside the continuation of a call annotated with @blocking
        Could be that call is in @blocking block */
     var insideContinuation = function (startingpoint, statement, transpiler) {
         var remainder = getRemainderStms(startingpoint),
@@ -574,7 +573,7 @@ var CPSTransform = (function () {
             passed    = false;
         remainder.map(function (remstm) {
             var comment = remstm.parsenode.leadingComment;
-            if (comment && 
+            if (comment &&
                 Comments.isBlockingAnnotated(comment) &&
                 !passed && !cont)
                 cont = remstm;
@@ -610,12 +609,12 @@ var CPSTransform = (function () {
                 .slice(),
             visited = [],
             entry;
-        if (node.isObjectEntry && ins.length == 0) 
+        if (node.isObjectEntry && ins.length == 0)
             return node
         while (ins.length > 0) {
             var edge = ins.shift(),
                 from = edge.from;
-            if (from.isEntryNode || from.isDistributedNode || 
+            if (from.isEntryNode || from.isDistributedNode ||
                 from.isObjectEntry ||
                 from.isStatementNode && Aux.isTryStm(from.parsenode)) {
                 entry = from;
@@ -626,7 +625,7 @@ var CPSTransform = (function () {
                         if (!(Aux.contains(visited, edge))) {
                             visited.push(edge);
                             ins.push(edge);
-                        }   
+                        };
                 })
             }
         }
@@ -639,17 +638,17 @@ var CPSTransform = (function () {
             visited   = [],
             passed    = false,
             remainder = [],
-            entry     = getEntryNode(callnode), 
-            body, remainder; 
+            entry     = getEntryNode(callnode),
+            body, remainder;
         body = entry.getOutNodes(EDGES.CONTROL)
             .filter(function (n) {return !n.isFormalNode});
         body.map(function (bodynode) {
-            if (bodynode.equals(callnode) || 
+            if (bodynode.equals(callnode) ||
                 Aux.hasCallStm(bodynode, callnode.parsenode)) {
                 passed = true;
             }
             else if (passed) {
-                remainder.push(bodynode)
+                remainder.push(bodynode);
             }
         });
         return remainder;
@@ -674,7 +673,7 @@ var CPSTransform = (function () {
     }
 
     /* Used for expression with calls :
-     * variable declarations, assignments, binary expressions  
+     * variable declarations, assignments, binary expressions
      */
 
     var transformExp = function (transpiler) {
@@ -689,24 +688,21 @@ var CPSTransform = (function () {
             outercps, innercps;
 
         cps_count = 0;
+        //node.parsenode = Aux.clone(parsenode);
         calls.map( function (call) {
             cps_count += 1;
 
             if (nodesContains(nodes, call)) {
-                var exp = CPSgetExpStm(parsenode),
+                var exp = CPSgetExpStm(node.parsenode),
                     error  = {type : 'Literal', value:  null},
                     transpilerCall = Transpiler.copyTranspileObject(transpiler, call, nodes),
                     transpiled = transformCall(transpilerCall, node, exp);
 
                     if (Aux.isRetStm(parsenode) && transpiled[1].isRPC) {
-                        if (parsenode.argument) {
+                        if (node.parsenode.argument) {
                             /* If already transformed (for example binary exp c1 + c2)
                                Then do not make a nested callback call of it */
-                           // if (!Aux.isCallExp(transpiled[2]))
-                            //    transpiled[2] = transpiler.parseUtils.createCbCall('callback', error, transpiled[2]);
-                            //transpiled[1] = transpiler.parseUtils.createRPCReturn(transpiled[1]);
-                            //transpiled[1].__upnode = getEnclosingFunction(parsenode, transpiler.ast);
-                            parsenode.__upnode = getEnclosingFunction(parsenode, transpiler.ast);
+                            node.parsenode.__upnode = getEnclosingFunction(node.parsenode, transpiler.ast);
                         }
                         else {
                             /* If already transformed (for example binary exp c1 + c2)
@@ -714,21 +710,21 @@ var CPSTransform = (function () {
                             if (!Aux.isCallExp(transpiled[2]))
                                 transpiled[2] = transpiler.parseUtils.createCbCall('callback', error);
                             transpiled[1] = transpiler.parseUtils.createRPCReturn(transpiled[1]);
-                            transpiled[1].__upnode = getEnclosingFunction(parsenode, transpiler.ast);
+                            transpiled[1].__upnode = getEnclosingFunction(node.parsenode, transpiler.ast);
                         }
                     }
 
-                    if (transpiled[2]) CPSsetExpStm(parsenode, transpiled[2]);
+                    if (transpiled[2]) {node.parsenode = Aux.clone(node.parsenode); CPSsetExpStm(node.parsenode, transpiled[2]);}
                     nodes = transpiled[0].remove(call);
 
                     if (outercps) {
                         var callback = outercps.callback;
                         if (outercps.parsenode.cont) {
                             if( transpiled[1].getCallback) {
-                                transpiled[1].parsenode.cont(outercps)
-                                outercps = transpiled[1] 
-                            }           
-                        }                       
+                                transpiled[1].parsenode.cont(outercps);
+                                outercps = transpiled[1];
+                            }
+                        }
                     }
                     /* If transformed, change the outercps */
                     else if (transpiled[1].getCallback) {
@@ -740,52 +736,54 @@ var CPSTransform = (function () {
 
         if (outercps)
 
-            return [nodes, outercps]
+            return [nodes, outercps];
         else
 
-            return [nodes, node]
+            return [nodes, node];
     }
 
 
     var CPSgetExpStm = function (parsenode) {
         if (Aux.isVarDecl(parsenode))
-            return parsenode.declarations[0].init
+            return parsenode.declarations[0].init;
 
         else if (Aux.isVarDeclarator(parsenode)) {
-            return parsenode.init
+            return parsenode.init;
         }
 
         else if (Aux.isExpStm(parsenode)) {
             var exp = parsenode.expression;
-            if (Aux.isAssignmentExp(exp)) 
-                return exp.right 
+            if (Aux.isAssignmentExp(exp))
+                return exp.right;
 
-            else if (Aux.isBinExp) 
-                return exp
+            else if (Aux.isBinExp)
+                return exp;
         }
 
         else if (Aux.isRetStm(parsenode)) {
-            return parsenode.argument
+            return parsenode.argument;
         }
     }
 
 
     var CPSsetExpStm = function (parsenode, newexp) {
+       // parsenode = Aux.clone(parsenode);
         if(Aux.isVarDecl(parsenode)) {
             newexp.leadingComment = parsenode.declarations[0].leadingComment;
-            parsenode.declarations[0].init = newexp
+            parsenode.declarations[0].init = newexp;
         }
 
         else if (Aux.isExpStm(parsenode)) {
             var exp = parsenode.expression;
-            if (Aux.isAssignmentExp(exp)) 
-                exp.right = newexp
-            else if (Aux.isBinExp) 
-                parsenode.expression = newexp
+            if (Aux.isAssignmentExp(exp))
+                exp.right = newexp;
+            else if (Aux.isBinExp)
+                parsenode.expression = newexp;
         }
         else if (Aux.isRetStm(parsenode)) {
-            parsenode.argument = newexp
+            parsenode.argument = newexp;
         }
+        return parsenode;
     }
 
 
@@ -828,7 +826,7 @@ var CPSTransform = (function () {
         }).length > 0
     }
 
- 
+
     toreturn.transformCall      = transformCall;
     toreturn.transformArguments = transformArguments;
     toreturn.transformFunction  = transformFunction;

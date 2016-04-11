@@ -154,7 +154,7 @@ var union = function (array) {
   return a
 }
 
-PDG.prototype.slice = function (criterion) { 
+PDG.prototype.slice = function (criterion, assignments) { 
   
   function contains (equal, set) {
     for (var i = 0; i < set.length; i++) {
@@ -183,9 +183,10 @@ PDG.prototype.slice = function (criterion) {
           equal     = function (id) {return function (n) {return n.id === id}};
       if(!(contains(equal(node.id), set))) {
         set.push(node);
-        getAssignments(node).map(function (n) {
-           traverse_backward([n], set, ignore);
-        });
+        if (!assignments)
+          getAssignments(node).map(function (n) {
+             traverse_backward([n], set, ignore);
+          });
         node.edges_in.map(function (edge) {
           var from     = edge.from,
               fdtype   = from.getdtype(true),
@@ -211,8 +212,8 @@ PDG.prototype.slice = function (criterion) {
   }
 
   /* two passes of the algorithm */
-  var first_pass    = traverse_backward([criterion],[], [EDGES.PAROUT, EDGES.REMOTEPAROUT, EDGES.REMOTEPARIN]),
-      second_pass   = traverse_backward(first_pass,[],[EDGES.PARIN, EDGES.REMOTEPARIN, EDGES.REMOTEPAROUT, EDGES.CALL]);
+  var first_pass    = traverse_backward([criterion],[], [EDGES.PAROUT, EDGES.REMOTEPAROUT, EDGES.REMOTEPARIN, EDGES.REMOTED, EDGES.PROTOTYPE]),
+      second_pass   = traverse_backward(first_pass,[],[EDGES.PARIN, EDGES.REMOTEPARIN, EDGES.REMOTEPAROUT, EDGES.CALL, EDGES.REMOTED, EDGES.PROTOTYPE]);
   return union(first_pass.concat(second_pass)); 
 };
 
@@ -234,18 +235,27 @@ PDG.prototype.sliceDistributedNode = function (dnode) {
                     data_out = target.getOutEdges(EDGES.DATA)
                             .filter(function (e) {
                                 return e.to.getdtype().value === dnode.dtype.value
-                    });
+                    }),
+                    proto_out = target.getOutEdges(EDGES.OBJMEMBER)
+                            .filter(function (e) {
+                              return e.to.getdtype().value === dnode.dtype.value
+                            });
                     if( target.parsenode && 
-                        target.parsenode.type === 'VariableDeclaration' &&
+                        (target.parsenode.type === 'VariableDeclaration'  ||
+                          (target.parsenode.type === 'ExpressionStatement' && 
+                            target.parsenode.expression.type === 'AssignmentExpression'))
+                        &&
                         data_out.length > 0 && 
                         data_out[0].to.parsenode && 
-                        data_out[0].to.parsenode.type === 'FunctionExpression') 
+                        (data_out[0].to.parsenode.type === 'FunctionExpression' ||
+                          data_out[0].to.isObjectEntry)) 
                        out = out.concat(data_out);
                     else if (control_out.length === 0 )//&& //!target.isFormalNode )//&& 
                             //!(target.isActualPNode && target.direction === -1))
                             leaves = leaves.concat([target]);
                     else 
-                        out = out.concat(control_out);      
+                        out = out.concat(control_out);  
+                        out = out.concat(proto_out);    
             }
             return leaves;
         };
@@ -256,7 +266,7 @@ PDG.prototype.sliceDistributedNode = function (dnode) {
     var outgoing = toslice.edges_out,
         leaves   = getLeaves(toslice);
     while (leaves.length > 0) {
-        var set = this.slice(leaves.shift());
+        var set = this.slice(leaves.shift(), true);
         slicedset = union(slicedset.concat(set))
     }
 
