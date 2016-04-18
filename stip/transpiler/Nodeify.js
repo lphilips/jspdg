@@ -161,6 +161,12 @@ var Nodeify = (function () {
 
                 transpiler.nodes = transpiled.nodes;
             });
+            if (call.length > 0) {
+                call.map(function (call) {
+                    //if (call.parsenode && Aux.isNewExp(call.parsenode))
+                        transpiler.nodes = transpiler.nodes.remove(call);
+                })
+            }
 
             if (Aux.isVarDecl(node.parsenode) && 
                 Aux.isArrayExp(Aux.getDeclaration(node.parsenode).init)) {
@@ -450,19 +456,21 @@ var Nodeify = (function () {
         arguments = actual_ins.filter(function (a_in) {
             return nodesContains(transpiler.nodes, a_in);
         }).map(function (a_in) {
-            return a_in.parsenode;
+            var transpiled = Transpiler.copyTranspileObject(transpiler, a_in);
+            transpiled  = Transpiler.transpile(transpiled);
+            transpiler.nodes = transpiled.nodes;
+            transpiler.nodes = transpiler.nodes.remove(a_in);
+            return transpiled.transpiledNode;
         });
        
         actual_ins.map(function (a_in) {
             transpiler.nodes = transpiler.nodes.remove(a_in);
             a_in.getOutNodes(EDGES.CONTROL)
-                .filter(function (n) {
-                    return n.isCallNode
-                })
-                .map(function (n) {
-                    callargs++;
-                    transpiler.nodes = transpiler.nodes.remove(n);
-                });
+                .filter(function (n) { return n.isCallNode })
+                .map(function (n) { callargs++; transpiler.nodes = transpiler.nodes.remove(n); });
+            a_in.getOutNodes(EDGES.CONTROL)
+                .filter(function (n) {return !n.isCallNode})
+                .map(function (n) {transpiler.nodes = transpiler.nodes.remove(n); })    
         });
         actual_outs.map(function (a_out) {
             transpiler.nodes = transpiler.nodes.remove(a_out);
@@ -632,7 +640,19 @@ var Nodeify = (function () {
         return transpiler;
     }
 
-    transformer.transformActualParameter = noTransformationDefined;
+    function transformActualParameter (transpiler) {
+        transpiler.node.getOutNodes(EDGES.CONTROL)
+            .map(function (n) {
+                var transpiled = Transpiler.copyTranspileObject(transpiler, n);
+                transpiled  = Transpiler.transpile(transpiled);
+                transpiler.nodes = transpiled.nodes;
+                transpiler.nodes = transpiler.nodes.remove(n);
+            });
+        transpiler.transpiledNode = transpiler.node.parsenode;
+        return transpiler;
+    }
+
+    transformer.transformActualParameter = transformActualParameter;
     transformer.transformFormalParameter = noTransformationDefined;
     transformer.transformExitNode = noTransformation;
 

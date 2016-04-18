@@ -2,7 +2,7 @@ var Stip = (function () {
 
     var module = {};
 
-    var arrayprims  = ["filter", "count", "push", "search", "length", "map", "append", "concat", "forEach", "slice", "find"];
+    var arrayprims  = ["filter", "count", "push", "search", "length", "map", "append", "concat", "forEach", "slice", "find", "sort"];
     var stringprims = ["startsWith", "charAt", "charCodeAt", "search", "indexOf"];
 
     var isPrimitive = function (callname) {
@@ -376,9 +376,14 @@ var Stip = (function () {
             entry       = graphs.PDG.getEntryNode(calledf[0]),
             objectentry = graphs.PDG.makeObjEntry(node),
             fouts       = entry.getFormalOut(),
-            protoentry;
+            hasEntryParent = upnode.isEntryNode ||
+                       (upnode.parsenode && (
+                       Aux.isForStm(upnode.parsenode) || Aux.isCatchStm(upnode.parsenode) ||
+                       Aux.isThrowStm(upnode.parsenode))),
+            protoentry, callnode;
         
-        upnode.addEdgeOut(objectentry, EDGES.DATA);
+        if (!hasEntryParent)
+            upnode.addEdgeOut(objectentry, EDGES.DATA);
         /* Call to constructor function */
         if (calledf.length > 0) {
             protoentry = entry.getInEdges().map(function (e) {return e.from})[0];
@@ -386,7 +391,9 @@ var Stip = (function () {
             objectentry.constructorNode = entry;
         }
 
-        handleCallExpression(graphs, node, upnode);//objectentry);
+        callnode = handleCallExpression(graphs, node, upnode);//objectentry);
+
+
         
         return [objectentry];
     }
@@ -634,7 +641,7 @@ var Stip = (function () {
                             }) 
 
                         }
-                        else if (!pdgnode.equals(upnode)) {
+                        else if (!pdgnode.equals(upnode) && !primitive) {
                             /* Get object property */
                             var member = objectentry.getMember(calledname);
                             while(!member) {
@@ -665,7 +672,7 @@ var Stip = (function () {
 
                                 if (!upnode.isEntryNode && !upnode.isObjectEntry)
                                     addDataDep(actual_out, upnode)
-                                else if (!upnode.isObjectEntry)
+                                else if (!upnode.isObjectEntry && !hasEntryParent)
                                     addDataDep(actual_out, callnode)
                                 /* Connect upnode to object entry that is returned by function */
                                 if (upnodeform.length > 0) {
@@ -700,7 +707,7 @@ var Stip = (function () {
 
                             if (!hasEntryParent) {
                                 pdgnode.addEdgeOut(upnode, EDGES.DATA)
-                            } else {
+                            } else if (!callnode.equals(pdgnode)){
                                 pdgnode.addEdgeOut(callnode, EDGES.DATA)
                             }
                         };
@@ -711,7 +718,7 @@ var Stip = (function () {
             callnode.primitive = primitive;
             upnode.primitive = primitive;
 
-            if (PDG_node) {
+            if (PDG_node){//} && !primitive) {
                 var res;
                 for(var i = 0; i < PDG_node.length; i++) {
                     var node = PDG_node[i];
@@ -757,6 +764,7 @@ var Stip = (function () {
             }
             else if (Aux.isNewExp(parsenode.callee.object)) {
                 var objectentry = makePDGNode(graphs, parsenode.callee.object, upnode);
+                addToPDG(objectentry[0], upnode);
                 return handle(callnode, objectentry[0]);
             }
             else {

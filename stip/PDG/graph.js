@@ -230,15 +230,15 @@ PDG.prototype.sliceDistributedNode = function (dnode) {
                     target = edge.to,
                     control_out = target.getOutEdges(EDGES.CONTROL)
                             .filter(function (e) {
-                              return e.to.getdtype().value === dnode.dtype.value
+                              return e.to.getdtype(true).value === dnode.dtype.value
                     }),
                     data_out = target.getOutEdges(EDGES.DATA)
                             .filter(function (e) {
-                                return e.to.getdtype().value === dnode.dtype.value
+                                return e.to.getdtype(true).value === dnode.dtype.value
                     }),
                     proto_out = target.getOutEdges(EDGES.OBJMEMBER)
                             .filter(function (e) {
-                              return e.to.getdtype().value === dnode.dtype.value
+                              return e.to.getdtype(true).value === dnode.dtype.value
                             });
                     if( target.parsenode && 
                         (target.parsenode.type === 'VariableDeclaration'  ||
@@ -249,13 +249,14 @@ PDG.prototype.sliceDistributedNode = function (dnode) {
                         data_out[0].to.parsenode && 
                         (data_out[0].to.parsenode.type === 'FunctionExpression' ||
                           data_out[0].to.isObjectEntry)) 
-                       out = out.concat(data_out);
+                       out = out.concat(data_out).concat(control_out);
                     else if (control_out.length === 0 )//&& //!target.isFormalNode )//&& 
                             //!(target.isActualPNode && target.direction === -1))
                             leaves = leaves.concat([target]);
-                    else 
+                    else {                        
                         out = out.concat(control_out);  
-                        out = out.concat(proto_out);    
+                        out = out.concat(proto_out);  
+                    }  
             }
             return leaves;
         };

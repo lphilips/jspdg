@@ -663,13 +663,20 @@ PDG_Node.prototype.getdtype = function (recheck) {
         /* recursively traverse up the graph until a node with a 
          * distributed type is encountered, or none is found */
         var incoming = this.edges_in.filter(filterIncoming);
+        var visited = [];
         var node;
         while(incoming.length > 0) {
             var edge = incoming.shift();
             node = edge.from;
+            visited.push(node);
             if (node.dtype || node.id === 'e0')
                 break;
             var proceed = node.edges_in.filter(filterIncoming);
+            proceed = proceed.filter(function (e) {
+                return !visited.find(function (node) {
+                    return e.from === node
+                });
+            });
             incoming = incoming.concat(proceed);
         }
 

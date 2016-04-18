@@ -131,7 +131,6 @@ var JSify = (function () {
                 Aux.isAssignmentExp(parsenode.expression)) {
                 parsenode.expression.right = transpiledNode;
             }
-            
         }
         /* Has call nodes in value / right hand side? */
         if (call.length > 0) {
@@ -348,7 +347,7 @@ var JSify = (function () {
 
         if (transpiler.options.cps) {
             
-            transformed = CPSTransform.transformCall(transpiler, false, parent);
+            transformed = CPSTransform.transformCall(transpiler, false, (Aux.isExpStm(parsenode) && Aux.isCallExp(parsenode.expression)) ? parsenode : parent);
             transpiler.nodes = transformed[0];
             
 
@@ -549,7 +548,7 @@ var JSify = (function () {
         var node        = transpiler.node,
             upnode      = node.getInNodes(EDGES.DATA)[0],
             call        = upnode.getOutNodes(EDGES.CONTROL)
-                            .filter(function (n) {return n.isCallNode; })[0],
+                            .filter(function (n) {return n.isCallNode && n.parsenode.equals(node.parsenode) })[0],
             parsenode   = node.parsenode,
             actual_ins  = call.getActualIn(),
             actual_outs = call.getActualOut();

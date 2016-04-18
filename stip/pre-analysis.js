@@ -161,13 +161,14 @@ var pre_analyse = function (ast, toGenerate) {
         return {
             object : object,
             addProperty : function (identifier, value) {
-                object.properties.push({
-                    type: "Property",
-                    key: identifier,
-                    value: value,
-                    computed: false,
-                    kind: "init"
-                })
+                if (!object.properties.find(function (p) {return p.key.name === identifier.name}))
+                    object.properties.push({
+                        type: "Property",
+                        key: identifier,
+                        value: value,
+                        computed: false,
+                        kind: "init"
+                    })
             },
             hasProperties : function () {
                 return object.properties.length > 0;
@@ -402,16 +403,19 @@ var pre_analyse = function (ast, toGenerate) {
                                         }
                                     }
                                 });
-
-                                call.expression.arguments = call.expression.arguments.concat({
+                                if (objectarg.hasProperties()) {
+                                    Ast.augmentAst(objectarg.object);
+                                    call.expression.arguments.push(objectarg.object);
+                                    objectarg = createObjectArgument();
+                                }
+                                else {
+                                    call.expression.arguments = call.expression.arguments.concat({
                                         type: "Literal",
                                         value: null
                                     });
+                                }
                             });
-                            if (objectarg.hasProperties()) {
-                                Ast.augmentAst(objectarg.object);
-                                call.expression.arguments = [objectarg.object];
-                            }
+
                             Ast.augmentAst(func);
                             bodyFirst.push(func);
                             bodyLast.push(call);

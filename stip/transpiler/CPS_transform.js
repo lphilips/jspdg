@@ -386,11 +386,14 @@ var CPSTransform = (function () {
         /* Call node has arguments that are calls? */
         if (callargs.length > 0) {
             var latestcall = false,
+                callnode   = transpiler.node.parsenode,
+                carguments = Aux.isExpStm(callnode) ? callnode.expression.arguments : callnode.arguments,
                 esp_exp;
 
             callargs.map(function (callarg) {
                     cps_count++;
                     var transpilerArg  = Transpiler.copyTranspileObject(transpiler, callarg, nodes); 
+                    var parent         = Ast.parent(callarg.parsenode, transpiler.ast);
                     var transpiled     = transformCall(transpilerArg, upnode, orig_esp_exp), 
                         hasCallArg     = callarg.getActualIn().flatMap(function (a_in) {
                                             return a_in.callArgument()      
@@ -400,6 +403,7 @@ var CPSTransform = (function () {
                     if (transpiled[2]) {
                         transformcallp  = transformcall.parsenode;
                         esp_exp = transpiled[2];
+
                         /* Has transformed call arguments itself? */
                         if (hasCallArg.length > 0) {
                             if (!latestcall) {
@@ -422,6 +426,9 @@ var CPSTransform = (function () {
                                            e.g. node is of form  rpc(notransform(transform(x))),
                                            transform(x) should be replaced with latest result parameter  */
                                         node.replaceArg(latestcall.parsenode.callnode.parsenode, replc);
+                                        if (callargs.length > carguments.length) {
+                                            node.replaceArg(node.parsenode.callnode.parsenode, node.getCallback().getResPar());
+                                        }
                                         node.callback.setBody(node.callback.getBody()
                                                 .concat(callb.getBody().slice(1))
                                                 .sort(function (n1, n2) {
@@ -463,6 +470,9 @@ var CPSTransform = (function () {
 
                                     var respar = latestcall.getCallback().getResPar();
                                     node.replaceArg(latestcall.parsenode.callnode.parsenode, respar);
+                                    if (callargs.length > carguments.length) {
+                                            node.replaceArg(transformcall.parsenode.callnode.parsenode, transformcall.getCallback().getResPar());
+                                    }
                                     transformcall.getCallback().setBody([node.parsenode]);
                                 }
 
@@ -488,6 +498,7 @@ var CPSTransform = (function () {
 
             transpiledNode = latestcall;
         }
+       
 
         return [nodes, transpiledNode, esp_exp];
 
@@ -714,7 +725,7 @@ var CPSTransform = (function () {
                         }
                     }
 
-                    if (transpiled[2]) {node.parsenode = Aux.clone(node.parsenode); CPSsetExpStm(node.parsenode, transpiled[2]);}
+                    if (transpiled[2]) {node.parsenode = Aux.clone(node.parsenode); CPSsetExpStm(parsenode, transpiled[2]);}
                     nodes = transpiled[0].remove(call);
 
                     if (outercps) {

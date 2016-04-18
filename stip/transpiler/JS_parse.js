@@ -99,6 +99,25 @@ var JSParse = (function () {
                         var current = this.parsenode.expression.arguments[i];
                         if (current === prev) 
                             this.parsenode.expression.arguments[i] = arg;
+                        else {
+                          Aux.walkAst(current, {
+                            pre : function (node) {
+                              var parent = Ast.parent(node, parsenode);
+                              
+                              if (parent) {
+                                Ast.augmentAst(parent); Ast.augmentAst(current);
+                                if (parent.equals(current)) {
+                                  if (Aux.isBinExp(parent) && parent.left.equals(prev)) {
+                                    parent.left = arg;
+                                  }
+                                  else if (Aux.isBinExp(parent) && parent.right.equals(prev)) {
+                                    parent.right = arg;
+                                  }
+                                }
+                              }
+                            }
+                          })
+                        }
                     }
                   },
                   isRPC     : true,
