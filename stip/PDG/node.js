@@ -722,5 +722,6 @@ if (typeof module !== 'undefined' && module.exports != null) {
     exports.ARITY               = ARITY;
     exports.DistributedNode     = DistributedNode;
     exports.arityEquals         = arityEquals;
+    exports.dtypeEquals         = dtypeEquals;
 
 }

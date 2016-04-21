@@ -17,6 +17,7 @@ var Ast             = require('../../jipda-pdg/ast.js').Ast;
 var Aux             = require('../aux.js').Aux;
 var pre_analyse     = require('../pre-analysis.js').pre_analyse;
 var Hoist           = require('../hoist.js').Hoist;
+var Exceptions      = require('../exceptions.js');
 var Stip            = require('../stip.js').Stip;
 
 /* Transpiler */
@@ -215,8 +216,8 @@ suite('Tier split - basic', function () {
         var res = tiersplit('/* @server */ {var a = 1; var b = 2; var c = a + b;} /* @client */ {var a = 1; var b = 2; var c = a + b;}');
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
-        compareAst(escodegen.generate(ast0), 'var a; var b; var c; a = 1; b = 2; c = a + b; client.expose({});');
-        compareAst(escodegen.generate(ast1), 'var a; var b; var c; a = 1; b = 2; c = a + b; server.expose({});');
+        compareAst(escodegen.generate(ast0), 'var a; var b; var c; a = 1;store.set("a", a); b = 2; store.set("b", b);c = a + b;store.set("c", c); client.expose({});');
+        compareAst(escodegen.generate(ast1), 'var a; var b; var c; a = 1; store.set("a", a); b = 2; store.set("b", b); c = a + b; store.set("c", c);server.expose({});');
     });
 
     test('functionclienttoserver', function () {

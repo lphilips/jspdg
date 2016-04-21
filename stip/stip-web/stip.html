@@ -74,6 +74,7 @@
     <script type="text/javascript" src="js/esprimatool.js"></script>
     <script type="text/javascript" src="lib/jslint.js"></script>
     <script type="text/javascript" src="js/jslinttool.js"></script>
+    <script type="text/javascript" src="../exceptions.js"></script>
     <script type="text/javascript" src="../stip.js"></script>
     <script type="text/javascript" src="../InterferenceAnalysis.js"></script>
     <script type="text/javascript" src="../transpiler/CPS_transform.js"></script>
@@ -129,14 +130,12 @@
 
             var g = createPDGGraph(graphs.PDG, assumes);
 
-
-
             drawPDGGraph(g[0], g[1], g[2]);
             return graphs; 
         } catch (err) {
             console.log(err.message);
             $("#error").empty();
-            $("#error").append(err.stack);
+            $("#error").append(err.name + " " + err.message + "\n" + err.stack);
         }
       }
 

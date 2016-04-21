@@ -686,6 +686,7 @@ var Nodeify = (function () {
         asyncs  = require('../pre-analysis').asyncs;
         DNODES = nodereq.DNODES;
         arityEquals = nodereq.arityEquals;
+        dtypeEquals = nodereq.dtypeEquals;
         ARITY = nodereq.ARITY;
         NodeParse = require('./Node_parse.js').NodeParse;
         CPSTransform = require('./CPS_transform.js').CPSTransform;
