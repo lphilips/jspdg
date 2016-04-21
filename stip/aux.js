@@ -132,16 +132,15 @@ var Aux = (function () {
             calls;
         /* Try catch, because node could be a return statement, which is not a valid program*/
         try {
-            falafel(src, function (node) {
-              if (esp_isCallExp(node)) 
-                if (callnode)
-                  call = (src.indexOf(escodegen.generate(callnode)) >= 0);
-                else
-                  call = true;
-            });
-            
+            walkAst(node, {pre: function (node) {
+                if (esp_isCallExp(node)) {
+                  if (callnode)
+                    call = (src.indexOf(escodegen.generate(callnode)) >= 0);
+                  else
+                    call = true;
+                }
+              }})            
             return call;
-
         } catch (e) {
             calls = node.getOutEdges(EDGES.CONTROL)
                       .filter(function (e) {return e.to})

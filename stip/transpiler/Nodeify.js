@@ -370,7 +370,6 @@ var Nodeify = (function () {
             node.dtype === DNODES.SHARED) {
             transpiler.nodes = transpiler.nodes.remove(node);
             transpiler.transpiledNode  = parsenode;
-            transpiler.transpiledNode.body.body = body;
         }
 
         if (! Aux.isVarDeclarator(parent) && transpiler.method.setName) {

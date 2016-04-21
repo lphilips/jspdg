@@ -654,7 +654,10 @@ var Stip = (function () {
                         while(!member) {
                             objectentry = objectentry.getOutEdges(EDGES.PROTOTYPE)
                                                     .map(function (e) {return e.to})[0];
-                            member = objectentry.getMember(calledname)
+                            if (objectentry)
+                                member = objectentry.getMember(calledname);
+                            else
+                                break;
                         }
                         var entry  = member ? member.getOutEdges(EDGES.DATA)
                                         .map(function (e) {return e.to})
@@ -668,47 +671,48 @@ var Stip = (function () {
 
                         upnode.addEdgeOut(callnode, EDGES.CONTROL);
                         handleActualParameters(graphs, parsenode, callnode);
-                        entry.getFormalOut().map(function (formal_out) {
-                            var actual_out = new ActualPNode(++graphs.PDG.funIndex, -1),
+                        if (entry)
+                            entry.getFormalOut().map(function (formal_out) {
+                                var actual_out = new ActualPNode(++graphs.PDG.funIndex, -1),
 
-                                upnodeform = formal_out.getInEdges(EDGES.DATA)
-                                                .map(function (e) {return e.from})
-                                                .filter(function (n) {return n.isObjectEntry});
+                                    upnodeform = formal_out.getInEdges(EDGES.DATA)
+                                                    .map(function (e) {return e.from})
+                                                    .filter(function (n) {return n.isObjectEntry});
 
-                            if (!upnode.isEntryNode && !upnode.isObjectEntry)
-                                addDataDep(actual_out, upnode)
-                            else if (!upnode.isObjectEntry && !hasEntryParent)
-                                addDataDep(actual_out, callnode)
-                            /* Connect upnode to object entry that is returned by function */
-                            if (upnodeform.length > 0) {
-                                upnodeform.map(function (objectentry) {
-                                    addDataDep(upnode, objectentry)
-                                })
-                            }
+                                if (!upnode.isEntryNode && !upnode.isObjectEntry)
+                                    addDataDep(actual_out, upnode)
+                                else if (!upnode.isObjectEntry && !hasEntryParent)
+                                    addDataDep(actual_out, callnode)
+                                /* Connect upnode to object entry that is returned by function */
+                                if (upnodeform.length > 0) {
+                                    upnodeform.map(function (objectentry) {
+                                        addDataDep(upnode, objectentry)
+                                    })
+                                }
 
-                            else {
-                                /* Search for object entry that is returned from function call:
-                                From formal_out -> return statement -> object entry */
-                                upnodeform = formal_out.getInEdges(EDGES.DATA)
-                                                .map(function (e) {return e.from})
-                                                .filter(function (n) {return n.isStatementNode && Aux.isRetStm(n.parsenode)})
-                                                .flatMap(function (n) {return n.getOutEdges(EDGES.DATA)})
-                                                .map(function (e) {return e.to})
-                                                .filter(function (n) {return n.isObjectEntry});
-                                upnodeform.map(function (objectentry) {
-                                    addDataDep(upnode, objectentry)
-                                })                      
-                            }    
+                                else {
+                                    /* Search for object entry that is returned from function call:
+                                    From formal_out -> return statement -> object entry */
+                                    upnodeform = formal_out.getInEdges(EDGES.DATA)
+                                                    .map(function (e) {return e.from})
+                                                    .filter(function (n) {return n.isStatementNode && Aux.isRetStm(n.parsenode)})
+                                                    .flatMap(function (n) {return n.getOutEdges(EDGES.DATA)})
+                                                    .map(function (e) {return e.to})
+                                                    .filter(function (n) {return n.isObjectEntry});
+                                    upnodeform.map(function (objectentry) {
+                                        addDataDep(upnode, objectentry)
+                                    })                      
+                                }    
 
-                            /* Formal-out parameter -> actual-out parameter */
-                            if (formal_out && (!actual_out.equalsdtype(formal_out) || 
-                                !actual_out.isSharedNode() ||
-                                !formal_out.isSharedNode () ))
-                                    formal_out.addEdgeOut(actual_out, EDGES.REMOTEPAROUT); 
-                            else if (formal_out)
-                                formal_out.addEdgeOut(actual_out, EDGES.PAROUT);
-                            callnode.addEdgeOut(actual_out, EDGES.CONTROL);  
-                        });
+                                /* Formal-out parameter -> actual-out parameter */
+                                if (formal_out && (!actual_out.equalsdtype(formal_out) || 
+                                    !actual_out.isSharedNode() ||
+                                    !formal_out.isSharedNode () ))
+                                        formal_out.addEdgeOut(actual_out, EDGES.REMOTEPAROUT); 
+                                else if (formal_out)
+                                    formal_out.addEdgeOut(actual_out, EDGES.PAROUT);
+                                callnode.addEdgeOut(actual_out, EDGES.CONTROL);  
+                            });
 
                         if (!hasEntryParent) {
                             pdgnode.addEdgeOut(upnode, EDGES.DATA)
