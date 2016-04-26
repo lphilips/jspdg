@@ -303,6 +303,15 @@ var Stip = (function () {
         return [stmNode];
     }
 
+    var handleForInStatement = function (graphs, node, upnode) {
+        var stmnode = graphs.PDG.makeStm(node);
+        addToPDG(stmNode, upnode, graphs);
+        stmNode.addEdgeOut(stmNode, EDGES.CONTROL);
+        makePDGNode(graphs, node.left, stmNode);
+        makePDGNode(graphs, node.right, stmNode);
+        makePDGNode(graphs, node.body, stmNode);
+        return [stmNode];
+    }
 
     var handleThrowStatement = function (graphs, node, upnode) {
         var stmNode   = graphs.PDG.makeStm(node),
@@ -366,8 +375,27 @@ var Stip = (function () {
             addToPDG(stmNode, upnode, graphs);
         /* upnode that is object entry : special case */
         if (upnode.isObjectEntry)
-            upnode.addMember(node.paramname, stmNode)
+            upnode.addMember(node.paramname, stmNode);
         return [stmNode];
+    }
+
+    var handleUpdateExp = function (graphs, node, upnode) {
+        var stmNode = graphs.PDG.makeStm(node),
+            parent  = Ast.parent(node, graphs.AST),
+            /* returns true for entry node, if stm or for stm as parent */
+            hasEntryParent = upnode.isEntryNode ||
+                       (upnode.parsenode && (
+                       Aux.isForStm(upnode.parsenode) || Aux.isCatchStm(upnode.parsenode) ||
+                       Aux.isThrowStm(upnode.parsenode))),
+            form_out;
+            /* Argument */
+            makePDGNode(graphs, node.argument, hasEntryParent || upnode.isObjectEntry ? stmNode : upnode);
+            if (hasEntryParent)
+                addToPDG(stmNode, upnode, graphs);
+            if (upnode.isObjectEntry)
+                upnode.addMember(node.paramname, stmNode);
+            return [stmNode];
+
     }
 
     var handleNewExp = function (graphs, node, upnode, toadd) {
@@ -402,7 +430,7 @@ var Stip = (function () {
 
     /* ASSIGNMENT */
     var handleAssignmentExp = function (graphs, node, upnode) {
-        var parsenode    = node.expression,
+        var parsenode    = node.expression? node.expression : node,
             getIdent     = function (identifier) {
                                 if (Aux.isIdentifier(identifier) || Aux.isThisExpression(identifier))
                                     return identifier;
@@ -723,6 +751,7 @@ var Stip = (function () {
                     }
                     else if (primitive) {
                         addToPDG(callnode, upnode, graphs);
+                        handleActualParameters(graphs, parsenode, callnode);
                     }
                 return [callnode]
             }
@@ -1063,6 +1092,8 @@ var Stip = (function () {
                 return handleCallExpression(graphs, node, upnode);
             case 'BinaryExpression' :
                 return handleBinExp(graphs, node.expression ? node.expression : node, upnode);
+            case 'UpdateExpression':
+                return handleUpdateExp(graphs, node.expression ? node.expression : node, upnode);
             case 'AssignmentExpression' :
                 return handleAssignmentExp(graphs, node, upnode);
             case 'ArrayExpression' :
@@ -1279,7 +1310,10 @@ var Stip = (function () {
                 pdgnode = handleIfStatement(graphs, node, upnode);
                 break;
             case 'ForStatement' :
-                pdgnode =handleForStatement(graphs, node, upnode);
+                pdgnode = handleForStatement(graphs, node, upnode);
+                break;
+            case 'ForInStatement' :
+                pdgnode = handleForInStatement(graphs, node, upnode);
                 break;
             case 'Identifier' :
                 pdgnode = handleIdentifier(graphs, node, upnode);
@@ -1288,6 +1322,9 @@ var Stip = (function () {
                 pdgnode = handleExpressionStatement(graphs, node, upnode);
                 break;
             case 'BinaryExpression' :
+                pdgnode = handleExpressionStatement(graphs, node, upnode);
+                break;
+            case 'UpdateExpression' :
                 pdgnode = handleExpressionStatement(graphs, node, upnode);
                 break;
             case 'Literal' :

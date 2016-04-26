@@ -133,12 +133,20 @@ var Transpiler = (function () {
                     return transformer.transformBinaryExp(transpiler);
                 case 'IfStatement':
                     return transformer.transformIfStm(transpiler);
+                case 'ForStatement':
+                    return transformer.transformForStm(transpiler);
+                case 'ForInStatement' :
+                    return transformer.transformForInStm(transpiler);
                 case 'ObjectExpression':
                     return transformer.transformObjectExp(transpiler);
                 case 'Property':
                     return transformer.transformProperty(transpiler);
                 case 'NewExpression' :
                     return transformer.transformNewExp(transpiler);
+                case 'AssignmentExpression':
+                    return transformer.transformAssignmentExp(transpiler);
+                case 'UpdateExpression':
+                    return transformer.transformUpdateExp(transpiler);
                 case 'ThrowStatement' :
                     return transformer.transformThrowStm(transpiler);
                 case 'TryStatement' :

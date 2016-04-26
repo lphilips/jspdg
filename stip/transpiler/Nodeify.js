@@ -599,6 +599,12 @@ var Nodeify = (function () {
     /* If statement */
     transformer.transformIfStm = JSify.transformIfStm;
 
+    /* For statement */
+    transformer.transformForStm = JSify.transformForStm;
+
+    /* For in statement */
+    transformer.transformForInStm = JSify.transformForInStm;
+
     /* Try Statement */
     transformer.transformTryStm = JSify.transformTryStm;
 
@@ -628,6 +634,9 @@ var Nodeify = (function () {
 
     /* Member expression */
     transformer.transformMemberExpression = JSify.transformMemberExpression;
+
+    /* Update expression */
+    transformer.transformUpdateExp = JSify.transformUpdateExp;
     
     function noTransformationDefined (transpiler) {
         transpiler.transpiledNode = false;

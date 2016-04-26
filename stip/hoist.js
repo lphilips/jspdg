@@ -3,35 +3,10 @@ var Hoist = (function () {
     var toreturn = {};
 
 
-    /* Walk function from esprima-walk 
-    * https://github.com/jrajav/esprima-walk
-    */
-
-    function walk (ast, fn) {
-
-        var stack = [ast], 
-            i, j, key, len, node, child;
-
-        for ( i = 0; i < stack.length; i += 1 ) {
-            node = stack[i];
-            fn(node);
-            for (key in node) {
-                child = node[key];
-                if (child instanceof Array ) {
-                    for ( j = 0, len = child.length; j < len; j += 1 ) {
-                        stack.push( child[j] );
-                    }
-                } else if ( child != void 0 && typeof child.type === 'string' ) {
-                    stack.push( child );
-                }
-            }
-        }
-    };
-
     //
     // Walk the tree, ignore x-* properties
     //
-    function walk2(ast, callback) {
+    function walk(ast, callback) {
           if (typeof ast !== 'object' || !ast) {
                 return;
           }
@@ -58,7 +33,7 @@ var Hoist = (function () {
                 //children.push(ast[key]);
           };
           children.forEach(function (node) {
-                walk2(node, callback);
+                walk(node, callback);
           });
         if(callback.post) callback.post(ast);
     }
@@ -115,7 +90,7 @@ var Hoist = (function () {
         var hoisted = {}, 
             added;
 
-        walk2(ast, {
+        walk(ast, {
 
             pre : function (node) {
                 var declmap,
@@ -186,7 +161,7 @@ var Hoist = (function () {
                 else {
 
                     if (Aux.isVarDecl(node) && !node.hoist) {
-                        var parent = getParent(node, ast, tohoist);//Ast.enclosingFunScope(decl,ast);
+                        var parent = getParent(node, ast, tohoist);
                         var astparent = Ast.parent(node, ast);
                         var body = Aux.isFunDecl(parent) || Aux.isFunExp(parent) ? parent.body.body : parent.body;
                         var index = body.indexOf(node);
@@ -195,7 +170,12 @@ var Hoist = (function () {
                                 var exp = {type: "ExpressionStatement", expression : createAssignment(decl.id.name, decl.init)};
                                 Ast.augmentAst(exp);
                                 exp.leadingComment = node.leadingComment;
-                                body.splice(index, 0, exp);
+                                if (Aux.isForStm(astparent) && Aux.isVarDecl(astparent.init) && node.equals(astparent.init)) {
+                                    astparent.init = exp.expression;
+                                }
+                                else {
+                                    body.splice(index, 0, exp);
+                                }
                                 index += 1;
                             }
                         })

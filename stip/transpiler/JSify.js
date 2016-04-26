@@ -105,14 +105,15 @@ var JSify = (function () {
             }
             /* Assignment */
             else if (Aux.isExpStm(parsenode) &&
-                     Aux.isAssignmentExp(parsenode.expression)) {
+                     Aux.isAssignmentExp(parsenode.expression) ||
+                     Aux.isAssignmentExp(parsenode)) {
 
-                        if (Aux.isFunDecl(transpiledNode)) {
-                            transpiledNode.id = parsenode.expression.left;
-                            transpiler.transpiledNode = transpiledNode;
+                if (Aux.isFunDecl(transpiledNode)) {
+                    transpiledNode.id = parsenode.expression ? parsenode.expression.left : parsenode.left;
+                    transpiler.transpiledNode = transpiledNode;
 
-                            return transpiler;
-                        }
+                    return transpiler;
+                }
                         //parsenode.expression.right = f.parsednode;
             }
         }
@@ -130,6 +131,9 @@ var JSify = (function () {
             else if (Aux.isExpStm(parsenode) &&
                 Aux.isAssignmentExp(parsenode.expression)) {
                 parsenode.expression.right = transpiledNode;
+            }
+            else if (Aux.isAssignmentExp(parsenode)) {
+                parsenode.right = transpiledNode;
             }
         }
         /* Has call nodes in value / right hand side? */
@@ -480,6 +484,90 @@ var JSify = (function () {
     transformer.transformBlockStm = transformBlockStm;
 
 
+    function transformForStm (transpiler) {
+        var node = transpiler.node,
+            body = [],
+            parsenode = node.parsenode,
+            init = node.getOutNodes(EDGES.CONTROL).filter(function (n) {return n.parsenode.equals(parsenode.init);}),
+            update = node.getOutNodes(EDGES.CONTROL).filter(function (n) {return n.parsenode.equals(parsenode.update);}),
+            test = node.getOutNodes(EDGES.CONTROL).filter(function (n) {return n.parsenode.equals(parsenode.test);}),
+            bodynodes = node.getOutNodes(EDGES.CONTROL)
+                        .filter(function (n) { return n.isEntryNode || n.parsenode.equals(parsenode.body); }),
+            transpiled;
+    
+        init.map(function (initnode) {
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, initnode));
+            transpiler.nodes = transpiled.nodes.remove(initnode);
+            parsenode.init = transpiled.transpiledNode;
+        });
+        update.map(function (updatenode) {
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, updatenode));
+            transpiler.nodes = transpiled.nodes.remove(updatenode);
+            parsenode.update = transpiled.transpiledNode;
+        });
+        test.map(function (testnode) {
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, testnode));
+            transpiler.nodes = transpiled.nodes.remove(testnode);
+            parsenode.test = transpiled.transpiledNode;
+        });
+        bodynodes.map(function (n) {
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, n));
+
+            if (nodesContains(transpiler.nodes, n) && transpiled.transpiledNode) {
+                body = body.concat(transpiled.getTransformed());
+            }
+            transpiler.nodes = transpiled.nodes.remove(n);
+            transpiled.closeupNode = transpiled.setupNode = [];
+            Transpiler.copySetups(transpiled, transpiler);
+        });
+        transpiler.nodes = transpiler.nodes.remove(node);
+        parsenode.body = body[0];
+        transpiler.transpiledNode = parsenode;
+
+        return transpiler;
+    }
+    transformer.transformForStm = transformForStm;
+
+
+    function transformForInStm (transpiler) {
+        var node = transpiler.node,
+            body = [],
+            parsenode = node.parsenode,
+            left = node.getOutNodes(EDGES.CONTROL).filter(function (n) {return n.parsenode.equals(parsenode.left);}),
+            right = node.getOutNodes(EDGES.CONTROL).filter(function (n) {return n.parsenode.equals(parsenode.right);}),
+            bodynodes = node.getOutNodes(EDGES.CONTROL)
+                        .filter(function (n) { return n.isEntryNode || n.parsenode.equals(parsenode.body); }),
+            transpiled;
+    
+        init.map(function (leftnode) {
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, leftnode));
+            transpiler.nodes = transpiled.nodes.remove(leftnode);
+            parsenode.left= transpiled.transpiledNode;
+        });
+        update.map(function (rightnode) {
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, rightnode));
+            transpiler.nodes = transpiled.nodes.remove(rightnode);
+            parsenode.right = transpiled.transpiledNode;
+        });
+        bodynodes.map(function (n) {
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, n));
+
+            if (nodesContains(transpiler.nodes, n) && transpiled.transpiledNode) {
+                body = body.concat(transpiled.getTransformed());
+            }
+            transpiler.nodes = transpiled.nodes.remove(n);
+            transpiled.closeupNode = transpiled.setupNode = [];
+            Transpiler.copySetups(transpiled, transpiler);
+        });
+        transpiler.nodes = transpiler.nodes.remove(node);
+        parsenode.body = body[0];
+        transpiler.transpiledNode = parsenode;
+
+        return transpiler;
+    }
+
+    transformer.transformForInStm = transformForInStm;
+
     function transformIfStm (transpiler) {
         var node      = transpiler.node,
             parsenode = node.parsenode,
@@ -715,6 +803,7 @@ var JSify = (function () {
     transformer.transformExitNode = noTransformation;
     transformer.transformActualParameter = noTransformation;
     transformer.transformMemberExpression = noTransformation;
+    transformer.transformUpdateExp = noTransformation;
 
     function nodesContains (nodes, node, cps) {
         return nodes.filter(function (n) {

@@ -224,7 +224,8 @@ PDG.prototype.sliceDistributedNode = function (dnode) {
         slicedset = [],
         getLeaves = function (node) {
           var leaves = [],
-               out = node.edges_out;
+              visited = [],
+              out = node.edges_out;
           while (out.length > 0) {
                 var edge = out.shift(),
                     target = edge.to,
@@ -250,13 +251,13 @@ PDG.prototype.sliceDistributedNode = function (dnode) {
                         (data_out[0].to.parsenode.type === 'FunctionExpression' ||
                           data_out[0].to.isObjectEntry)) 
                        out = out.concat(data_out).concat(control_out);
-                    else if (control_out.length === 0 )//&& //!target.isFormalNode )//&& 
-                            //!(target.isActualPNode && target.direction === -1))
+                    else if (control_out.length === 0 && visited.indexOf(target) < 0)
                             leaves = leaves.concat([target]);
-                    else {                        
+                    else if (visited.indexOf(target) < 0) {                        
                         out = out.concat(control_out);  
                         out = out.concat(proto_out);  
-                    }  
+                    }
+                    visited.push(target);
             }
             return leaves;
         };
