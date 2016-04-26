@@ -610,12 +610,12 @@ var Stip = (function () {
                         return getObject(member.object)
                  },
                  declaration = Pdg.declarationOf(getObject(parsenode.callee), graphs.AST);
+            var hasEntryParent = upnode.isEntryNode || (upnode.parsenode && (Aux.isIfStm(upnode.parsenode) ||
+                             Aux.isForStm(upnode.parsenode) || Aux.isCatchStm(upnode.parsenode) || Aux.isThrowStm(upnode.parsenode)));
             if (!declaration)
                 throw new DeclarationNotFoundError(escodegen.generate(getObject(parsenode.callee)));
             var PDG_node = graphs.ATP.getNode(declaration),
                  handle = function (pdgnode, objectentry) {
-                    var hasEntryParent = upnode.isEntryNode || (upnode.parsenode && (Aux.isIfStm(upnode.parsenode) ||
-                               Aux.isForStm(upnode.parsenode) || Aux.isCatchStm(upnode.parsenode) || Aux.isThrowStm(upnode.parsenode)));
                     var calledname = Aux.getCalledName(parsenode);
                     var objectentry = objectentry ? objectentry : pdgnode.getOutEdges(EDGES.DATA)  //TODO : this is for var -> OE, should also work for EntryNode -> Return -> OE
                                             .map(function (e) {return e.to})
@@ -731,8 +731,9 @@ var Stip = (function () {
             callnode.primitive = primitive;
             upnode.primitive = primitive;
 
-            if (PDG_node){//} && !primitive) {
+            if (PDG_node){
                 var res;
+                addToPDG(callnode, upnode, graphs);
                 for(var i = 0; i < PDG_node.length; i++) {
                     var node = PDG_node[i];
                     if (node.isStatementNode &&
@@ -753,7 +754,11 @@ var Stip = (function () {
                         handle(node, objectentry);
                     }
                     else if (node.isFormalNode) {
-                        addDataDep(node, callnode);
+                        /*if (hasEntryParent)
+                            addDataDep(node, callnode);
+                        else
+                            addDataDep(node, upnode);*/
+                        handle(node);
                         addToPDG(callnode, upnode, graphs);
                     }
                     else if (node.isStatementNode && 
@@ -783,6 +788,7 @@ var Stip = (function () {
             }
             else {
                 graphs.ATP.installListener(declaration, handle);
+                addToPDG(callnode, upnode, graphs);
                 return [callnode];
             }
         }
@@ -806,7 +812,6 @@ var Stip = (function () {
                     if (!entry && upnode.parsenode.leadingComment)
                         Comments.handleAfterComment(upnode.parsenode.leadingComment, [upnode]);
                     addCallDep(callnode, entrynode);
-                    handleActualParameters(graphs, parsenode, callnode);
 
                     /* Bind the actual and formal parameters */
                     for (var i = 0; i < callnode.getActualIn().length; i++) {
@@ -887,14 +892,20 @@ var Stip = (function () {
                 return;
         }
 
-        else if (entry && !(Aux.isVarDeclarator(entry.parsenode)) && !entry.parsenode.init)
+        else if (entry && !(Aux.isVarDeclarator(entry.parsenode)) && !entry.parsenode.init) {
+            handleActualParameters(graphs, parsenode, callnode);
             return handle(entry);
+        }
         else if (primitive) {
             callnode.primitive = true;
             addToPDG(callnode, upnode, graphs);
         }   
         else {
-            graphs.ATP.installListener(calledf[0], handle)    
+            graphs.ATP.installListener(calledf[0], handle);
+            if (!callnode.name.startsWith('anonf')) {
+                addToPDG(callnode, upnode, graphs);    
+                handleActualParameters(graphs, parsenode, callnode);
+            }
             return [callnode];
         }
             
@@ -1226,9 +1237,6 @@ var Stip = (function () {
                     }
                 });
 
-                /* perform post check recursively! */
-               // var a_ins = n.getActualIn();
-                //postRemoteDep(a_ins);
             })
         })
     }

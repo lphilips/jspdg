@@ -87,7 +87,7 @@ var Nodeify = (function () {
             asyncs.indexOf(parsenode.callee.object.name) >= 0) 
             return true;
 
-        else {
+        else if (call.getEntryNode().length > 0) {
             entrynode  = call.getEntryNode()[0],
             entrydtype = entrynode.getdtype(),
             calldtype  = call.getdtype(); 
