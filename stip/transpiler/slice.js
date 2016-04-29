@@ -23,13 +23,11 @@ var CodeGenerator = (function () {
         }
 
         var addCloseUp = function (option, transpiled) {
-            /*switch (option.target) {
+            switch (option.target) {
                 case 'node.js':
-                    if(option.tier === 'client')
-                        sliced.footer = nodeFooterC();
-                    else 
-                        sliced.footer = nodeFooterS();
-            }*/
+                    if(option.tier === 'server')
+                        transpiled.closeup = transpiled.closeup.concat(NodeParse.createServerCloseUp());
+            }
             return transpiled;
         }
 

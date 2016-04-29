@@ -272,6 +272,25 @@ var Aux = (function () {
       }
 
 
+      function parent (node, ast) {
+         function findInChildren (cs) {
+            return cs.filter(function (c) {return c.tag === node.tag}).length > 0;
+         }
+         var cs = Ast.children(ast);
+          if (findInChildren(cs)){
+            return ast;
+          }
+          var p;
+          for (var i = 0; i < cs.length; i++)
+          {
+            if (p = parent(node, cs[i]))
+            {
+              return p;
+            }
+          }
+          return false;
+      }
+
 
       Array.prototype.memberAt =
           function (x)
@@ -333,8 +352,9 @@ var Aux = (function () {
     toreturn.hasInitValue       = hasInitValue;
 
     toreturn.clone              = clone;
-
+    toreturn.parent             = parent;
     toreturn.walkAst            = walkAst;
+
 
     toreturn.compareDeclarationNodes = compareDeclarationNodes;
 

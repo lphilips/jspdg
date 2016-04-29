@@ -429,6 +429,10 @@ var NodeParse = (function () {
         return esprima.parse("var client = new ClientRpc('http://127.0.0.1:8080');var store = new Store(); store.localStore(localStorage, 'app', true); store.connectClient(client);").body;
     };
 
+    var createServerCloseUp = function () {
+        return esprima.parse("server.onConnection(function (client) {store.loop(function (key, value) {server.rpcTo(client.id, 'updateStore', key, value)});})")
+    }
+
     var methodsServer = function () {
         return esprima.parse("server.expose({'updateStore' : function (key, val, cb) {store.set(key, val, false)}, 'retrieveStore' : function (key, val, cb) {var id = this.id; store.loop(function (key, value) {server.rpcTo(id, 'updateStore', key ,value)}); return cb(null, store.data)}})").body[0]; 
     };
@@ -457,6 +461,7 @@ var NodeParse = (function () {
     toreturn.createDataSetter   = createDataSetter;
     toreturn.createDataGetter   = createDataGetter;
     toreturn.createGetterVarDecl = createGetterVarDecl;
+    toreturn.createServerCloseUp = createServerCloseUp;
 
 
     if (typeof module !== 'undefined' && module.exports != null) {
