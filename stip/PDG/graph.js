@@ -113,12 +113,12 @@ PDG.prototype.getAllNodes = function () {
 
 /* Add a client statement
    checks first if corresponding distributed node exists */
-PDG.prototype.addClientStm = function (node) {
+PDG.prototype.addClientStm = function (node, ast) {
     node.dtype = DNODES.CLIENT;
     if (this.dclient)
         this.dclient.addEdgeOut(node, EDGES.CONTROL)
     else {
-        this.dclient = new DistributedNode(DNODES.CLIENT);
+        this.dclient = new DistributedNode(DNODES.CLIENT, ast);
         this.nodes[0].addEdgeOut(this.dclient, EDGES.CONTROL);
         this.dclient.addEdgeOut(node, EDGES.CONTROL)
     }
@@ -126,12 +126,12 @@ PDG.prototype.addClientStm = function (node) {
 
 /* Add a server statement
    checks first if corresponding distributed node exists */
-PDG.prototype.addServerStm = function (node) {
+PDG.prototype.addServerStm = function (node, ast) {
     node.dtype = DNODES.SERVER;
     if (this.dserver)
         this.dserver.addEdgeOut(node, EDGES.CONTROL)
     else {
-        this.dserver = new DistributedNode(DNODES.SERVER);
+        this.dserver = new DistributedNode(DNODES.SERVER, ast);
         this.nodes[0].addEdgeOut(this.dserver, EDGES.CONTROL);
         this.dserver.addEdgeOut(node, EDGES.CONTROL)
     }
@@ -154,7 +154,7 @@ var union = function (array) {
   return a
 }
 
-PDG.prototype.slice = function (criterion, assignments) { 
+PDG.prototype.slice = function (criterion, tiersplitting) { 
   
   function contains (equal, set) {
     for (var i = 0; i < set.length; i++) {
@@ -164,16 +164,57 @@ PDG.prototype.slice = function (criterion, assignments) {
     return false;
   }
 
+  function enclosingFunction (node) {
+    if (node.isEntryNode && !node.parsenode) 
+      return node; 
+    else if (node.isEntryNode && (Aux.isFunExp(node.parsenode) || Aux.isFunDecl(node.parsenode))) 
+      return node; 
+    else if (node.isObjectEntry)
+      return enclosingFunction(node.getInNodes(EDGES.DATA)[0]);
+    else 
+      return enclosingFunction(node.getInNodes(EDGES.CONTROL)[0]);
+  }
+
+  function includeSharedFunction (node) {
+    var entryN = enclosingFunction(node),
+        entryC = enclosingFunction(criterion);
+    if (entryC.isClientNode()) {
+      return entryN.clientCalls && entryN.clientCalls > 0;
+    }
+    else if (entryC.isServerNode()) {
+      return entryN.serverCalls && entryN.serverCalls > 0;
+    }
+    else 
+      return true;
+  }
+
   /* get assignments on variable declaration left in AST from original slicing criterion */
   function getAssignments (statementNode) {
-    var assignments = [];
+    var assignments = []; 
     if (statementNode.isStatementNode && Aux.isVarDeclarator(statementNode.parsenode)) {
         assignments = statementNode.getOutNodes(EDGES.DATA)
-                      .filter(function (n) {return n.isStatementNode &&
-                        n.cnt < criterion.cnt && 
-                      ( (Aux.isExpStm(n.parsenode) && Aux.isAssignmentExp(n.parsenode.expression)) ||
-                         Aux.isAssignmentExp(n.parsenode)) })
+                      .filter(function (n) {
+                        if (tiersplitting && n.cnt < criterion.cnt) {
+                          if (criterion.equalsdtype(n))
+                            return  n.isCallNode || n.isStatementNode &&
+                                (Aux.isExpStm(n.parsenode) &&
+                                  Aux.isAssignmentExp(n.parsenode.expression) ||
+                                  Aux.isAssignmentExp(n.parsenode));
+                          else
+                            return criterion.isActualPNode && n.isSharedNode() && includeSharedFunction(n) && 
+                                (n.isCallNode || n.isStatementNode &&
+                                (Aux.isExpStm(n.parsenode) &&
+                                  Aux.isAssignmentExp(n.parsenode.expression) ||
+                                  Aux.isAssignmentExp(n.parsenode)));
+                        } else
+                          return n.cnt < criterion.cnt && 
+                            (n.isCallNode || n.isStatementNode &&
+                          (Aux.isExpStm(n.parsenode) && 
+                            Aux.isAssignmentExp(n.parsenode.expression)) ||
+                           Aux.isAssignmentExp(n.parsenode));
+                       });
     }
+
     return assignments;
   }
 
@@ -183,10 +224,9 @@ PDG.prototype.slice = function (criterion, assignments) {
           equal     = function (id) {return function (n) {return n.id === id}};
       if(!(contains(equal(node.id), set))) {
         set.push(node);
-        if (!assignments)
-          getAssignments(node).map(function (n) {
+        getAssignments(node, tiersplitting).map(function (n) {
              traverse_backward([n], set, ignore);
-          });
+        });
         node.edges_in.map(function (edge) {
           var from     = edge.from,
               fdtype   = from.getdtype(true),
@@ -251,7 +291,9 @@ PDG.prototype.sliceDistributedNode = function (dnode) {
                         (data_out[0].to.parsenode.type === 'FunctionExpression' ||
                           data_out[0].to.isObjectEntry)) 
                        out = out.concat(data_out).concat(control_out);
-                    else if (control_out.length === 0 && visited.indexOf(target) < 0)
+                    else if (control_out.length === 0 && 
+                            proto_out.length == 0 && 
+                            visited.indexOf(target) < 0)
                             leaves = leaves.concat([target]);
                     else if (visited.indexOf(target) < 0) {                        
                         out = out.concat(control_out);  
