@@ -500,8 +500,12 @@ var Stip = (function () {
         /* Object : this - reference to object */
         if (Aux.isIdentifier(object)) {
             var decl        = Pdg.declarationOf(object, graphs.AST);
-            if (!decl) {
+            var inTryStm    = Aux.inTryStatement(graphs.AST, object);
+            if (!decl && !Aux.isTryStm(inTryStm)) {
                 throw new DeclarationNotFoundError(escodegen.generate(object));
+            }
+            else if (Aux.isTryStm(inTryStm)) {
+                return [stmNode];
             }
             var PDGnode     = graphs.ATP.getNode(decl),
                 handle = function (declarationNodes) {
@@ -530,7 +534,12 @@ var Stip = (function () {
                                     /* Adding a new member */
                                     else if (Aux.isExpStm(upnode.parsenode) &&
                                             Aux.isAssignmentExp(upnode.parsenode.expression)) {
-                                        objectentry.addMember(upnode.parsenode.expression.left.property.name, upnode);
+                                        var left = upnode.parsenode.expression.left;
+                                        if (Aux.isIdentifier(left)) {
+                                            objectentry.addMember(left.name, upnode);
+                                        }
+                                        else 
+                                            objectentry.addMember(left.property.name, upnode);
                                     }
 
                                     else {
@@ -658,13 +667,17 @@ var Stip = (function () {
                     if (!objectentry && !pdgnode.equals(upnode)) {
                         var actual_out = new ActualPNode(++graphs.PDG.funIndex, -1);
                         addDataDep(pdgnode, callnode);
-                        addToPDG(callnode, upnode, graphs);
+                        if (callnode.getInNodes(EDGES.CONTROL).filter(function (n) {return n.equals(upnode)}).length <= 0)
+                            addToPDG(callnode, upnode, graphs);
                         handleActualParameters(graphs, parsenode, callnode);
                         callnode.primitive = primitive;
                         callnode.addEdgeOut(actual_out, EDGES.CONTROL);
 
                         if (!hasEntryParent) {
-                            actual_out.addEdgeOut(upnode, EDGES.DATA)
+                            actual_out.addEdgeOut(upnode, EDGES.DATA);
+                        }
+                        else {
+                            actual_out.addEdgeOut(callnode, EDGES.DATA);
                         }
                         callnode.getActualIn().map(function (a_in) {
                             var entry = a_in.getInNodes(EDGES.DATA).filter(function (n) {return n.isEntryNode});
@@ -753,7 +766,8 @@ var Stip = (function () {
                         addToPDG(callnode, upnode, graphs);
                         handleActualParameters(graphs, parsenode, callnode);
                     }
-                return [callnode]
+                graphs.ATP.removeListener(declaration);
+                return [callnode];
             }
             /* Recheck primitive with object (e.g. console.log) */
             primitive = graphs.ATP.isPrimitive(Aux.getCalledName(parsenode), parsenode.callee.object);
@@ -783,10 +797,6 @@ var Stip = (function () {
                         handle(node, objectentry);
                     }
                     else if (node.isFormalNode) {
-                        /*if (hasEntryParent)
-                            addDataDep(node, callnode);
-                        else
-                            addDataDep(node, upnode);*/
                         handle(node);
                         addToPDG(callnode, upnode, graphs);
                     }
@@ -897,6 +907,7 @@ var Stip = (function () {
                         else if (formal_out)
                             formal_out.addEdgeOut(actual_out, EDGES.PAROUT);
                         callnode.addEdgeOut(actual_out, EDGES.CONTROL);  
+                        actual_out.getdtype(true);
                     })
 
                 }
@@ -913,12 +924,14 @@ var Stip = (function () {
         }
 
         /* generated calls should add call info to entry node */
-        if (Comments.isGeneratedAnnotated(node.leadingComment) && entry) {
+        if (Comments.isGeneratedAnnotated(node.leadingComment)) {
+            if (entry) {
                 if (node.clientCalls) 
                         entry.clientCalls = node.clientCalls;
                 if (node.serverCalls)
                         entry.serverCalls = node.serverCalls;
-                return;
+            }
+            return;
         }
 
         else if (entry && !(Aux.isVarDeclarator(entry.parsenode)) && !entry.parsenode.init) {
@@ -1140,7 +1153,8 @@ var Stip = (function () {
                 formp.map(function (f_in) {
                     addDataDep(f_in, upnode)
                 })
-            else if (!PDG_nodes)
+            /* no declaration, no formal parameter of current function: throw error */
+            else if (!declaration)
                 throw new DeclarationNotFoundError(escodegen.generate(node));
         }
 
@@ -1171,9 +1185,9 @@ var Stip = (function () {
 
             comment = node.parsenode.leadingComment;
             if (Comments.isClientAnnotated(comment)) 
-                graphs.PDG.addClientStm(node)
+                graphs.PDG.addClientStm(node, graphs.AST);
             else if (Comments.isServerAnnotated(comment))
-                graphs.PDG.addServerStm(node)
+                graphs.PDG.addServerStm(node, graphs.AST);
         }
 
         /* Block with tier annotation is handled separately */
@@ -1414,6 +1428,11 @@ var Stip = (function () {
             this.listeners[AstNode].push(listener)
         else 
             this.listeners[AstNode] = [listener]
+    }
+
+    ASTToPDGMap.prototype.removeListener = function (AstNode) {
+        if (this.listeners[AstNode])
+            this.listeners[AstNode] = [];   
     }
 
     function Graphs (AST, src, primitives) {

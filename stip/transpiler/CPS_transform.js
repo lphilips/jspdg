@@ -170,11 +170,11 @@ var CPSTransform = (function () {
                         prop.getInNodes(EDGES.DATA)
                             .map(function (up) {
                                 if (up.parsenode &&
-                                Aux.isVarDecl(up.parsenode) ||
+                                (Aux.isVarDecl(up.parsenode) ||
                                 Aux.isVarDeclarator(up.parsenode) ||
                                 Aux.isAssignmentExp(up.parsenode) ||
                                 Aux.isRetStm(up.parsenode) ||
-                                (Aux.isExpStm(up.parsenode) && Aux.isAssignmentExp(up.parsenode.expression)))
+                                (Aux.isExpStm(up.parsenode) && Aux.isAssignmentExp(up.parsenode.expression))))
                             vardecls.push(up);
                             })
                      })
@@ -605,7 +605,7 @@ var CPSTransform = (function () {
             if (Aux.isBlockStm(parent) && parent.leadingComment) {
                 break;
             }
-            parent = Ast.parent(parent, ast);
+            parent = Aux.parent(parent, ast);
         }
         if (Aux.isBlockStm(parent)) {
             return parent.leadingComment;
@@ -725,7 +725,9 @@ var CPSTransform = (function () {
                         }
                     }
 
-                    if (transpiled[2]) {node.parsenode = Aux.clone(node.parsenode); CPSsetExpStm(parsenode, transpiled[2]);}
+                    if (transpiled[2]) {
+                        node.parsenode = Aux.clone(node.parsenode); 
+                        CPSsetExpStm(parsenode, transpiled[2]);}
                     nodes = transpiled[0].remove(call);
 
                     if (outercps) {

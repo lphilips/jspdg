@@ -333,7 +333,7 @@ var JSify = (function () {
        
         actual_ins.map(function (a_in) {
             a_in.getOutNodes(EDGES.CONTROL)
-                .filter(function (n) { return n.isCallNode })
+                .filter(function (n) { return n.isCallNode && !n.equals(node)})
                 .map(function (n) {
                     callargs++;
                     transpiler.nodes = transpiler.nodes.remove(n);
@@ -380,7 +380,7 @@ var JSify = (function () {
         else if (callargs > 0) {
             actual_ins.map(function (a_in) {
                 a_in.getOutNodes(EDGES.CONTROL)
-                    .filter(function (n) { return n.isCallNode })
+                    .filter(function (n) { return n.isCallNode && !n.equals(node)})
                     .map(function (n) {
                         var transpiled = Transpiler.copyTranspileObject(transpiler, n);
                         transpiled  = Transpiler.transpile(transpiled);
@@ -670,12 +670,20 @@ var JSify = (function () {
     function transformProperty (transpiler) {
         var node    = transpiler.node,
             entries = node.getOutNodes(EDGES.DATA)
-                          .filter( function (n) { return n.isEntryNode; }),
+                          .filter( function (n) { return n.isEntryNode}),
+            objectentries = node.getOutNodes(EDGES.CONTROL)
+                            .filter(function (n) {return n.isObjectEntry}),
             calls   = node.getOutNodes(EDGES.CONTROL)
                           .filter( function (n) { return n.isCallNode; }),
             transpiled;
 
         entries.map(function (entry) {
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, entry));
+            node.parsenode.value = transpiled.transpiledNode;
+            transpiler.nodes = transpiled.nodes.remove(entry);
+        });
+
+        objectentries.map(function (entry) {
             transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, entry));
             node.parsenode.value = transpiled.transpiledNode;
             transpiler.nodes = transpiled.nodes.remove(entry);

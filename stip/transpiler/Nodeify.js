@@ -352,6 +352,7 @@ var Nodeify = (function () {
 
         transpiler.nodes = transpiler.nodes.remove(node);
         parsenode.body.body = body;
+        transpiler.transpiledNode = parsenode;
 
         /* CASE 2 : Server function that is called by client side */
         if(node.isServerNode() && node.clientCalls > 0) {

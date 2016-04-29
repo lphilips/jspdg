@@ -176,9 +176,9 @@ var Hoist = (function () {
                                 else {
                                     body.splice(index, 0, exp);
                                 }
-                                index += 1;
                             }
-                        })
+                        });
+                        astparent.latestHoistIndex = index;
 
                         if (Aux.isTryStm(astparent) || Aux.isCatchStm(astparent) ||
                             Aux.isBlockStm(astparent) && Aux.isTryStm(Ast.parent(astparent, ast)) ||
