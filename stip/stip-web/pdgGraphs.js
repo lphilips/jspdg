@@ -99,18 +99,18 @@ function createPDGGraph (PDG, assumes)
       var states = graphnodes.map( function (node, id) {
           var label    = node.id,
               parsed   = node.parsenode,
-              dtype    = node.getdtype && node.getdtype() ? node.getdtype().name : false,
+              ctype    = node.getCType && node.getCType() ? node.getCType() : false,
               tooltip  = parsed ? parsed.toString() :  "",
-              cssclass = label.slice(0,1) + " " + dtype;
+              cssclass = label.slice(0,1) + " " + ctype;
           if(node.isActualPNode) 
             node.value ? label += " " + node.value.slice(0,10) : label;
           if(node.isFormalNode)
             label += " " + node.name.slice(0,10);
-          if(dtype === "server")
+          if(ctype === "server")
             label += "[S]"
-          if(dtype === "client")
+          if(ctype === "client")
             label += "[C]"
-          if(dtype === "shared")
+          if(ctype === "shared")
             label += "[Sh]"
           if(node.parsenode) 
               label += " " + ((parsed && parsed.toString().length > 10) ? parsed.toString().slice(0,10)+"..." : parsed) ;

@@ -252,7 +252,7 @@ var CPSTransform = (function () {
         (function (callback) {
             asyncCall.parsenode.cont = function (node) {
                 var respar = callback.getResParCnt(),
-                    arg    = this.callnode,
+                    arg    = this._callnode,
                     transf = transformVar(arg.parsenode, callnode, respar);
                     if (node.isRPC) {
                         node.replaceArg(arg.parsenode, transf);
@@ -296,7 +296,7 @@ var CPSTransform = (function () {
             if (transpiledNode !== asyncCall && transpiler.parseUtils.shouldTransform(callnode)) {
                 transpiledNode.parsenode.cont(asyncCall);
                 transpiledNode.parsenode.cont = asyncCall.parsenode.cont;
-                transpiledNode.parsenode.callnode = callnode;
+                transpiledNode.parsenode._callnode = callnode;
             } 
             else if (transpiler.parseUtils.shouldTransform(callnode))
                 transpiledNode = asyncCall;
@@ -330,7 +330,7 @@ var CPSTransform = (function () {
             }
             transpiledNode.parsenode.cont(callnode);
             transpiledNode.parsenode.cont = asyncCall.parsenode.cont;
-            transpiledNode.parsenode.callnode = callnode;//transpiledNode;
+            transpiledNode.parsenode._callnode = callnode;//transpiledNode;
             return [nodes, transpiledNode, esp_exp];
         }
 
@@ -349,7 +349,7 @@ var CPSTransform = (function () {
                 })
             }
             transpiledNode = asyncCall;
-            transpiledNode.parsenode.callnode = callnode;
+            transpiledNode.parsenode._callnode = callnode;
         }
 
 
@@ -370,7 +370,7 @@ var CPSTransform = (function () {
             }
             transpiledNode.parsenode.cont(asyncCall);
             transpiledNode.parsenode.cont = asyncCall.parsenode.cont;
-            transpiledNode.parsenode.callnode = callnode;
+            transpiledNode.parsenode._callnode = callnode;
         }
         return [nodes, transpiledNode, esp_exp]
     }
@@ -417,7 +417,7 @@ var CPSTransform = (function () {
                                 latestcall = transformcall;
                                 transformcallp.cont = function (node) {
                                     var respar = latestcall.getCallback().getResParCnt(),
-                                        replc  = transformVar(latestcall.parsenode.callnode.parsenode, 
+                                        replc  = transformVar(latestcall.parsenode._callnode.parsenode, 
                                                                callarg, respar),
                                         callb  = latestcall.getCallback();
                                     if (node.isRPC) {
@@ -425,9 +425,9 @@ var CPSTransform = (function () {
                                            it could be that the callarg did not get transformed, but its argument did 
                                            e.g. node is of form  rpc(notransform(transform(x))),
                                            transform(x) should be replaced with latest result parameter  */
-                                        node.replaceArg(latestcall.parsenode.callnode.parsenode, replc);
+                                        node.replaceArg(latestcall.parsenode._callnode.parsenode, replc);
                                         if (callargs.length > carguments.length) {
-                                            node.replaceArg(node.parsenode.callnode.parsenode, node.getCallback().getResPar());
+                                            node.replaceArg(node.parsenode._callnode.parsenode, node.getCallback().getResPar());
                                         }
                                         node.callback.setBody(node.callback.getBody()
                                                 .concat(callb.getBody().slice(1))
@@ -469,9 +469,9 @@ var CPSTransform = (function () {
                                     }
 
                                     var respar = latestcall.getCallback().getResPar();
-                                    node.replaceArg(latestcall.parsenode.callnode.parsenode, respar);
+                                    node.replaceArg(latestcall.parsenode._callnode.parsenode, respar);
                                     if (callargs.length > carguments.length) {
-                                            node.replaceArg(transformcall.parsenode.callnode.parsenode, transformcall.getCallback().getResPar());
+                                            node.replaceArg(transformcall.parsenode._callnode.parsenode, transformcall.getCallback().getResPar());
                                     }
                                     transformcall.getCallback().setBody([node.parsenode]);
                                 }
@@ -480,7 +480,7 @@ var CPSTransform = (function () {
                                     var respar = transformcall.getCallback().getResPar(),
                                         cont   = latestcall.parsenode.cont;
                                     latestcall.parsenode.cont = function (node) {
-                                        node.replaceArg(transformcall.parsenode.callnode.parsenode, respar);
+                                        node.replaceArg(transformcall.parsenode._callnode.parsenode, respar);
                                         cont(node);
                                     }
                                 }
@@ -531,13 +531,13 @@ var CPSTransform = (function () {
                             Ast.augmentAst(enclosingFun);
                             /* callnode property is added if return statement is already transformed to a cps call
                                No need to wrap it in a callback call again */
-                            if (node.argument && !node.callnode) {
+                            if (node.argument && !node._callnode) {
                                 node.type = "ReturnStatement";
                                 node.argument = transpiler.parseUtils.createCbCall('callback', {type: 'Literal', value: null}, node.argument);
                             }
                             /* callnode property is added if return statement is already transformed to a cps call
                                No need to wrap it in a callback call again */
-                            else if (!node.callnode) {
+                            else if (!node._callnode) {
                                 node.type = "ReturnStatement";
                                 node.argument = transpiler.parseUtils.createCbCall('callback', {type: 'Literal', value: null}, node.argument);
                             }

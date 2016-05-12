@@ -184,8 +184,8 @@
             PDGg = graphs;
             slicededitor.setValue("");
             //$('.collapse').collapse();
-            var slicedc      = PDG.sliceDistributedNode(PDG.dclient),
-                sliceds      = PDG.sliceDistributedNode(PDG.dserver),
+            var slicedc      = PDG.sliceDistributedNode(DNODES.CLIENT),
+                sliceds      = PDG.sliceDistributedNode(DNODES.SERVER),
                 sortedc      = slicedc.slice(0),
                 sorteds      = sliceds.slice(0),
                 removes      = [],

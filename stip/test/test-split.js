@@ -24,7 +24,8 @@ var Stip            = require('../stip.js').Stip;
 var CodeGenerator       = require('../transpiler/slice.js').CodeGenerator;
 
 
-
+var storeMethodsServer = "'updateStore' : function (key, val, cb) {store.set(key, val, false)}, 'retrieveStore' : function (key, val, cb) {var id = this.id; store.loop(function (key, value) {server.rpcTo(id, 'updateStore', key ,value)}); return cb(null, store.data)} ";
+var storeMethodsClient = "'updateStore' : function (key, val, cb) {store.set(key, val, true)}"
 
 function tiersplit (src) {
     var ast = Ast.createAst(src, {loc: true, owningComments: true, comment: true});
@@ -41,8 +42,8 @@ function tiersplit (src) {
     Stip.start(graphs);
 
     var PDG          = graphs.PDG, 
-        slicedc      = PDG.sliceDistributedNode(PDG.dclient),
-        sliceds      = PDG.sliceDistributedNode(PDG.dserver),
+        slicedc      = PDG.sliceDistributedNode(DNODES.CLIENT),
+        sliceds      = PDG.sliceDistributedNode(DNODES.SERVER),
         sortedc      = slicedc.slice(0),
         sorteds      = sliceds.slice(0),
         removes      = [],
@@ -216,39 +217,39 @@ suite('Tier split - basic', function () {
         var res = tiersplit('/* @server */ {var a = 1; var b = 2; var c = a + b;} /* @client */ {var a = 1; var b = 2; var c = a + b;}');
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
-        compareAst(escodegen.generate(ast0), 'var a; var b; var c; a = 1;store.set("a", a); b = 2; store.set("b", b);c = a + b;store.set("c", c); client.expose({});');
-        compareAst(escodegen.generate(ast1), 'var a; var b; var c; a = 1; store.set("a", a); b = 2; store.set("b", b); c = a + b; store.set("c", c);server.expose({});');
+        compareAst(escodegen.generate(ast0), 'var a; var b; var c; a = 1;store.set("a", a); b = 2; store.set("b", b);c = a + b;store.set("c", c); client.expose({'+storeMethodsClient+'});');
+        compareAst(escodegen.generate(ast1), 'var a; var b; var c; a = 1; store.set("a", a); b = 2; store.set("b", b); c = a + b; store.set("c", c);server.expose({' + storeMethodsServer +'});');
     });
 
-    test('functionclienttoserver', function () {
-        var res = tiersplit('/* @server */ {function foo (x) {return x}} /* @client */ {var a = foo(42)}');
-        var ast0 = res[0].nosetup;
-        var ast1 = res[1].nosetup;
-        compareAst(escodegen.generate(ast1), 'server.expose({"foo" : function (x, callback) {return callback(null, x)}})');
-        compareAst(escodegen.generate(ast0), 
-                'var a; client.rpcCall("foo", 42, function (_v1_, _v2_) {a = _v2_;}); client.expose({});', 
-                { varPattern: /_v\d_/ });
-    });
+     test('functionclienttoserver', function () {
+         var res = tiersplit('/* @server */ {function foo (x) {return x}} /* @client */ {var a = foo(42)}');
+         var ast0 = res[0].nosetup;
+         var ast1 = res[1].nosetup;
+         compareAst(escodegen.generate(ast1), 'function foo(x) {return x;} server.expose({' + storeMethodsServer +', "foo" : function (x, callback) {return callback(null, x)}})');
+         compareAst(escodegen.generate(ast0), 
+                 'var a; client.rpcCall("foo", 42, function (_v1_, _v2_) {a = _v2_;}); client.expose({'+storeMethodsClient+'});', 
+                 { varPattern: /_v\d_/ });
+     });
 
-    test('functionservertoclient_broadcast', function () {
-        var res = tiersplit('/* @client */ {function clientf (x) { return x; }} /* @server */ {/* @all */ clientf(42)}');
-        var ast0 = res[0].nosetup;
-        var ast1 = res[1].nosetup;
-        compareAst(escodegen.generate(ast0), 
-            'client.expose({"clientf" : function (x, callback) {return callback(null, x)}});');
-        compareAst(escodegen.generate(ast1), 
-            'server.rpc("clientf", [42]); server.expose({});');
-    });
+     test('functionservertoclient_broadcast', function () {
+         var res = tiersplit('/* @client */ {function clientf (x) { return x; }} /* @server */ {/* @all */ clientf(42)}');
+         var ast0 = res[0].nosetup;
+         var ast1 = res[1].nosetup;
+         compareAst(escodegen.generate(ast0), 
+             'function clientf(x) {return x} client.expose({'+ storeMethodsClient+',"clientf" : function (x, callback) {return callback(null, x)}});');
+         compareAst(escodegen.generate(ast1), 
+             'server.rpc("clientf", [42]); server.expose({'+storeMethodsServer+'});');
+     });
 
-    test('functionservertoclient_reply', function () {
-        var res = tiersplit('/* @server */ {function foo() {/*@reply */ bar(3)}} /* @client */ {function bar(y) {return 42+y;} foo();}');
-        var ast0 = res[0].nosetup;
-        var ast1 = res[1].nosetup;
-        compareAst(escodegen.generate(ast0), 
-                    'client.rpcCall("foo", function (_v1_, _v2_) {}); client.expose({"bar" : function (y,callback) {return callback(null,42+y)}})',
-                    { varPattern: /_v\d_/ });
-        compareAst(escodegen.generate(ast1), 'server.expose({"foo" : function (callback) {this.rpcCall("bar", 3)}})');
-    })
+     test('functionservertoclient_reply', function () {
+         var res = tiersplit('/* @server */ {function foo() {/*@reply */ bar(3)}} /* @client */ {function bar(y) {return 42+y;} foo();}');
+         var ast0 = res[0].nosetup;
+         var ast1 = res[1].nosetup;
+         compareAst(escodegen.generate(ast0), 
+                     'client.rpcCall("foo", function (_v1_, _v2_) {}); client.expose({"bar" : function (y,callback) {return callback(null,42+y)}})',
+                     { varPattern: /_v\d_/ });
+         compareAst(escodegen.generate(ast1), 'server.expose({"foo" : function (callback) {this.rpcCall("bar", 3)}})');
+     })
 
    
 });

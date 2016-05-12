@@ -45,8 +45,8 @@ var Nodeify = (function () {
     }
 
     var shouldTransformData = function (data) {
-        var dtype = data.getdtype();
-        var otherdtype = false;
+        var ctype = data.getCType();
+        var otherctype = false;
 
         /* Declaration */
         if (data.isStatementNode && Aux.isVarDecl(data.parsenode)) {
@@ -55,10 +55,10 @@ var Nodeify = (function () {
             else  {       
                 data.getOutNodes(EDGES.DATA).concat(data.getOutNodes(EDGES.REMOTED))
                     .map(function (node) {
-                    if (!data.equalsdtype(node))
-                        otherdtype = true;
+                    if (!data.equalsCType(node))
+                        otherctype = true;
                 });
-                    return otherdtype;
+                return otherctype;
             }
 
         }
@@ -68,18 +68,18 @@ var Nodeify = (function () {
 
         data.getInNodes(EDGES.DATA).concat(data.getInNodes(EDGES.REMOTED))
             .map(function (node) {
-                if ( !data.equalsdtype(node))
-                    otherdtype = true;
+                if ( !data.equalsCType(node))
+                    otherctype = true;
             });
-        return otherdtype;
+        return otherctype;
 
     }
 
     var shouldTransform = function (call) {
         var parsenode = Pdg.getCallExpression(call.parsenode),
             entrynode,   
-            entrydtype,  
-            calldtype;  
+            entryCType,  
+            callCType;  
         if (call.primitive) {
             return false;
         } 
@@ -89,14 +89,14 @@ var Nodeify = (function () {
 
         else if (call.getEntryNode().length > 0) {
             entrynode  = call.getEntryNode()[0],
-            entrydtype = entrynode.getdtype(),
-            calldtype  = call.getdtype(); 
+            entryCType = entrynode.getCType(),
+            callCType  = call.getCType(); 
             /* Only client->server calls should be transformed by CPS module */
-            return !(entrydtype.value === DNODES.CLIENT.value  && 
-                     calldtype.value  === DNODES.SERVER.value) &&
-                    (entrydtype.value === DNODES.SERVER.value  &&
-                     calldtype.value  === DNODES.CLIENT.value) && 
-                    entrydtype.value  !== DNODES.SHARED.value 
+            return !(entryCType === DNODES.CLIENT  && 
+                     callCType === DNODES.SERVER)  &&
+                    (entryCType === DNODES.SERVER  &&
+                     callCType === DNODES.CLIENT)  && 
+                    entryCType  !== DNODES.SHARED
             }
     }
 
@@ -192,7 +192,7 @@ var Nodeify = (function () {
     function transformVariableDeclData (transpiler) {
         var transpiled = nodeifyVarDecl(transpiler),
             node = transpiled.node,
-            dtype = node.getdtype(),
+            ctype = node.getCType(),
             tier = transpiler.options.tier,
             servercnt = 0,
             clientcnt = 0,
@@ -225,14 +225,14 @@ var Nodeify = (function () {
 
         /* no declaration node in the case of actual parameter */
         if (declarationnode) {
-            declarationtype = declarationnode.getdtype();
+            declarationtype = declarationnode.getCType();
             if (!declarationnode.sharedcnt) {
                 declarationnode.getOutNodes(EDGES.DATA).concat(declarationnode.getOutNodes(EDGES.REMOTED))
                     .map(function (dnode) {
-                        var dtype = dnode.getdtype();
-                        if (dtypeEquals(dtype, DNODES.SHARED)) sharedcnt++;
-                        if (dtypeEquals(dtype, DNODES.SERVER)) servercnt++;
-                        if (dtypeEquals(dtype, DNODES.CLIENT)) clientcnt++;
+                        var ctype = dnode.getCType();
+                        if (cTypeEquals(ctype, DNODES.SHARED)) sharedcnt++;
+                        if (cTypeEquals(ctype, DNODES.SERVER)) servercnt++;
+                        if (cTypeEquals(ctype, DNODES.CLIENT)) clientcnt++;
                 });
                 /* Store for later */
                 declarationnode.sharedcnt = sharedcnt;
@@ -250,34 +250,34 @@ var Nodeify = (function () {
             }
 
             /* declaration node is shared */
-            if (dtypeEquals(declarationtype, DNODES.SHARED)) {
+            if (cTypeEquals(declarationtype, DNODES.SHARED)) {
                 /* Declaration node itself */
                 if (Aux.isVarDecl(node.parsenode) && 
                     declarationnode.clientcnt > 0 &&
                     declarationnode.servercnt > 0 ) {
-                    if (tier === DNODES.CLIENT.name) {
+                    if (tier === DNODES.CLIENT) {
                         transpiled.transpiledNode = Aux.clone(transpiled.transpiledNode);
                         transpiled.transpiledNode.declarations[0].init = getter.expression;
                     }
                 }
                 else if (declarationnode.clientcnt > 0 && declarationnode.servercnt > 0) {
-                    if (tier === DNODES.CLIENT.name)
+                    if (tier === DNODES.CLIENT)
                         transpiled.transpiledNode = false;
                     else
                         transpiled.closeupNode = [setter];
                 }
             }
 
-            if (dtypeEquals(declarationtype, DNODES.SERVER)) {
+            if (cTypeEquals(declarationtype, DNODES.SERVER)) {
                 if (Aux.isVarDecl(node.parsenode) &&
                     declarationnode.clientcnt > 0) {
-                    if (tier === DNODES.CLIENT.name) {
+                    if (tier === DNODES.CLIENT) {
                         transpiled.transpiledNode = Aux.clone(transpiled.transpiledNode);
                         transpiled.transpiledNode.declarations[0].init = getter.expression;
                     }
                 } 
                 /* Defined on server, used on server */
-                else if (declarationnode.equalsdtype(node) && declarationnode.clientcnt > 0) {
+                else if (declarationnode.equalsComponent(node) && declarationnode.clientcnt > 0) {
                     transpiled.closeupNode = [setter];
                 }
                 else if (declarationnode.clientcnt > 0) {
@@ -352,7 +352,7 @@ var Nodeify = (function () {
 
         transpiler.nodes = transpiler.nodes.remove(node);
         parsenode.body.body = body;
-        transpiler.transpiledNode = parsenode;
+        transpiler.transpiledNode = Aux.clone(parsenode);
 
         /* CASE 2 : Server function that is called by client side */
         if(node.isServerNode() && node.clientCalls > 0) {
@@ -368,9 +368,8 @@ var Nodeify = (function () {
 
         if ((node.isClientNode() && node.clientCalls > 0) || 
             (node.isServerNode() && node.serverCalls > 0) || 
-            node.dtype === DNODES.SHARED) {
+            node.ctype === DNODES.SHARED) {
             transpiler.nodes = transpiler.nodes.remove(node);
-            transpiler.transpiledNode  = parsenode;
         }
 
         if (! Aux.isVarDeclarator(parent) && transpiler.method.setName) {
@@ -486,14 +485,14 @@ var Nodeify = (function () {
                         declarationnode = n;
                     })
             if (declarationnode) {
-                declarationtype = declarationnode.getdtype();
+                declarationtype = declarationnode.getCType();
                 if (!declarationnode.sharedcnt) {
                     declarationnode.getOutNodes(EDGES.DATA).concat(declarationnode.getOutNodes(EDGES.REMOTED))
                         .map(function (dnode) {
-                            var dtype = dnode.getdtype();
-                            if (dtypeEquals(dtype, DNODES.SHARED)) sharedcnt++;
-                            if (dtypeEquals(dtype, DNODES.SERVER)) servercnt++;
-                            if (dtypeEquals(dtype, DNODES.CLIENT)) clientcnt++;
+                            var ctype = dnode.getCType();
+                            if (cTypeEquals(ctype, DNODES.SHARED)) sharedcnt++;
+                            if (cTypeEquals(ctype, DNODES.SERVER)) servercnt++;
+                            if (cTypeEquals(ctype, DNODES.CLIENT)) clientcnt++;
                     });
                     /* Store for later */
                     declarationnode.sharedcnt = sharedcnt;
@@ -695,7 +694,7 @@ var Nodeify = (function () {
         asyncs  = require('../pre-analysis').asyncs;
         DNODES = nodereq.DNODES;
         arityEquals = nodereq.arityEquals;
-        dtypeEquals = nodereq.dtypeEquals;
+        cTypeEquals = nodereq.cTypeEquals;
         ARITY = nodereq.ARITY;
         NodeParse = require('./Node_parse.js').NodeParse;
         CPSTransform = require('./CPS_transform.js').CPSTransform;

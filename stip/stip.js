@@ -19,6 +19,8 @@ var Stip = (function () {
 
     var handleProgram = function (graphs, node) {
         var rootnode = new EntryNode(graphs.PDG.entIndex);
+        rootnode.isRootNode = true;
+        graphs.PDG.rootNode = rootnode;
         graphs.PDG.changeEntry(rootnode);
         node.body.map(function (exp) {
             makePDGNode(graphs, exp, rootnode);
@@ -39,7 +41,7 @@ var Stip = (function () {
             var stmNode = graphs.PDG.makeStm(decl);
             stmNode.parsenode.leadingComment = node.leadingComment;
             if (upnode) 
-                stmNode.dtype = upnode.getdtype();
+                stmNode.ctype = upnode.getCType();
             stmNode.name = decl.id.name;
             addToPDG(stmNode, upnode, graphs);
             /* Make (if necessary) PDG nodes of init expression */
@@ -330,7 +332,7 @@ var Stip = (function () {
         graphs.ATP.addNodes(node, stmNode);
         /* Catch clause */
         node.handlers.map(function (handler) {
-            var catchclause = handleCatchClause(graphs, handler, stmNode, upnode.getdtype());
+            var catchclause = handleCatchClause(graphs, handler, stmNode, upnode.getCType());
             catches = catches.concat(catchclause);
         })
         stmNode.catches = catches;
@@ -342,9 +344,9 @@ var Stip = (function () {
     }
 
 
-    var handleCatchClause = function (graphs, node, upnode, dtype) {
+    var handleCatchClause = function (graphs, node, upnode, ctype) {
         var stmNode   = graphs.PDG.makeStm(node);
-        stmNode.dtype = dtype;
+        stmNode.ctype = ctype;
         node.body.body.map(function (bodynode) {
             makePDGNode(graphs, bodynode, stmNode);
         });
@@ -455,11 +457,11 @@ var Stip = (function () {
         else if (!Aux.isMemberExpression(parsenode.left)) {
             throw new DeclarationNotFoundError(escodegen.generate(node));
         }
-        /* Recheck dependent call nodes for dtype (could be wrong because assign. exp had
-           no dtype at that moment ) */
+        /* Recheck dependent call nodes for ctype (could be wrong because assign. exp had
+           no ctype at that moment ) */
         var calls = stmNode.edges_out.map(function (e) {
             if (e.to.isCallNode && e.equalsType(EDGES.CONTROL))
-                e.to.dtype = stmNode.getdtype()
+                e.to.ctype = stmNode.getCType();
         })
         return [stmNode];
     }
@@ -583,11 +585,11 @@ var Stip = (function () {
         //makePDGNode(graphs, object, hasEntryParent ? stmNode : upnode);
         /* Right-hand side */
         //makePDGNode(graphs, property, hasEntryParent ? stmNode : upnode);
-        /* Recheck dependent call nodes for dtype (could be wrong because assign. exp had
-           no dtype at that moment ) */
+        /* Recheck dependent call nodes for ctype (could be wrong because assign. exp had
+           no ctype at that moment ) */
         var calls = stmNode.edges_out.map(function (e) {
             if (e.to.isCallNode && e.equalsType(EDGES.CONTROL))
-                e.to.dtype = stmNode.getdtype()
+                e.to.ctype = stmNode.getCType();
         });
         return [stmNode];
     }
@@ -746,7 +748,7 @@ var Stip = (function () {
                                 }    
 
                                 /* Formal-out parameter -> actual-out parameter */
-                                if (formal_out && (!actual_out.equalsdtype(formal_out) || 
+                                if (formal_out && (!actual_out.equalsComponent(formal_out) || 
                                     !actual_out.isSharedNode() ||
                                     !formal_out.isSharedNode () ))
                                         formal_out.addEdgeOut(actual_out, EDGES.REMOTEPAROUT); 
@@ -857,7 +859,7 @@ var Stip = (function () {
                         var a = callnode.getActualIn()[i],
                             f = formals[i];
                         /* actual-in parameter -> formal-in parameter */
-                        if (f && (!a.equalsdtype(f) || 
+                        if (f && (!a.equalsComponent(f) || 
                             !a.isSharedNode() ||
                             !f.isSharedNode()))
                             a.addEdgeOut(f, EDGES.REMOTEPARIN);
@@ -900,14 +902,14 @@ var Stip = (function () {
                         }    
 
                         /* Formal-out parameter -> actual-out parameter */
-                        if (formal_out && (!actual_out.equalsdtype(formal_out) || 
+                        if (formal_out && (!actual_out.equalsComponent(formal_out) || 
                             !actual_out.isSharedNode() ||
                             !formal_out.isSharedNode () ))
                                 formal_out.addEdgeOut(actual_out, EDGES.REMOTEPAROUT); 
                         else if (formal_out)
                             formal_out.addEdgeOut(actual_out, EDGES.PAROUT);
                         callnode.addEdgeOut(actual_out, EDGES.CONTROL);  
-                        actual_out.getdtype(true);
+                        actual_out.getCType(true);
                     })
 
                 }
@@ -1185,9 +1187,9 @@ var Stip = (function () {
 
             comment = node.parsenode.leadingComment;
             if (Comments.isClientAnnotated(comment)) 
-                graphs.PDG.addClientStm(node, graphs.AST);
+                graphs.PDG.addClientStm(node);
             else if (Comments.isServerAnnotated(comment))
-                graphs.PDG.addServerStm(node, graphs.AST);
+                graphs.PDG.addServerStm(node);
         }
 
         /* Block with tier annotation is handled separately */
@@ -1200,39 +1202,39 @@ var Stip = (function () {
     }
 
     var addCallDep = function (from, to) {
-        var dtypef = from.getdtype(),
-            dtypet = to.getdtype();
-        if (dtypef && dtypet)
-            if(dtypef.value === DNODES.SHARED.value ||
-                dtypet.value === DNODES.SHARED.value) 
+        var cTypeFrom = from.getCType(),
+            cTypeTo   = to.getCType();
+
+        if (cTypeFrom && cTypeTo) {
+
+            if (cTypeFrom === DNODES.SHARED || cTypeTo === DNODES.SHARED) 
                 from.addEdgeOut(to, EDGES.CALL);
-            else if (dtypef.value !== dtypet.value) 
+            else if (cTypeFrom!== cTypeTo) 
                 from.addEdgeOut(to, EDGES.REMOTEC);
             else 
                 from.addEdgeOut(to, EDGES.CALL);
 
-            if (dtypef.value === DNODES.SERVER &&
-                dtypet.value === DNODES.CLIENT)
+            if (cTypeFrom === DNODES.SERVER && cTypeTo === DNODES.CLIENT)
                 to.clientCalls += 1;
-            else if (dtypef.value === DNODES.CLIENT &&
-                dtypet.value === DNODES.SERVER) 
+            else if (cTypeFrom === DNODES.CLIENT && cTypeTo === DNODES.SERVER) 
                 to.clientCalls += 1;
+        }
         else
             from.addEdgeOut(to, EDGES.CALL)
     }
 
     var addDataDep = function (from, to) {
-        var dtypef = from.getdtype(),
-            dtypet = to.getdtype(),
+        var cTypeFrom = from.getCType(),
+            cTypeTo = to.getCType(),
             dupl   = from.getOutEdges(EDGES.REMOTED)
                          .concat(from.getOutEdges(EDGES.DATA))
                          .filter(function (e) {
                             return  e.to.equals(to) });
         if(dupl.length < 1) {
-            if(dtypef && dtypet && 
-                (dtypef.value !== DNODES.SHARED.value &&
-                 dtypet.value !== DNODES.SHARED.value) &&
-                 dtypef.value !== dtypet.value) 
+            if(cTypeFrom && cTypeTo && 
+                (cTypeFrom !== DNODES.SHARED&&
+                 cTypeTo   !== DNODES.SHARED) &&
+                 cTypeFrom !== cTypeTo) 
                 from.addEdgeOut(to, EDGES.REMOTED)
             else
                 from.addEdgeOut(to, EDGES.DATA)
@@ -1253,14 +1255,14 @@ var Stip = (function () {
                     return e.from.isCallNode  
                 }).map( function (e) { return e.from});
 
-            var paramtype = param.getdtype(true);   
+            var paramtype = param.getCType(true);   
 
             datadeps.map(function (e) {
-                var dtypef = e.from.getdtype(true);
-                if(dtypef && paramtype && 
-                   (dtypef.value !== DNODES.SHARED.value &&
-                    paramtype.value !== DNODES.SHARED.value) && 
-                    dtypef.value !== paramtype.value)
+                var cTypeFrom = e.from.getCType(true);
+                if(cTypeFrom && paramtype && 
+                   (cTypeFrom !== DNODES.SHARED &&
+                    paramtype !== DNODES.SHARED) && 
+                    cTypeFrom !== paramtype)
                     e.type = EDGES.REMOTED;
                 else
                     e.type = EDGES.DATA;
@@ -1269,13 +1271,13 @@ var Stip = (function () {
             calldeps.map(function (n) {
                  n.getOutEdges(EDGES.CALL).concat(n.getOutEdges(EDGES.REMOTEC))
                   .map( function (e) {
-                    var dtypet = e.to.getdtype(true),
-                        dtypef = e.from.getdtype(true);
-                    if(dtypef && dtypet) {
-                        if(dtypef.value === DNODES.SHARED.value ||
-                           dtypet.value === DNODES.SHARED.value) 
+                    var cTypeTo = e.to.getCType(true),
+                        cTypeFrom = e.from.getCType(true);
+                    if(cTypeFrom && cTypeTo) {
+                        if(cTypeFrom === DNODES.SHARED ||
+                           cTypeTo === DNODES.SHARED) 
                               e.type = EDGES.CALL;
-                        else if (dtypef.value !== dtypet.value) 
+                        else if (cTypeFrom !== cTypeTo) 
                               e.type = EDGES.REMOTEC;
                         else 
                            e.type =  EDGES.CALL;

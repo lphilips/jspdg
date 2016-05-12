@@ -541,67 +541,39 @@ var ExitNode = function (id, parsenode, exception) {
 ExitNode.prototype = new PDG_Node(); 
 
 //////////////////////////////////////////
-//          Distributed nodes           //
+//          Component nodes             //
 //////////////////////////////////////////
-
-var DNODES = {
-    CLIENT : {value: 0, name: "client"},
-    SERVER : {value: 1, name: "server"},
-    SHARED : {value: 2, name: "shared"}
+function ComponentNode (tag) {
+    PDG_Node.call(this, 'C'+tag);
+    this.ctype = tag;
+    this.isComponentNode = true;
 }
 
-var ARITY = {
-    ONE   : {value: 0, name: "one"},
-    ALL   : {value: 1, name: "all"}
+ComponentNode.prototype = new PDG_Node();
+
+/* Used for counting outbound remote data references and remote calls 
+   Only follows control flow edges */
+ComponentNode.prototype.countEdgeType = function (type) {
+    var controls = this.getOutEdges(EDGES.CONTROL);
+    var visited = this.getOutEdges(EDGES.CONTROL);
+    var count = 0;
+    while (controls.length > 0) {
+        var edge = controls.shift();
+        visited.push(edge);
+        if (edge.equalsType(type)) {
+            count++;
+        }
+        edge.to.getOutEdges(EDGES.CONTROL).map(function (e) {
+            if (visited.indexOf(e) >= 0) {
+                controls.push(e);
+            }
+        });
+    }
+    return count;
 }
 
-var dtypeEquals = function (type1, type2) {
-    return type1.value === type2.value
-}
-
-var arityEquals = function (type1, type2) {
-    return type1.value === type2.value
-}
-
-DistributedNode = function (type) {
-    PDG_Node.call(this, 'D'+type.name);
-    this.dtype = type;
-    this.isDistributedNode = true;
-}
-
-PDG_Node.prototype.isClientNode = function () {
-    this.dtype = this.getdtype();
-    return  this.dtype.value === DNODES.CLIENT.value;
-   // return !this.dtype || this.dtype.value === DNODES.CLIENT.value
-}
-
-PDG_Node.prototype.isServerNode = function () {
-    this.dtype = this.getdtype();
-    return this.dtype.value === DNODES.SERVER.value;
-    //return !this.dtype || this.dtype.value === DNODES.SERVER.value
-}
-
-PDG_Node.prototype.isSharedNode = function () {
-    this.dtype = this.getdtype();
-    return !this.dtype || this.dtype.value === DNODES.SHARED.value;
-}
-
-PDG_Node.prototype.equalsdtype = function (node) {
-    this.dtype = this.getdtype(true);
-    node.dtype = node.getdtype(true);
-    if (!this.dtype)
-        this.dtype = DNODES.SHARED;
-    if (!node.getdtype)
-        node.dtype = DNODES.SHARED;
-    if(this.dtype && node.dtype)
-        return this.dtype.value === node.dtype.value;
-
-}
-
-/* Returns the distributed type of the node.
-   If not known, it must be calculated */
-PDG_Node.prototype.getdtype = function (recheck) {
-    /* Aux function that filter incoming edges */
+PDG_Node.prototype.getCType = function (recheck) {
+        /* Aux function that filter incoming edges */
     var filterIncoming = function (e) {
         // Ignore cycles
         if (e.to.equals(e.from)) 
@@ -612,6 +584,7 @@ PDG_Node.prototype.getdtype = function (recheck) {
                  Aux.isVarDecl(e.from.parsenode) || Aux.isProperty(e.from.parsenode) ||
                  (Aux.isExpStm(e.from.parsenode) && Aux.isAssignmentExp(e.from.parsenode.expression)))) 
             return true;
+        // Follow var x = new or var x = {} object expressions 
         else if (e.to.parsenode &&
                 ( Aux.isObjExp(e.to.parsenode) || 
                   Aux.isNewExp(e.to.parsenode) ) &&
@@ -635,7 +608,6 @@ PDG_Node.prototype.getdtype = function (recheck) {
                    Aux.isVarDecl(e.from.parsenode) || 
                    Aux.isProperty(e.from.parsenode)))
             return true;
-        
 
         else if (e.to.isObjectEntry && e.from.parsenode 
                  && Aux.isVarDeclarator(e.from.parsenode) &&
@@ -654,10 +626,10 @@ PDG_Node.prototype.getdtype = function (recheck) {
     };
 
     /* If distributed type is already calculated, return it */
-    if (!recheck && this.dtype) 
-      return this.dtype
-    else if (this.isDistributedNode) {
-        return this.dtype
+    if (!recheck && this.ctype) 
+      return this.ctype;
+    else if (this.isComponentNode) {
+        return this.ctype;
     }
     else {
         /* recursively traverse up the graph until a node with a 
@@ -669,7 +641,7 @@ PDG_Node.prototype.getdtype = function (recheck) {
             var edge = incoming.shift();
             node = edge.from;
             visited.push(node);
-            if (node.dtype || node.id === 'e0')
+            if (node.ctype || node.isRootNode)
                 break;
             var proceed = node.edges_in.filter(filterIncoming);
             proceed = proceed.filter(function (e) {
@@ -681,9 +653,9 @@ PDG_Node.prototype.getdtype = function (recheck) {
         }
 
         if (node) 
-            if (node.dtype) {
-                this.dtype = node.dtype;
-                return node.dtype;
+            if (node.ctype) {
+                this.ctype = node.ctype;
+                return node.ctype;
             }
             else {
                 return DNODES.SHARED;
@@ -693,10 +665,57 @@ PDG_Node.prototype.getdtype = function (recheck) {
     }
 }
 
+PDG_Node.prototype.equalsComponent = function (node) {
+    var ctype1 = this.getCType();
+    var ctype2 = this.getCType();
+    return ctype1 === ctype2;
+}
+
+//////////////////////////////////////////
+//          Distributed nodes           //
+//////////////////////////////////////////
+
+var DNODES = {
+    CLIENT : "client",
+    SERVER : "server",
+    SHARED : "shared"
+}
+
+var ARITY = {
+    ONE   : {value: 0, name: "one"},
+    ALL   : {value: 1, name: "all"}
+}
+
+var cTypeEquals = function (type1, type2) {
+    return type1 === type2;
+}
+
+var arityEquals = function (type1, type2) {
+    return type1.value === type2.value
+}
+
+DistributedNode = function (type) {
+    ComponentNode.call(this, type);
+    this.isDistributedNode = true;
+}
+
+PDG_Node.prototype.isClientNode = function () {
+    this.ctype = this.getCType();
+    return cTypeEquals(this.ctype, DNODES.CLIENT);
+}
+
+PDG_Node.prototype.isServerNode = function () {
+    this.ctype = this.getCType();
+    return cTypeEquals(this.ctype, DNODES.SERVER);
+}
+
+PDG_Node.prototype.isSharedNode = function () {
+    this.ctype = this.getCType();
+    return !this.ctype || cTypeEquals(this.ctype, DNODES.SHARED);
+}
+
 
 DistributedNode.prototype = new PDG_Node();
-
-
 
 
 if (typeof module !== 'undefined' && module.exports != null) {
@@ -722,6 +741,6 @@ if (typeof module !== 'undefined' && module.exports != null) {
     exports.ARITY               = ARITY;
     exports.DistributedNode     = DistributedNode;
     exports.arityEquals         = arityEquals;
-    exports.dtypeEquals         = dtypeEquals;
+    exports.cTypeEquals         = cTypeEquals;
 
 }
