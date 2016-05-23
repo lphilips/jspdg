@@ -216,9 +216,7 @@ var Stip = (function () {
      */
 
 
-    /* BLOCK STATEMENT:
-     * Consists of several statements surrounded by corresponding 
-     * push and pop body edges */
+    /* BLOCK STATEMENT */
     var handleBlockStatement = function (graphs, node, upnode) {
         var PDG       = graphs.PDG,
             old_entry = PDG.entryNode,
@@ -226,11 +224,16 @@ var Stip = (function () {
 
         PDG.entIndex++;
         addToPDG(new_entry, upnode, graphs);
+        /* !important : block statements comments handlers must be done now,
+         because this can influence the graph. Annotated block statements 
+         influence the body statement nodes */
+        Comments.handleAfterComment(node.leadingComment, [new_entry]);
+
         node.body.map(function (exp) {
             makePDGNode(graphs, exp, new_entry); 
         })
 
-        return [new_entry]
+        return [new_entry];
     }
 
     /* IF STATEMENT */
@@ -1181,7 +1184,7 @@ var Stip = (function () {
     /* Auxiliary Functions to add correct edges to nodes, etc. */
     var addToPDG = function (node, upnode, graphs) {
         var comment;
-        if (node.parsenode && 
+        /*if (node.parsenode && 
             Aux.isBlockStm(node.parsenode) && 
             Comments.isTierAnnotated(node.parsenode)) { 
 
@@ -1191,14 +1194,14 @@ var Stip = (function () {
             else if (Comments.isServerAnnotated(comment))
                 graphs.PDG.addServerStm(node);
         }
-
+        */
         /* Block with tier annotation is handled separately */
-        else {
+        //else {
             if (upnode.isObjectEntry)
                 upnode.addEdgeOut(node, EDGES.OBJMEMBER)
             else
                 upnode.addEdgeOut(node, EDGES.CONTROL)
-        }
+        //}
     }
 
     var addCallDep = function (from, to) {
@@ -1215,7 +1218,7 @@ var Stip = (function () {
                 from.addEdgeOut(to, EDGES.CALL);
 
             if (cTypeFrom === DNODES.SERVER && cTypeTo === DNODES.CLIENT)
-                to.clientCalls += 1;
+                to.serverCalls += 1;
             else if (cTypeFrom === DNODES.CLIENT && cTypeTo === DNODES.SERVER) 
                 to.clientCalls += 1;
         }
@@ -1385,7 +1388,7 @@ var Stip = (function () {
         }
 
 
-        if (pdgnode && node.leadingComment) {
+        if (pdgnode && node.leadingComment && parsetype !== 'BlockStatement') {
             Comments.handleAfterComment(node.leadingComment, pdgnode)
         }
 

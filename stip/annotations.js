@@ -9,7 +9,7 @@ var Comments = (function () {
     var beforeHandlers = [];
     var afterHandlers  = [];
 
-    // Client
+    var component_annotation = "@component"
     var client_annotation    = "@client";
     var server_annotation    = "@server";
     var assumes_annotation   = "@assumes";
@@ -62,6 +62,18 @@ var Comments = (function () {
                 isClientAnnotated(node.leadingComment))
     }
 
+    var isComponentAnnotated = function (node) {
+        return node.leadingComment &&
+              Aux.isBlockStm(node) &&
+              node.leadingComment.value.indexOf(component_annotation) != -1;
+    }
+
+    var getComponentName = function (comment) {
+        var tag = comment.value.replace("@component ", "");
+        tag = tag.replace(/\s+/g, '');
+        return tag;
+    }
+
     var registerBeforeHandler = function (handler) {
         beforeHandlers.push(handler)
     }
@@ -86,10 +98,28 @@ var Comments = (function () {
     var handleBlockComment = function (comment, pdgNodes) {
         pdgNodes.map(function (pdgNode) {
             if (Aux.isBlockStm(pdgNode.parsenode)) {
-                if (isClientAnnotated(comment)) 
-                    graphs.PDG.addClientStm(pdgNode)
-                else if (isServerAnnotated(comment))
-                    graphs.PDG.addServerStm(pdgNode)
+                var upnode = pdgNode.getInNodes(EDGES.CONTROL)[0];
+                var cnode, tag;
+                /* @client annotation */
+                if (isClientAnnotated(comment)) {
+                    graphs.PDG.addClientStm(pdgNode);
+                    cnode = graphs.PDG.getComponentNode(DNODES.CLIENT);
+                    insertNode(upnode, pdgNode, cnode);
+                }
+                /* @server annotation */
+                else if (isServerAnnotated(comment)) {
+                    graphs.PDG.addServerStm(pdgNode);
+                    cnode = graphs.PDG.getComponentNode(DNODES.SERVER);
+                    insertNode(upnode, pdgNode, cnode);
+                }
+                else if (isComponentAnnotated(pdgNode.parsenode)) {
+                    tag = getComponentName(comment);
+                    cnode = graphs.PDG.getComponentNode(tag);
+                    if (!cnode) {
+                        cnode = graphs.PDG.createComponentNode(tag);
+                    }
+                    insertNode(upnode,pdgNode, cnode);
+                }
             }
         })
     }
@@ -173,10 +203,19 @@ var Comments = (function () {
         }
     }
 
+    /* Aux function: inserts a node in between two nodes (based on control edges) */
+    function insertNode(from, to, insert) {
+        from.removeEdgeOut(to, EDGES.CONTROL);
+        to.removeEdgeIn(from, EDGES.CONTROL);
+        from.addEdgeOut(insert, EDGES.CONTROL);
+        insert.addEdgeOut(to, EDGES.CONTROL);
+    }
+
     registerAfterHandler(handleReplyComment);
     registerAfterHandler(handleBroadcastComment);
     registerAfterHandler(handleBlockingComment);
-   // registerAfterHandler(handleBlockComment);
+    registerAfterHandler(handleBlockComment);
+
 
     toreturn.handleBeforeComment   = handleBeforeComment;
     toreturn.handleAfterComment    = handleAfterComment;
@@ -189,6 +228,8 @@ var Comments = (function () {
     toreturn.isBlockingAnnotated   = isBlockingAnnotated;
     toreturn.isSharedAnnotated     = isSharedAnnotated;
     toreturn.isGeneratedAnnotated  = isGeneratedAnnotated;
+    toreturn.isComponentAnnotated  = isComponentAnnotated;
+    toreturn.getComponentName      = getComponentName;
 
     if (typeof module !== 'undefined' && module.exports != null) {
         ARITY = require('./PDG/node.js').ARITY;

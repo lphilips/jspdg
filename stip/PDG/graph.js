@@ -120,6 +120,15 @@ PDG.prototype.addComponentStm = function (tag, node) {
     component.addEdgeOut(node, EDGES.CONTROL);
 }
 
+PDG.prototype.getComponentNode = function (tag) {
+  return this.cnodes[tag];
+}
+
+PDG.prototype.createComponentNode = function (tag) {
+  var cnode = new ComponentNode(tag);
+  this.cnodes[tag] = cnode;
+  return cnode;
+}
 
 /* Add a client statement
    checks first if corresponding distributed node exists */
@@ -131,8 +140,7 @@ PDG.prototype.addClientStm = function (node) {
         dnode = new DistributedNode(DNODES.CLIENT);
         this.rootNode.addEdgeOut(dnode, EDGES.CONTROL);
         this.cnodes[DNODES.CLIENT] = dnode;
-        this.addComponentStm(DNODES.CLIENT, node);
-        
+        this.addComponentStm(DNODES.CLIENT, node); 
     }
 }
 

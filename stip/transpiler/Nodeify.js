@@ -303,9 +303,10 @@ var Nodeify = (function () {
             form_ins  = node.getFormalIn(),
             form_outs = node.getFormalOut(),
             parsenode = node.parsenode,
+            localparsenode = Aux.clone(node.parsenode),
             params    = parsenode.params,
             parent    = Ast.parent(parsenode, transpiler.ast),
-            transpiled;
+            transpiledNode, transpiled;
 
 
         makeTransformer(transpiler);
@@ -333,7 +334,8 @@ var Nodeify = (function () {
         })
 
         /* Body */
-        var body = [],
+        var localbody = [],
+            remotebody = [],
             bodynodes = node.getOutEdges(EDGES.CONTROL).filter(function (e) {
                 return !e.to.isFormalNode //e.to.isStatementNode || e.to.isCallNode;
             }).map(function (e) { return e.to }).sort(function (n1, n2) { 
@@ -343,33 +345,45 @@ var Nodeify = (function () {
         /* nodeify every body node */
         bodynodes.map(function (n) {
             transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, n));
-            if(nodesContains(transpiler.nodes, n)) 
-                body = body.concat(transpiled.getTransformed());
+            if (nodesContains(transpiler.nodes, n)) {
+                remotebody = remotebody.concat(transpiled.getTransformed());
+                /* Separate localbody from exposed method body */
+                if (!transpiled.transpiledNode.__transformed)
+                    localbody.push(Aux.clone(n.parsenode));
+                else if (Aux.isRetStm(n.parsenode))
+                    localbody.push(Aux.clone(n.parsenode));
+                else
+                    localbody = localbody.concat(transpiled.getTransformed());
+            }
             transpiler.nodes = transpiled.nodes.remove(n);
             transpiled.closeupNode = transpiled.setupNode = [];
             Transpiler.copySetups(transpiled, transpiler);
         });
 
         transpiler.nodes = transpiler.nodes.remove(node);
-        parsenode.body.body = body;
-        transpiler.transpiledNode = Aux.clone(parsenode);
+        localparsenode.body.body = localbody;
+        parsenode.body.body = remotebody;
+        transpiledNode = localparsenode;
 
         /* CASE 2 : Server function that is called by client side */
         if(node.isServerNode() && node.clientCalls > 0) {
             transpiled = transpiler.transformCPS.transformFunction(transpiler);    
             transpiler.method = transpiled[1];
+            transpiler.transpiledNode = undefined;
         }
 
         /* CASE 5 : Client function that is called by server side */ 
         if (node.isClientNode() && node.serverCalls > 0) {
             transpiled = transpiler.transformCPS.transformFunction(transpiler);    
             transpiler.method = transpiled[1];
+            transpiler.transpiledNode = undefined;
         }
 
         if ((node.isClientNode() && node.clientCalls > 0) || 
             (node.isServerNode() && node.serverCalls > 0) || 
             node.ctype === DNODES.SHARED) {
             transpiler.nodes = transpiler.nodes.remove(node);
+            transpiler.transpiledNode = transpiledNode;
         }
 
         if (! Aux.isVarDeclarator(parent) && transpiler.method.setName) {

@@ -25,8 +25,9 @@ var CodeGenerator       = require('../transpiler/slice.js').CodeGenerator;
 function jsify (src) {
     var ast = Ast.createAst(src, {loc: true, owningComments: true, comment: true});
     ast = Hoist.hoist(ast, function (node) {
-        return Aux.isBlockStm(node) && Comments.isTierAnnotated(node)
+        return Aux.isBlockStm(node) && (Comments.isTierAnnotated(node) || Comments.isComponentAnnotated(node))
     });
+    
     var pre_analysis = pre_analyse(ast, {callbacks: [], identifiers: []}),
         genast       = pre_analysis.ast,
         assumes      = pre_analysis.assumes,

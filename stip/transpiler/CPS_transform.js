@@ -74,7 +74,7 @@ var CPSTransform = (function () {
 
         /* If the call is annotated with @blocking OR the function has side-effects, 
            we take the remainder of the program (or current scope) as its continuation */
-        if (isBlockingCall(callnode) || 
+        if (isBlockingCall(callnode, transpiler.ast) || 
             ( calledEntry && 
             InterferenceAnalysis.doesInterfere(calledEntry.parsenode, parsenode.arguments, transpiler.ast))) {
             getRemainderStms(callnode).map(function (stm) {
@@ -280,7 +280,7 @@ var CPSTransform = (function () {
             esp_exp = transformargs[2];
 
 
-        if (isBlockingCall(callnode)) {
+        if (isBlockingCall(callnode, transpiler.ast)) {
             if (transpiled) {
                 callbackstms.map(function (transpiled) {
                     /* Prevent data dependencies to be included double in nested callbacks.
@@ -613,6 +613,13 @@ var CPSTransform = (function () {
         return;
     }
 
+    function isBlockingCall (callnode, ast) {
+        var blockAnnotation = isBlockAnnotated(callnode.parsenode, ast);
+        return (blockAnnotation && Comments.isBlockingAnnotated(blockAnnotation)) ||
+            (callnode.parsenode.leadingComment && 
+                Comments.isBlockingAnnotated(callnode.parsenode.leadingComment))
+    }
+
 
     var getEntryNode = function (node) {
         var ins = node.getInEdges(EDGES.CONTROL)
@@ -621,12 +628,12 @@ var CPSTransform = (function () {
             visited = [],
             entry;
         if (node.isObjectEntry && ins.length == 0)
-            return node
+            return node;
         while (ins.length > 0) {
             var edge = ins.shift(),
                 from = edge.from;
-            if (from.isEntryNode || from.isDistributedNode ||
-                from.isObjectEntry ||
+            if (from.isEntryNode || from.isDistributedNode || 
+                from.isComponentNode || from.isObjectEntry ||
                 from.isStatementNode && Aux.isTryStm(from.parsenode)) {
                 entry = from;
                 break;
@@ -636,8 +643,8 @@ var CPSTransform = (function () {
                         if (!(Aux.contains(visited, edge))) {
                             visited.push(edge);
                             ins.push(edge);
-                        };
-                })
+                        }
+                });
             }
         }
         return entry;
@@ -722,6 +729,7 @@ var CPSTransform = (function () {
                                 transpiled[2] = transpiler.parseUtils.createCbCall('callback', error);
                             transpiled[1] = transpiler.parseUtils.createRPCReturn(transpiled[1]);
                             transpiled[1].__upnode = getEnclosingFunction(node.parsenode, transpiler.ast);
+                            transpiled[1].__transformed = true;
                         }
                     }
 
@@ -820,10 +828,6 @@ var CPSTransform = (function () {
         }
     }
 
-
-    var  isBlockingCall = function (callnode) {
-        return callnode.parsenode.leadingComment && Comments.isBlockingAnnotated(callnode.parsenode.leadingComment)
-    }
 
     var hasAsReturnValue = function (entrynode, returnvalue) {
         return entrynode.isEntryNode && entrynode.getFormalOut().filter(function (form_out) {

@@ -49,13 +49,22 @@ PDG_Node.prototype.addEdgeOut = function (to, type, label) {
   to.edges_in.push(e);
 }
 
-PDG_Node.prototype.removeEdgeOut = function (to) {
-    var idx  = 0,
-        outs = this.edges_out;
-    while (idx < outs.length && !(outs[idx].to.equals(to))) {
-        idx++;
-    }
-    this.edges_out = this.edges_out.slice(0,idx).concat(this.edges_out.slice(idx+1));
+PDG_Node.prototype.removeEdgeOut = function (to, type) {
+    this.edges_out = this.edges_out.filter(function (e) {
+        if (type)
+            return !(e.to.equals(to) && e.equalsType(type));
+        else
+            return !e.to.equals(to);
+    })
+}
+
+PDG_Node.prototype.removeEdgeIn = function (from, type) {
+    this.edges_in = this.edges_in.filter(function (e) {
+        if (type)
+            return !(e.from.equals(from) && e.equalsType(type));
+        else
+            return !e.from.equals(from);
+    })
 }
 
 PDG_Node.prototype.equals = function (n) {

@@ -81,7 +81,7 @@ var JSParse = (function () {
                   name: fname
         };
       parsenode = {
-                        callnode  : call,
+                        _callnode  : call,
                         type      : "ExpressionStatement",
                         expression: {
                             type: "CallExpression",
@@ -151,7 +151,7 @@ var JSParse = (function () {
     var RPCReturn = function (RPC) {
          return {
                 parsenode  : 
-                    {   callnode  : RPC.parsenode.callnode,
+                    {   _callnode  : RPC.parsenode.callnode,
                         type      : "ReturnStatement",
                         argument  : RPC.parsenode.expression,
                         cont      : RPC.parsenode.cont 

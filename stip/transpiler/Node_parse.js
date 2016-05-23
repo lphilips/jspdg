@@ -88,7 +88,7 @@ var NodeParse = (function () {
 
     var RPC = function (call, fname, args) {
         return { parsenode  : 
-                        {   callnode  : Pdg.getCallExpression(call),
+                        {   _callnode  : Pdg.getCallExpression(call),
                             type      : "ExpressionStatement",
                             expression: {
                                 type      : "CallExpression",
@@ -109,7 +109,8 @@ var NodeParse = (function () {
                                         type  : "Literal",
                                         value : fname
                                     }].concat( args ? args : [])
-                            }
+                            },
+                            __transformed : true
                         },
                   isRPC     : true,
                   addArg    : function (arg) {
@@ -153,10 +154,11 @@ var NodeParse = (function () {
     var RPCReturn = function (RPC) {
         return {
                 parsenode  : 
-                    {   callnode  : RPC.parsenode.callnode,
+                    {   _callnode  : RPC.parsenode.callnode,
                         type      : "ReturnStatement",
                         argument  : RPC.parsenode.expression,
-                        cont      : RPC.parsenode.cont
+                        cont      : RPC.parsenode.cont,
+                        __transformed : true
                     },
               isRPC     : true,
               addArg    : function (arg) {
@@ -250,7 +252,8 @@ var NodeParse = (function () {
                             type  : "Literal",
                             value : ""
                         }]
-                }
+                },
+                __transformed : true
             },
 
             setName : function (name) {

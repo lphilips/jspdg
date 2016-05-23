@@ -44,7 +44,7 @@ function getNodeForSrc(statementsrc, nodes) {
 function slice (src, statementsrc) {
     var ast = Ast.createAst(src, {loc: true, owningComments: true, comment: true});
     ast = Hoist.hoist(ast, function (node) {
-        return Aux.isBlockStm(node) && Comments.isTierAnnotated(node)
+        return Aux.isBlockStm(node) && (Comments.isTierAnnotated(node) || Comments.isComponentAnnotated(node))
     });
     var pre_analysis = pre_analyse(ast, {callabcks: [], identifiers: []}),
         genast       = pre_analysis.ast,
