@@ -328,7 +328,7 @@ var CPSTransform = (function () {
                     }
                 })
             }
-            transpiledNode.parsenode.cont(callnode);
+            //transpiledNode.parsenode.cont(callnode);
             transpiledNode.parsenode.cont = asyncCall.parsenode.cont;
             transpiledNode.parsenode._callnode = callnode;//transpiledNode;
             return [nodes, transpiledNode, esp_exp];
@@ -522,13 +522,12 @@ var CPSTransform = (function () {
             Aux.walkAst(func.parsenode, {
                 post : function (node) {
                     var enclosingFun = getEnclosingFunction(node, transpiler.ast);
-                    if (enclosingFun)
+                    /* Make sure methods like equal, hashcode are defined on the node*/
+                    if (enclosingFun && !enclosingFun.equals)
                         Ast.augmentAst(enclosingFun);
                     if (
                         Aux.isRetStm(node) && 
                         node.__upnode.equals(func.parsenode)) {
-                            /* Make sure methods like equal, hashcode are defined on the node*/
-                            Ast.augmentAst(enclosingFun);
                             /* callnode property is added if return statement is already transformed to a cps call
                                No need to wrap it in a callback call again */
                             if (node.argument && !node._callnode) {

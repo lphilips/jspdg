@@ -14,14 +14,14 @@ var pre_analyse = function (ast, toGenerate) {
     var assumes     = [];
     var primdefs    = {};
     var primtoadd   = {};
-    var fundefsC    = [];
+    var fundefs     = [];
     var sharedblock;
     var generatedIdentifiers;
 
     function function_args (callnode) {
         return callnode.arguments.filter(function (arg) {
             return Aux.isFunExp(arg) ||
-                   (Aux.isIdentifier(arg) && fundefsC[arg.name]);
+                   (Aux.isIdentifier(arg) && fundefs[arg.name]);
         });
     }
 
@@ -244,7 +244,7 @@ var pre_analyse = function (ast, toGenerate) {
         var calls = [];
         toGenerate.callbacks.map(function (cb) {
             var call = createCall(cb);
-            var func = fundefsC[cb];
+            var func = fundefs[cb];
 
 
             call.leadingComment = {type: "Block", value:"@generated", range: [0,16]};
@@ -284,10 +284,16 @@ var pre_analyse = function (ast, toGenerate) {
         pre: function (node) {
             /* Needs to be done upfront */
             if (Aux.isFunDecl(node)) {
-                var comment = isBlockAnnotated(node);
-                if (comment && Comments.isClientAnnotated(comment)) {
-                    fundefsC[node.id.name] = node;
-                }
+                var block = getCurrentBlock(node);
+                var comment = block.leadingComment;
+               // if (comment && Comments.isClientAnnotated(comment)) {
+                    fundefs[node.id.name] = node;
+                /*}
+                if (comment && Comments.isSliceAnnotated(block) &&
+                    Comments.getSliceName(comment) === DNODES.CLIENT ) {
+                    fundefs[node.id.name] = node;
+                }*/
+
             }
         },
 
@@ -382,6 +388,7 @@ var pre_analyse = function (ast, toGenerate) {
                             var func = createFunDecl(name, arg.params);
                             var call = createCall(name);
                             var objectarg = createObjectArgument();
+                            func.generated = true;
 
                             call.leadingComment = {type: "Block", value:"@generated", range: [0,16]};
                             if (comment && Comments.isClientAnnotated(comment)) {
@@ -426,7 +433,7 @@ var pre_analyse = function (ast, toGenerate) {
                                 bodyLast.push(call);
                             return createIdentifier(name);
                         }
-                        else if (Aux.isIdentifier(arg) && fundefsC[arg.name]) {
+                        else if (Aux.isIdentifier(arg) && fundefs[arg.name]) {
                             call = createCall(arg.name);
                             call.leadingComment = {type: "Block", value:"@generated"};
                             if (comment && Comments.isClientAnnotated(comment)) {
@@ -473,9 +480,11 @@ var pre_analyse = function (ast, toGenerate) {
 if (typeof module !== 'undefined' && module.exports !== null) {
     Ast = require('../jipda-pdg/ast.js').Ast;
     Aux = require('./aux.js').Aux;
+    node  = require('./pdg/node.js');
     Comments = require('./annotations.js').Comments;
 
     js_libs = require('./jslibs.js').js_libs;
+    DNODES  = node.DNODES;
 
     exports.pre_analyse = pre_analyse;
     exports.asyncs      = ["https", "dns", "fs", "proxy"];

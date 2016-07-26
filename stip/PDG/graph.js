@@ -27,8 +27,9 @@ function PDG () {
   this.proIndex     = 0;
   this.exiIndex     = 0;
   this.nodes        = [];
-  /* Component Nodes */
-  this.cnodes       = {};
+  /* Functionality Nodes */
+  this.fnodes       = {};
+  this.placements   = {};
 }
 
 PDG.prototype.reverseEntry = function (node) {
@@ -110,54 +111,86 @@ PDG.prototype.getAllNodes = function () {
 
 
 
-
 /* Component nodes */
 
-PDG.prototype.addComponentStm = function (tag, node) {
-  var component = this.cnodes[tag];
-  node.ctype = tag;
-  if (component)
-    component.addEdgeOut(node, EDGES.CONTROL);
+PDG.prototype.addFunctionalityStm = function (tag, node) {
+  var functionality = this.fnodes[tag];
+  node.ftype = tag;
+  if (functionality)
+    functionality.addEdgeOut(node, EDGES.CONTROL);
 }
 
-PDG.prototype.getComponentNode = function (tag) {
-  return this.cnodes[tag];
+PDG.prototype.getFunctionalityNode = function (tag) {
+  return this.fnodes[tag];
 }
 
-PDG.prototype.createComponentNode = function (tag) {
-  var cnode = new ComponentNode(tag);
-  this.cnodes[tag] = cnode;
-  return cnode;
+PDG.prototype.getFunctionalityNodes = function () {
+  var fnodes = [];
+  var self = this;
+  Object.keys(this.fnodes).forEach(function(key,index) {
+      fnodes.push(self.fnodes[key]);
+  });
+  return fnodes;
+}
+
+PDG.prototype.createFunctionalityNode = function (tag, tier) {
+  var fnode = new FunctionalityNode(tag, tier);
+  this.fnodes[tag] = fnode;
+  return fnode;
 }
 
 /* Add a client statement
    checks first if corresponding distributed node exists */
 PDG.prototype.addClientStm = function (node) {
-    var dnode = this.cnodes[DNODES.CLIENT];
+    var dnode = this.fnodes[DNODES.CLIENT];
     if (dnode)
-        this.addComponentStm(DNODES.CLIENT, node);
+        this.addFunctionalityStm(DNODES.CLIENT, node);
     else {
         dnode = new DistributedNode(DNODES.CLIENT);
         this.rootNode.addEdgeOut(dnode, EDGES.CONTROL);
-        this.cnodes[DNODES.CLIENT] = dnode;
-        this.addComponentStm(DNODES.CLIENT, node); 
+        this.fnodes[DNODES.CLIENT] = dnode;
+        this.addFunctionalityStm(DNODES.CLIENT, node); 
     }
 }
 
 /* Add a server statement
    checks first if corresponding distributed node exists */
 PDG.prototype.addServerStm = function (node) {
-    var dnode = this.cnodes[DNODES.SERVER];
+    var dnode = this.fnodes[DNODES.SERVER];
     if (dnode)
-        this.addComponentStm(DNODES.SERVER, node);
+        this.addFunctionalityStm(DNODES.SERVER, node);
     else {
         dnode = new DistributedNode(DNODES.SERVER);
         this.rootNode.addEdgeOut(dnode, EDGES.CONTROL);
-        this.cnodes[DNODES.SERVER] = dnode;
-        this.addComponentStm(DNODES.SERVER, node);
+        this.fnodes[DNODES.SERVER] = dnode;
+        this.addFunctionalityStm(DNODES.SERVER, node);
         
     }
 }
+
+
+/* Distribute: make sure every component node
+   has a tier property. If not, calculate it from the given
+   placement strategy */
+
+PDG.prototype.distribute = function (strategy) {
+  var self = this;
+  this.getFunctionalityNodes().map(function (fnode) {
+    var placement = self.placements[fnode.ftype];
+    if (placement) {
+      if (placement == DNODES.CLIENT) {
+        fnode.tier = DNODES.CLIENT;
+      }
+      else if (placement == DNODES.SERVER) {
+        fnode.tier = DNODES.SERVER;
+      }
+    }
+    if (!fnode.tier) {
+      strategy.addPlacementTag(fnode, self);
+    }
+  });
+}
+
 
 /************************/
 /*  Slice algorithm     */
@@ -217,7 +250,7 @@ PDG.prototype.slice = function (criterion, tiersplitting) {
         assignments = statementNode.getOutNodes(EDGES.DATA)
                       .filter(function (n) {
                         if (tiersplitting && n.cnt < criterion.cnt) {
-                          if (criterion.equalsComponent(n))
+                          if (criterion.equalsFunctionality(n))
                             return  n.isCallNode || n.isStatementNode &&
                                   (Aux.isExpStm(n.parsenode) &&
                                   Aux.isAssignmentExp(n.parsenode.expression) ||
@@ -243,7 +276,7 @@ PDG.prototype.slice = function (criterion, tiersplitting) {
 
   var traverse_backward = function (nodes, set, ignore) {
     nodes.map(function (node) {
-      var tCType    = node.getCType(true),
+      var tCType    = node.getFType(true),
           equal     = function (id) {return function (n) {return n.id === id}};
 
       if(!(contains(equal(node.id), set))) {
@@ -253,7 +286,7 @@ PDG.prototype.slice = function (criterion, tiersplitting) {
         });
         node.edges_in.map(function (edge) {
           var from     = edge.from,
-              fCType   = from.getCType(true),
+              fCType   = from.getFType(true),
               type_eq  = function (t) {return edge.type.value === t.value};
 
           /* While traversing backward, don't follow edges from a formal parameter
@@ -282,10 +315,19 @@ PDG.prototype.slice = function (criterion, tiersplitting) {
   return union(first_pass.concat(second_pass)); 
 };
 
+
+PDG.prototype.sliceTier = function (tier) {
+  var self = this;
+  return this.getFunctionalityNodes()
+          .filter(function (comp) {return comp.tier == tier})
+          .flatMap(function (comp) {return self.sliceDistributedNode(comp.getFType())});
+}
+
+
 PDG.prototype.sliceDistributedNode = function (ctype) {
     if(!ctype)
       return [];
-    var toslice = this.cnodes[ctype],
+    var toslice = this.fnodes[ctype],
         slicedset = [],
         getLeaves = function (node) {
           var leaves = [],
@@ -296,15 +338,15 @@ PDG.prototype.sliceDistributedNode = function (ctype) {
                     target = edge.to,
                     control_out = target.getOutEdges(EDGES.CONTROL)
                             .filter(function (e) {
-                              return e.to.equalsComponent(toslice);
+                              return e.to.equalsFunctionality(toslice);
                     }),
                     data_out = target.getOutEdges(EDGES.DATA)
                             .filter(function (e) {
-                                return e.to.equalsComponent(toslice);
+                                return e.to.equalsFunctionality(toslice);
                     }),
                     proto_out = target.getOutEdges(EDGES.OBJMEMBER)
                             .filter(function (e) {
-                              return e.to.equalsComponent(toslice);
+                              return e.to.equalsFunctionality(toslice);
                             });
                     if( target.parsenode && 
                         (target.parsenode.type === 'VariableDeclaration'  ||
@@ -334,7 +376,6 @@ PDG.prototype.sliceDistributedNode = function (ctype) {
         var set = this.slice(leaves.shift(), true);
         slicedset = union(slicedset.concat(set))
     }
-
     return slicedset
 }
 
@@ -389,6 +430,6 @@ if (typeof module !== 'undefined' && module.exports != null) {
     var DNODES          = node.DNODES;
     var ARITY           = node.ARITY;
     var DistributedNode = node.DistributedNode;
-    var cTypeEquals     = node.cTypeEquals;
+    var fTypeEquals     = node.fTypeEquals;
     exports.PDG = PDG;
 }

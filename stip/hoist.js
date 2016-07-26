@@ -118,9 +118,8 @@ var Hoist = (function () {
                                     node.body.body = node.body.body.remove(declnode);
                                 
                                 added.push(declnode);
-                                
-
                             }
+                            
                             else if (Aux.isVarDeclarator(declnode)) {
                                 added.push(createVarDecl(name));
                             }
@@ -141,16 +140,22 @@ var Hoist = (function () {
 
                     names.map(function (name) {
                         var declnode = declmap[name];
+                        var enclosingB = Ast.enclosingBlock(declnode, ast);
 
                         if (Aux.isFunDecl(declnode)) {
                             declnode.hoist = true;
                             /* remove from body (TODO currently only for block )*/
                             node.body = node.body.remove(declnode);
                             added.push(declnode);
-                            
-
                         }
-                        else if (Aux.isVarDeclarator(declnode)) {
+                        /* Check enclosing block. If it should not be hoisted, 
+                            then add it to current block. Otherwise skip it. */
+
+                        else if (enclosingB.equals(node) && Aux.isVarDeclarator(declnode)) {
+                            added.push(createVarDecl(name));
+                        }
+                        else if (!enclosingB.equals(node) && !tohoist(enclosingB) &&
+                            Aux.isVarDeclarator(declnode)) {
                             added.push(createVarDecl(name));
                         }
                     });

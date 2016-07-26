@@ -254,6 +254,7 @@ var Aux = (function () {
 
           // enumerable?
           copy.$cloned = true;
+          copy.tag = node.tag;
 
           return copy;
       }

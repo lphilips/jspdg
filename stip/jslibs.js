@@ -11,7 +11,7 @@ var js_libs = (function () {
     var proxy   = "var proxy = {getUser : function () {return;}, getPosts : function (user) {return;}, getComments: function (user) {return}}"
     var date    = "function Date (value) { this.getDate = function () {return 1}; this.getDay = function () {return 0;}; this.getMonth = function () {return 0;}; this.getTime = function () {return 0;};}";
 
-    var libs = [https, console, jQuery, math, windowo, json, fs, dns, proxy, date];
+    var libs = [https, console,math, windowo, json, fs, dns, proxy, date, jQuery]; 
 
 
      return  { 

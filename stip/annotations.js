@@ -9,7 +9,7 @@ var Comments = (function () {
     var beforeHandlers = [];
     var afterHandlers  = [];
 
-    var component_annotation = "@component"
+    var component_annotation = "@slice"
     var client_annotation    = "@client";
     var server_annotation    = "@server";
     var assumes_annotation   = "@assumes";
@@ -18,6 +18,8 @@ var Comments = (function () {
     var blocking_annotation  = "@blocking";
     var shared_annotation    = "@shared";
     var generated_annotation = "@generated";
+    var placement_annotation = "@tier";
+    var config_annotation    = "@config";
 
 
     // Client annotations is @client in comment
@@ -28,6 +30,13 @@ var Comments = (function () {
     // Server annotations is @server in comment
     var isServerAnnotated = function (comment) {
       return comment.value.indexOf(server_annotation) != -1;
+    }
+
+    var isClientorServerAnnotated = function (node) {
+        return node.leadingComment &&
+            Aux.isBlockStm(node) &&
+            (isClientAnnotated(node.leadingComment) || 
+                isServerAnnotated(node.leadingComment));
     }
 
     var isAssumesAnnotated = function (string) {
@@ -58,20 +67,40 @@ var Comments = (function () {
     var isTierAnnotated = function (node) {
         return node.leadingComment &&
                Aux.isBlockStm(node) &&
-               (isServerAnnotated(node.leadingComment) ||
-                isClientAnnotated(node.leadingComment))
+               node.leadingComment.value.indexOf(placement_annotation) != -1;
     }
 
-    var isComponentAnnotated = function (node) {
+    var getTierName = function (comment) {
+        var annotation = placement_annotation + " ";
+        var length = annotation.length;
+        var idx  = comment.value.indexOf(annotation);
+        var tier = comment.value.slice(idx+placement_annotation.length);
+        tier = tier.replace(/\s+/g, '');
+        return tier;
+    }
+
+    var isFunctionalityAnnotated = function (node) {
         return node.leadingComment &&
               Aux.isBlockStm(node) &&
               node.leadingComment.value.indexOf(component_annotation) != -1;
     }
 
-    var getComponentName = function (comment) {
-        var tag = comment.value.replace("@component ", "");
+    var getFunctionalityName = function (comment) {
+        var idxC = comment.value.indexOf(component_annotation);
+        var idxT = comment.value.indexOf(placement_annotation);
+        var tag;
+        if (idxT > -1) {
+            tag = comment.value.slice(idxC + component_annotation.length, idxT);
+        }
+        else {
+            tag = comment.value.slice(idxC + component_annotation.length);
+        }
         tag = tag.replace(/\s+/g, '');
         return tag;
+    }
+
+    var isConfigAnnotated = function (comment) {
+        return comment.value.indexOf(config_annotation) != -1;
     }
 
     var registerBeforeHandler = function (handler) {
@@ -99,26 +128,31 @@ var Comments = (function () {
         pdgNodes.map(function (pdgNode) {
             if (Aux.isBlockStm(pdgNode.parsenode)) {
                 var upnode = pdgNode.getInNodes(EDGES.CONTROL)[0];
-                var cnode, tag;
+                var cnode, tag, tier;
                 /* @client annotation */
                 if (isClientAnnotated(comment)) {
                     graphs.PDG.addClientStm(pdgNode);
-                    cnode = graphs.PDG.getComponentNode(DNODES.CLIENT);
-                    insertNode(upnode, pdgNode, cnode);
+                    fnode = graphs.PDG.getFunctionalityNode(DNODES.CLIENT);
+
+                    insertNode(upnode, pdgNode, fnode);
                 }
                 /* @server annotation */
                 else if (isServerAnnotated(comment)) {
                     graphs.PDG.addServerStm(pdgNode);
-                    cnode = graphs.PDG.getComponentNode(DNODES.SERVER);
-                    insertNode(upnode, pdgNode, cnode);
+                    fnode = graphs.PDG.getFunctionalityNode(DNODES.SERVER);
+
+                    insertNode(upnode, pdgNode, fnode);
                 }
-                else if (isComponentAnnotated(pdgNode.parsenode)) {
-                    tag = getComponentName(comment);
-                    cnode = graphs.PDG.getComponentNode(tag);
-                    if (!cnode) {
-                        cnode = graphs.PDG.createComponentNode(tag);
+                else if (isFunctionalityAnnotated(pdgNode.parsenode)) {
+                    tag = getFunctionalityName(comment);
+                    fnode = graphs.PDG.getFunctionalityNode(tag);
+                    if (isTierAnnotated(pdgNode.parsenode)) {
+                        tier = getTierName(comment);
                     }
-                    insertNode(upnode,pdgNode, cnode);
+                    if (!fnode) {
+                        fnode = graphs.PDG.createFunctionalityNode(tag, tier);
+                    }
+                    insertNode(upnode,pdgNode, fnode, true);
                 }
             }
         })
@@ -203,12 +237,34 @@ var Comments = (function () {
         }
     }
 
+    /* This handler is called directly from handeProgram in stip.js
+        because of the different structure of a program node.
+        node.comments = list of comments of whole program. 
+        Check if first comment is config comment block */
+    function handleProgramNode (pdgNode, pdg) {
+        var comments = pdgNode.parsenode.comments;
+        var firstComment, placements, index;
+        if (comments.length > 0) {
+            firstComment = comments[0];
+            if (isConfigAnnotated(firstComment)) {
+                index = firstComment.value.indexOf(config_annotation);
+                var sliced = firstComment.value.slice(index+config_annotation.length).trim();
+                placements = sliced.slice(0, sliced.indexOf("@")).split(/,/);
+                placements.forEach(function (placement) {
+                    var nametier = placement.split(/:/).map(function (s) {return s.trim()});
+                    pdg.placements[nametier[0]] = nametier[1];
+                });
+            }
+        }
+    }
+
     /* Aux function: inserts a node in between two nodes (based on control edges) */
-    function insertNode(from, to, insert) {
+    function insertNode(from, to, insert, reconnect) {
         from.removeEdgeOut(to, EDGES.CONTROL);
         to.removeEdgeIn(from, EDGES.CONTROL);
         from.addEdgeOut(insert, EDGES.CONTROL);
-        insert.addEdgeOut(to, EDGES.CONTROL);
+        if (reconnect)
+            insert.addEdgeOut(to, EDGES.CONTROL);
     }
 
     registerAfterHandler(handleReplyComment);
@@ -217,26 +273,29 @@ var Comments = (function () {
     registerAfterHandler(handleBlockComment);
 
 
-    toreturn.handleBeforeComment   = handleBeforeComment;
-    toreturn.handleAfterComment    = handleAfterComment;
-    toreturn.registerBeforeHandler = registerBeforeHandler;
-    toreturn.registerAfterHandler  = registerAfterHandler;
-    toreturn.isAssumesAnnotated    = isAssumesAnnotated;
-    toreturn.isTierAnnotated       = isTierAnnotated;
-    toreturn.isServerAnnotated     = isServerAnnotated;
-    toreturn.isClientAnnotated     = isClientAnnotated;
-    toreturn.isBlockingAnnotated   = isBlockingAnnotated;
-    toreturn.isSharedAnnotated     = isSharedAnnotated;
-    toreturn.isGeneratedAnnotated  = isGeneratedAnnotated;
-    toreturn.isComponentAnnotated  = isComponentAnnotated;
-    toreturn.getComponentName      = getComponentName;
+    toreturn.handleBeforeComment        = handleBeforeComment;
+    toreturn.handleAfterComment         = handleAfterComment;
+    toreturn.registerBeforeHandler      = registerBeforeHandler;
+    toreturn.registerAfterHandler       = registerAfterHandler;
+    toreturn.isAssumesAnnotated         = isAssumesAnnotated;
+    toreturn.isTierAnnotated            = isTierAnnotated;
+    toreturn.isServerAnnotated          = isServerAnnotated;
+    toreturn.isClientAnnotated          = isClientAnnotated;
+    toreturn.isClientorServerAnnotated  = isClientorServerAnnotated;
+    toreturn.isBlockingAnnotated        = isBlockingAnnotated;
+    toreturn.isSharedAnnotated          = isSharedAnnotated;
+    toreturn.isGeneratedAnnotated       = isGeneratedAnnotated;
+    toreturn.isSliceAnnotated           = isFunctionalityAnnotated;
+    toreturn.getSliceName               = getFunctionalityName;
+    toreturn.getTierName                = getTierName;
+    toreturn.handleProgramNode          = handleProgramNode;
 
     if (typeof module !== 'undefined' && module.exports != null) {
         ARITY = require('./PDG/node.js').ARITY;
         exports.Comments = toreturn;
     }
 
-    return toreturn
+    return toreturn;
 
 
 })()

@@ -170,14 +170,17 @@ function createPDGGraph (PDG, assumes)
 
       var render = new dagreD3.render();
 
-      var svg = d3.select("svg g");
-      svg.selectAll("*").remove();
-      svg.attr('width', 500);
+      d3.select("#pdggraph").selectAll("*").remove();
+      var svg = d3.select("#pdggraph").append('svg');
 
-      graph.graph().nodeSep = 5;
-      graph.graph().edgeSep = 5;
-      graph.graph().rankSep = 15;
-      render(svg, graph);
+      svg.selectAll("*").remove();
+      var inner = svg.append("g");
+
+      render(inner, graph);
+      // Center the graph
+      var xCenterOffset = (svg.attr("width") - graph.graph().width) / 2;
+      inner.attr("transform", "translate(" + xCenterOffset + ", 20)");
+      svg.attr("height", graph.graph().height + 40);
 
       $("g.node").each(function (n)
           {
@@ -219,9 +222,7 @@ function createPDGGraph (PDG, assumes)
             if (transition)
              $(this).attr("class", "edge " + transition.type.name);
       });
-      var svg = d3.select("svg")
-        //.attr("width", layout.graph().width + 40)
-        //.attr("height", layout.graph().height + 40)
+      var svg = d3.select("#pdggraph").select("svg")
         .call(d3.behavior.zoom().on("zoom", function() {
           var ev = d3.event;
           svg.select("g")

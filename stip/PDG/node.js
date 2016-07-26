@@ -287,8 +287,8 @@ var EntryNode = function (id, parsenode) {
   this.parsenode     = parsenode;
   this.isEntryNode   = true;
   this.isCalled      = false;
-  this.clientCalls   = 0;
-  this.serverCalls   = 0;
+  this.clientCallsNr   = 0;
+  this.serverCallsNr   = 0;
   this.isConstructor = false;
   this.excExits      = [];
 }
@@ -310,16 +310,16 @@ EntryNode.prototype.getFormalOut = function () {
         return (e.to.isFormalNode &&
                e.to.direction === -1) 
     }).map(function (e) {
-        return e.to
+        return e.to;
     });
     var exit_outs = this.excExits.flatMap(function (excExit) {
         return excExit.getOutEdges().map(function (e) {
-            return e.to
+            return e.to;
         }).filter(function (node) {
-            return node.isFormalNode
+            return node.isFormalNode;
         })
     })
-    return form_outs.concat(exit_outs)
+    return form_outs.concat(exit_outs);
 }
 
 EntryNode.prototype.addExcExit = function (node) {
@@ -356,11 +356,24 @@ EntryNode.prototype.getBody = function () {
 EntryNode.prototype.addCall = function (callnode) {
     this.isCalled = true;
     if (callnode.isServerNode())
-        this.serverCalls += 1;
+        this.serverCallsNr += 1;
     else if (callnode.isClientNode())
-        this.clientCalls += 1;
+        this.clientCallsNr += 1;
 }
 
+EntryNode.prototype.serverCalls = function () {
+    return this.getInNodes(EDGES.CALL)
+        .concat(this.getInNodes(EDGES.REMOTEC))
+        .filter(function (call) {return call.isServerNode()})
+        .length;
+}
+
+EntryNode.prototype.clientCalls = function () {
+    return this.getInNodes(EDGES.CALL)
+        .concat(this.getInNodes(EDGES.REMOTEC))
+        .filter(function (call) {return call.isClientNode()})
+        .length;
+}
 
 EntryNode.prototype.getCalls = function () {
     return this.getInEdges(EDGES.CALL)
@@ -473,9 +486,9 @@ CallNode.prototype.getStmNode = function () {
             return e.from.isStatementNode && !Aux.isTryStm(e.from.parsenode)
         }).map(function (e) {return e.from})
         if (upnode.length > 0)
-            return  upnode
+            return  upnode;
         else
-            return this;
+            return [this];
 
     }
 }
@@ -550,30 +563,38 @@ var ExitNode = function (id, parsenode, exception) {
 ExitNode.prototype = new PDG_Node(); 
 
 //////////////////////////////////////////
-//          Component nodes             //
+//          Functionality nodes         //
 //////////////////////////////////////////
-function ComponentNode (tag) {
+function FunctionalityNode (tag, tier) {
     PDG_Node.call(this, 'C'+tag);
-    this.ctype = tag;
-    this.isComponentNode = true;
+    this.ftype = tag;
+    this.tier  = tier ? tier : false;
+    this.isFunctionalityNode = true;
 }
 
-ComponentNode.prototype = new PDG_Node();
+FunctionalityNode.prototype = new PDG_Node();
 
 /* Used for counting outbound remote data references and remote calls 
-   Only follows control flow edges */
-ComponentNode.prototype.countEdgeType = function (type) {
+   Only follows control flow edges.
+   Default is outbound references, but can be changed with the direction parameter */
+FunctionalityNode.prototype.countEdgeType = function (type, direction) {
     var controls = this.getOutEdges(EDGES.CONTROL);
-    var visited = this.getOutEdges(EDGES.CONTROL);
+    var visited = this.getOutNodes(EDGES.CONTROL);
     var count = 0;
     while (controls.length > 0) {
         var edge = controls.shift();
-        visited.push(edge);
-        if (edge.equalsType(type)) {
-            count++;
+        var node = edge.to;
+        var edgestype;
+        if (direction) {
+            edgestype = node.getInEdges(type);
         }
-        edge.to.getOutEdges(EDGES.CONTROL).map(function (e) {
-            if (visited.indexOf(e) >= 0) {
+        else {
+            edgestype = node.getOutEdges(type);
+        }
+        visited.push(node);
+        count += edgestype.length;
+        node.getOutEdges(EDGES.CONTROL).map(function (e) {
+            if (visited.indexOf(e.to) < 0) {
                 controls.push(e);
             }
         });
@@ -581,8 +602,176 @@ ComponentNode.prototype.countEdgeType = function (type) {
     return count;
 }
 
-PDG_Node.prototype.getCType = function (recheck) {
-        /* Aux function that filter incoming edges */
+FunctionalityNode.prototype.countEdgeTypeTo = function (edgeType, fType, direction) {
+    var controls = this.getOutEdges(EDGES.CONTROL);
+    var visited = this.getOutNodes(EDGES.CONTROL);
+    var count = 0;
+    while (controls.length > 0) {
+        var edge = controls.shift();
+        var node = edge.to;
+        var edgestype;
+        if (direction) {
+            edgestype = node.getInNodes(edgeType).filter(function (n) {return fTypeEquals(fType, n.getFType())});
+        } else {
+            edgestype = node.getOutNodes(edgeType).filter(function (n) {return fTypeEquals(fType, n.getFType())});
+        }
+        visited.push(node);
+        count += edgestype.length;
+        node.getOutEdges(EDGES.CONTROL).map(function (e) {
+            if (visited.indexOf(e.to) < 0) {
+                controls.push(e);
+            }
+        });
+    }
+    return count;
+}
+
+FunctionalityNode.prototype.countEdgeTypeFilter = function (edgeType, filter, direction) {
+    var controls = this.getOutEdges(EDGES.CONTROL);
+    var visited = this.getOutNodes(EDGES.CONTROL);
+    var count = 0;
+    while (controls.length > 0) {
+        var edge = controls.shift();
+        var node = edge.to;
+        var edgestype;
+        if (direction) {
+            edgestype = node.getInNodes(edgeType).filter(function (n) {return filter(n.getFunctionality())});
+        } else {
+            edgestype = node.getOutNodes(edgeType).filter(function (n) {return filter(n.getFunctionality())});
+        }
+        visited.push(node);
+        count += edgestype.length;
+        node.getOutEdges(EDGES.CONTROL).map(function (e) {
+            if (visited.indexOf(e.to) < 0) {
+                controls.push(e);
+            }
+        });
+    }
+    return count;
+}
+
+FunctionalityNode.prototype.getFNodes = function (edgeType, direction) {
+    var controls = this.getOutEdges(EDGES.CONTROL);
+    var visited = this.getOutNodes(EDGES.CONTROL);
+    var fnodes = [];
+    while (controls.length > 0) {
+        var edge = controls.shift();
+        var node = edge.to;
+        var edgestype;
+        if (direction) {
+            edgestype = node.getInNodes(edgeType);
+        } else {
+            edgestype = node.getOutNodes(edgeType);
+        }
+        visited.push(node);
+        edgestype.map(function (node) {
+            var fType = node.getFType();
+            if (fnodes.indexOf(fType) < 0) {
+                fnodes.push(fType);
+            }
+        })
+        node.getOutEdges(EDGES.CONTROL).map(function (e) {
+            if (visited.indexOf(e.to) < 0) {
+                controls.push(e);
+            }
+        });
+    }
+    return fnodes;
+}
+
+PDG_Node.prototype.getFunctionality = function () {
+    /* Aux function that filters incoming edges */
+    var filterIncoming = function (e) {
+        // Ignore cycles
+        if (e.to.equals(e.from)) 
+          return false;
+        // Follow function declarations in form var x  = function () { }
+        else if (e.to.parsenode && Aux.isFunExp(e.to.parsenode) &&
+                 e.from.parsenode && (Aux.isVarDeclarator(e.from.parsenode) ||
+                 Aux.isVarDecl(e.from.parsenode) || Aux.isProperty(e.from.parsenode) ||
+                 (Aux.isExpStm(e.from.parsenode) && Aux.isAssignmentExp(e.from.parsenode.expression)))) 
+            return true;
+        // Follow var x = new or var x = {} object expressions 
+        else if (e.to.parsenode &&
+                ( Aux.isObjExp(e.to.parsenode) || 
+                  Aux.isNewExp(e.to.parsenode) ) &&
+                e.from.parsenode &&
+                (Aux.isVarDeclarator(e.from.parsenode) ||
+                (Aux.isExpStm(e.from.parsenode) && Aux.isAssignmentExp(e.from.parsenode.expression))))
+            if (e.from.parsenode.init &&
+                e.from.parsenode.init.equals(e.to.parsenode))
+                return true;
+            else if (e.from.parsenode.expression &&
+                e.from.parsenode.expression.right.equals(e.to.parsenode))
+                return true;
+            else 
+                return false;
+
+        else if (e.to.parsenode && 
+                 ( Aux.isObjExp(e.to.parsenode) || 
+                   Aux.isNewExp(e.to.parsenode) ) &&
+                 e.from.parsenode && 
+                 ( Aux.isVarDeclarator(e.from.parsenode) ||
+                   Aux.isVarDecl(e.from.parsenode) || 
+                   Aux.isProperty(e.from.parsenode)))
+            return true;
+
+        else if (e.to.isObjectEntry && e.from.parsenode 
+                 && Aux.isVarDeclarator(e.from.parsenode) &&
+                 e.from.parsenode.init === e.to.parsenode)
+            return true;
+        // Follow edge from argument to its call node
+        else if (e.from.isActualPNode && e.to.isCallNode) 
+            return e.from.direction !== -1
+        // Follow edge from call node that is an argument itself
+        else if (e.to.isActualPNode && e.from.isCallNode) 
+            return e.from.direction !== -1
+        else 
+            // Else only follow control type edges + object member edges
+            return e.equalsType(EDGES.CONTROL) ||
+                   e.equalsType(EDGES.OBJMEMBER)
+    };
+
+
+    if (this.isFunctionalityNode) {
+        return this;
+    }
+    else {
+        /* recursively traverse up the graph until a node with a 
+         * distributed type is encountered, or none is found */
+        var incoming = this.edges_in.filter(filterIncoming);
+        var visited = [];
+        var node;
+        while(incoming.length > 0) {
+            var edge = incoming.shift();
+            node = edge.from;
+            visited.push(node);
+            if (node.isFunctionalityNode || node.isRootNode)
+                break;
+            var proceed = node.edges_in.filter(filterIncoming);
+            proceed = proceed.filter(function (e) {
+                return !visited.find(function (node) {
+                    return e.from === node;
+                });
+            });
+            incoming = incoming.concat(proceed);
+        }
+
+        if (node) 
+            if (node.isFunctionalityNode) {
+                return node;
+            }
+            else {
+                return false;
+            }
+        else
+            return false;
+    }
+}
+
+
+PDG_Node.prototype.getFType = function (recheck) {
+    /* Aux function that filter incoming edges */
     var filterIncoming = function (e) {
         // Ignore cycles
         if (e.to.equals(e.from)) 
@@ -635,10 +824,10 @@ PDG_Node.prototype.getCType = function (recheck) {
     };
 
     /* If distributed type is already calculated, return it */
-    if (!recheck && this.ctype) 
-      return this.ctype;
-    else if (this.isComponentNode) {
-        return this.ctype;
+    if (!recheck && this.ftype) 
+      return this.ftype;
+    else if (this.isFunctionalityNode) {
+        return this.ftype;
     }
     else {
         /* recursively traverse up the graph until a node with a 
@@ -650,7 +839,7 @@ PDG_Node.prototype.getCType = function (recheck) {
             var edge = incoming.shift();
             node = edge.from;
             visited.push(node);
-            if (node.ctype || node.isRootNode)
+            if (node.ftype || node.isRootNode)
                 break;
             var proceed = node.edges_in.filter(filterIncoming);
             proceed = proceed.filter(function (e) {
@@ -662,9 +851,9 @@ PDG_Node.prototype.getCType = function (recheck) {
         }
 
         if (node) 
-            if (node.ctype) {
-                this.ctype = node.ctype;
-                return node.ctype;
+            if (node.ftype) {
+                this.ftype = node.ftype;
+                return node.ftype;
             }
             else {
                 return DNODES.SHARED;
@@ -674,10 +863,24 @@ PDG_Node.prototype.getCType = function (recheck) {
     }
 }
 
-PDG_Node.prototype.equalsComponent = function (node) {
-    var ctype1 = this.getCType();
-    var ctype2 = this.getCType();
-    return ctype1 === ctype2;
+PDG_Node.prototype.equalsFunctionality = function (node) {
+    var ftype1 = this.getFType();
+    var ftype2 = node.getFType();
+    return ftype1 === ftype2 ||
+        (this.isSharedNode() && node.isSharedNode());
+}
+
+PDG_Node.prototype.equalsTier = function (node) {
+    var comp1 = node.getFunctionality();
+    var comp2 = this.getFunctionality();
+    return comp1.tier && comp2.tier &&
+            comp1.tier === comp2.tier;
+}
+
+
+PDG_Node.prototype.getTier = function () {
+    var func = this.getFunctionality();
+    return func.tier;
 }
 
 //////////////////////////////////////////
@@ -695,7 +898,7 @@ var ARITY = {
     ALL   : {value: 1, name: "all"}
 }
 
-var cTypeEquals = function (type1, type2) {
+var fTypeEquals = function (type1, type2) {
     return type1 === type2;
 }
 
@@ -704,27 +907,30 @@ var arityEquals = function (type1, type2) {
 }
 
 DistributedNode = function (type) {
-    ComponentNode.call(this, type);
+    FunctionalityNode.call(this, type, type);
     this.isDistributedNode = true;
 }
 
 PDG_Node.prototype.isClientNode = function () {
-    this.ctype = this.getCType();
-    return cTypeEquals(this.ctype, DNODES.CLIENT);
+    if (!this.tier)
+        this.tier = this.getTier();
+    return fTypeEquals(this.tier, DNODES.CLIENT);
 }
 
 PDG_Node.prototype.isServerNode = function () {
-    this.ctype = this.getCType();
-    return cTypeEquals(this.ctype, DNODES.SERVER);
+    if (!this.tier)
+        this.tier = this.getTier();
+    return fTypeEquals(this.tier, DNODES.SERVER);
 }
 
 PDG_Node.prototype.isSharedNode = function () {
-    this.ctype = this.getCType();
-    return !this.ctype || cTypeEquals(this.ctype, DNODES.SHARED);
+    if (!this.tier)
+        this.tier = this.getTier();
+    return !this.tier || fTypeEquals(this.tier, DNODES.SHARED);
 }
 
 
-DistributedNode.prototype = new PDG_Node();
+DistributedNode.prototype = new FunctionalityNode();
 
 
 if (typeof module !== 'undefined' && module.exports != null) {
@@ -750,6 +956,6 @@ if (typeof module !== 'undefined' && module.exports != null) {
     exports.ARITY               = ARITY;
     exports.DistributedNode     = DistributedNode;
     exports.arityEquals         = arityEquals;
-    exports.cTypeEquals         = cTypeEquals;
+    exports.fTypeEquals         = fTypeEquals;
 
 }

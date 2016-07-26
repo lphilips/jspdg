@@ -76,6 +76,7 @@
     <script type="text/javascript" src="js/jslinttool.js"></script>
     <script type="text/javascript" src="../exceptions.js"></script>
     <script type="text/javascript" src="../stip.js"></script>
+    <script type="text/javascript" src="../placement/default_strategy.js"></script>
     <script type="text/javascript" src="../InterferenceAnalysis.js"></script>
     <script type="text/javascript" src="../transpiler/CPS_transform.js"></script>
     <script type="text/javascript" src="../transpiler/Promise_transform.js"></script>
@@ -94,8 +95,9 @@
     <script type="text/javascript" src="../lib/escodegen.js"></script>
     <script type="text/javascript" src="PDGgraph.js"></script>
     <script type="text/javascript" src="pdgGraphs.js"></script>
+    <script type="text/javascript" src="componentGraph.js"></script>
     <script type="text/javascript" src="lib/viz.js"></script>
-    <script type="text/javascript" src="lib/dagre-d3.js"></script>
+
     <script type="text/javascript">
 
     // define print method for JIPDA
@@ -112,7 +114,7 @@
                 ast = Ast.createAst(src, {loc:true, owningComments: true, comment: true});
             ast = Hoist.hoist(ast, function (node) {
                     return Aux.isBlockStm(node) && 
-                        (Comments.isTierAnnotated(node) || Comments.isComponentAnnotated(node) || 
+                        (Comments.isClientorServerAnnotated(node) || Comments.isSliceAnnotated(node) || 
                             (node.leadingComment && Comments.isBlockingAnnotated(node.leadingComment)));
                 });
 
@@ -128,9 +130,16 @@
             graphs = new Stip.Graphs(preanalysis.ast, src, preanalysis.primitives);
             Stip.start(graphs);
 
-            var g = createPDGGraph(graphs.PDG, assumes);
 
+            graphs.PDG.distribute(DefaultPlacementStrategy);
+            var g = createPDGGraph(graphs.PDG, assumes);
             drawPDGGraph(g[0], g[1], g[2]);
+          
+            cy = createComponentGraph(graphs.PDG);
+            createOfflineReport(graphs);
+
+            
+
             return graphs; 
         } catch (err) {
             console.log(err.message);
@@ -184,8 +193,8 @@
             PDGg = graphs;
             slicededitor.setValue("");
             //$('.collapse').collapse();
-            var slicedc      = PDG.sliceDistributedNode(DNODES.CLIENT),
-                sliceds      = PDG.sliceDistributedNode(DNODES.SERVER),
+            var slicedc      = PDG.sliceTier(DNODES.CLIENT),
+                sliceds      = PDG.sliceTier(DNODES.SERVER),
                 sortedc      = slicedc.slice(0),
                 sorteds      = sliceds.slice(0),
                 removes      = [],
@@ -403,6 +412,156 @@
         });
       };
 
+      function createOfflineReport (graphs) {
+        var PDG = graphs.PDG;
+        var clientfs = [];
+        var serverfs = [];
+        var clientperc = 0;
+        var serverperc = 0;
+        PDG.getFunctionalityNodes().map(function (f) {
+            if (f.tier === DNODES.SERVER) 
+                serverfs.push(f.ftype)
+            if (f.tier === DNODES.CLIENT)
+                clientfs.push(f.ftype)
+        });
+        console.log("CLIENT FUNCTIONALITIES");
+        clientfs.map(function (r) {console.log(r)});
+        console.log("SERVER FUNCTIONALITIES");
+        serverfs.map(function (r) {console.log(r)});
+        clientperc = clientfs.length / (clientfs.length + serverfs.length);
+        serverperc = serverfs.length / (clientfs.length + serverfs.length);
+
+        $("#clientbar").width(clientperc*100+'%');
+        $("#serverbar").width(serverperc*100+'%');
+        $("#functionalities").empty();
+        graphs.PDG.getFunctionalityNodes().map(function (functionality) {
+            createFunctionality(functionality);
+        })
+
+        
+        function createFunctionality(funcNode) {
+            var dataCntC = funcNode.countEdgeTypeFilter(EDGES.REMOTED, function (f) {return f.tier == DNODES.CLIENT}, -1);
+            var dataCntS = funcNode.countEdgeTypeFilter(EDGES.REMOTED, function (f) {return f.tier == DNODES.SERVER}, -1);
+            var callCntC = funcNode.countEdgeTypeFilter(EDGES.REMOTEC, function (f) {return f.tier == DNODES.CLIENT});
+            var callCntS = funcNode.countEdgeTypeFilter(EDGES.REMOTEC, function (f) {return f.tier == DNODES.SERVER});
+            var item = $("<a class='row' style='text-align:center;'></a>").addClass("list-group-item");
+            var label = (funcNode.tier == DNODES.CLIENT) ? " <span class='label label-info'>client</span>" : " <span class='label label-warning'>server</span>";
+            item.append("<h4 class='list-group-item-heading'>"+ funcNode.ftype + label +" </h4");
+            var divGraphD = $("<div class='col-sm-6' style='height: 130px;'></div");
+            var divGraphC = $("<div class='col-sm-6' style='height: 130px;'></div");
+            var divText = $("<div class='col-sm-6'></div>");
+            var divData = $("<div class='well 'style='text-align:left; padding: 5px;'><h5>DATA DEPENDENCIES</h5></div>");
+            var divCall = $("<div class='well' style='text-align:left; padding: 5px;'><h5>CALL DEPENDENCIES</h5></div>");
+            divData.append('<p> > Client: '+ dataCntC +'</p>');
+            divData.append('<p> > Server: '+ dataCntS +'</p>');
+            divCall.append('<p> > Client: '+ callCntC +'</p>');
+            divCall.append('<p> > Server: '+ callCntS +'</p>');
+
+            divText.append(divData).append(divCall);
+            if (funcNode.tier == DNODES.CLIENT)
+                createGauge((dataCntC / (dataCntS + dataCntC))*100,'Data', divGraphD);
+            else
+                createGauge(0, 'Data', divGraphD);
+
+            if (funcNode.tier == DNODES.CLIENT)
+                createGauge((callCntC / (callCntS + callCntC))*100,'Call', divGraphC);
+            else {
+                createGauge(0, 'Call', divGraphC);
+            }
+
+            item.append(divText).append(divGraphD).append(divGraphC);
+            $("#functionalities").append(item);
+            $(window).trigger('resize');
+            window.dispatchEvent(new Event('resize'));
+        }
+
+        function createGauge (percentage, title, div) {
+               var gaugeOptions = {
+
+                chart: {
+                    type: 'solidgauge'
+                },
+
+                title: null,
+
+                pane: {
+                    center: ['50%', '55%'],
+                    size: '80%',
+                    startAngle: -90,
+                    endAngle: 90,
+                    background: {
+                        backgroundColor: '#EEE',
+                        innerRadius: '60%',
+                        outerRadius: '100%',
+                        shape: 'arc'
+                    }
+                },
+
+                tooltip: {
+                    enabled: false
+                },
+
+                // the value axis
+                yAxis: {
+                    stops: [
+                        [0.1, '#DF5353'], // red
+                        [0.3, '#DDDF0D'], // yellow
+                        [0.6, '#55BF3B'] // green
+                    ],
+                    lineWidth: 0,
+                    minorTickInterval: null,
+                    tickPixelInterval: 400,
+                    tickWidth: 0,
+                    title: {
+                        y: -35
+                    },
+                    labels: {
+                        y: 15
+                    }
+                },
+
+                plotOptions: {
+                    solidgauge: {
+                        dataLabels: {
+                            y: -25,
+                            borderWidth: 0,
+                            useHTML: true
+                        }
+                    }
+                }
+            };
+
+            // The speed gauge
+            div.highcharts(Highcharts.merge(gaugeOptions, {
+                yAxis: {
+                    min: 0,
+                    max: 100,
+                    title: {
+                        text: title
+                    }
+                },
+
+                credits: {
+                    enabled: false
+                },
+
+                series: [{
+                    name: title,
+                    data: [Math.round(percentage)],
+                    dataLabels: {
+                        format: '<div style="text-align:center"><span style="font-size:18px;color:' +
+                            ((Highcharts.theme && Highcharts.theme.contrastTextColor) || 'black') + '">{y}</span><br/></div>'
+                    },
+                   
+                }]
+
+            }));
+
+        }
+
+
+      }
+
   </script>
 </head>
 
@@ -480,129 +639,91 @@
             </div>
 
             <div class="well">
-                <!-- Tool tabs -->
-                <ul class="nav nav-tabs">
-                    <li class="active"><a href="#stip" data-toggle="tab">STiP</a></li>
-                    <li><a href="#jipda" data-toggle="tab">Jipda</a></li>
-                    <li><a href="#esprima" data-toggle="tab">Esprima</a></li>
-                    <li><a href="#jslint" data-toggle="tab">JSLint</a></li>
-                </ul>  
-                <!-- ./ Tool tabs-->
 
-                <div class="tab-content">
-                    <!-- Stip -->
-                    <div class="tab-pane active" id="stip">
-                        <div class="container">
-                            <div id="manip" style="margin-top: 1%;">
-                                <button id="eval" name="eval" onClick="doIt()" class="btn btn-success" 
-                                        style="float: left; margin-right: 10px">Eval</button> 
-                                <p style="float: left; margin-right: 10px; padding-top:1%"> or </p>
-                                <button id="cpstransform" name="cpstransform" onClick="cpstransform()" class="btn btn-success" 
-                                        style="float: left; margin-right: 10px">Transform CPS</button> 
-                                <p style="float: left; margin-right: 10px; padding-top:1%"> or </p>
-                                <button id="split" name="split"  class="btn btn-success" 
-                                        data-toggle="collapse" data-target="#splitconfig" aria-expanded="false"
-                                        aria-controls="splitconfig"
-                                        style="float: left; margin-right: 10px">Tier split</button> 
-                                <div class="collapse" id="splitconfig" style="float:left">
-                                    <div class="well">
+            <div class="container">
+                <div id="manip" style="margin-top: 1%;">
+                    <button id="eval" name="eval" onClick="doIt()" class="btn btn-success" 
+                            style="float: left; margin-right: 10px">Eval</button> 
+                    <p style="float: left; margin-right: 10px; padding-top:1%"> or </p>
+                    <button id="cpstransform" name="cpstransform" onClick="cpstransform()" class="btn btn-success" 
+                            style="float: left; margin-right: 10px">Transform CPS</button> 
+                    <p style="float: left; margin-right: 10px; padding-top:1%"> or </p>
+                    <button id="split" name="split"  class="btn btn-success" 
+                            data-toggle="collapse" data-target="#splitconfig" aria-expanded="false"
+                            aria-controls="splitconfig"
+                            style="float: left; margin-right: 10px">Tier split</button> 
+                    <div class="collapse" id="splitconfig" style="float:left">
+                        <div class="well">
+    
+                                <div class="form-group">
+                                    <label for="target">Target</label>
+                                    <select class="form-control" id="target">
+                                        <option>node.js</option>
+                                        <option>meteor</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="asyncomm">Asynchronous Communication</label>
+                                    <select class="form-control" id="asyncomm">
+                                        <option>callbacks</option>
+                                        <option>promises</option>
+                                    </select>
+                                </div>
+                              <button onClick="split()" class="btn btn-default">Split!</button>
+                        </div>
+                    </div>
+                </div> <!-- /.manip -->
+                <!-- <p id="error" style="float:left;"></p> -->
+            </div> <!-- /.container -->
+            
+             <div id="error" style="color: #ff0606;"> </div>
+
+
+            <!-- Stip -->
+
+          <!-- Nav tabs -->
+          <ul class="nav nav-tabs" role="tablist">
+            <li role="presentation" class="active"><a href="#report" aria-controls="report" role="tab" data-toggle="tab">Offline Report</a></li>
+            <li role="presentation"><a href="#fdg" aria-controls="fdg" role="tab" data-toggle="tab">Web Slice Graph</a></li>
+            <li role="presentation"><a href="#pdg" aria-controls="pdg" role="tab" data-toggle="tab">Program Dependence Graph</a></li>
+          </ul>
+
+          <!-- Tab panes -->
+          <div class="tab-content" style="min-height: 400px;">
+            <div role="tabpanel" class="tab-pane active" id="report">
+                <div class="report-well">
+                    <h3>Web slice distribution</h3>
+                    <div class="progress">
+                          <div id="clientbar" class="progress-bar progress-bar-info progress-bar-striped" role="progressbar" style="width: 0%">
+                            <span>CLIENT</span>
+                          </div>
+                          <div id="serverbar" class="progress-bar progress-bar-warning progress-bar-striped" role="progressbar" style="width: 0%">
+                            <span>SERVER</span>
+                          </div>
+                        </div>
+                    <h3>Detailed report</h3>
+                    <div id="functionalities" class="list-group"></div>
+                </div>
+
+            </div> <!-- /report -->
+            <div role="tabpanel" class="tab-pane" id="fdg">
+                <div id="componentgraph" style="height:400px;" ></div>
+            </div>
+            <div role="tabpanel" class="tab-pane" id="pdg">
                 
-                                            <div class="form-group">
-                                                <label for="target">Target</label>
-                                                <select class="form-control" id="target">
-                                                    <option>node.js</option>
-                                                    <option>meteor</option>
-                                                </select>
-                                            </div>
-                                            <div class="form-group">
-                                                <label for="asyncomm">Asynchronous Communication</label>
-                                                <select class="form-control" id="asyncomm">
-                                                    <option>callbacks</option>
-                                                    <option>promises</option>
-                                                </select>
-                                            </div>
-                                          <button onClick="split()" class="btn btn-default">Split!</button>
-                                
-                                    </div>
-                                </div>
-                            </div> <!-- /.manip -->
-                            <!-- <p id="error" style="float:left;"></p> -->
-                        </div> <!-- /.container -->
-                        
-                         <div id="error" style="color: #ff0606;"> </div>
-                         <div id="graphcont">
-                            <div><!-- id="graph" class="container panzoom"> -->
-                                <svg>
-                                    <g transform="translate(20,20)"/>
-                                </svg>
-                                <div class="fixed tooltip"></div>
-                            </div>
-                        </div>
-                    </div> <!-- ./stip -->
+                 <div id="graphcont">
+                    <div id="pdggraph">
 
-                    <!-- Jipda -->
-                    <div class="tab-pane" id="jipda">
-                        <div class="container">
-                            <button id="jipdaeval" name="jipdaeval" onClick="jipdaIt()" class="btn btn-success" 
-                                    style="float: left; margin-right: 10px; margin-top: 1%;">Eval</button>
-                            <span id="resultValue"></span>
-                                <div id="meta">
-                                    <div id="output"></div>
-                                    <div id="input"></div>
-                                </div>
-                                <div id="right" class="container">
-                                    <div id="graphjipda" class="container">
-                                        <svg>
-                                            <defs>
-                                                <marker id="highlightarrowhead" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="strokeWidth" markerWidth="8" markerHeight="5" orient="auto">
-                                                    <path d="M 0 0 L 10 5 L 0 10 z"></path>
-                                                </marker>
-                                            </defs> 
-                                        <g transform="translate(20,20)"/>
-                                        </svg>
-                                    </div>
-                                </div>
-                                <!-- /.right -->
-                        </div>
-                    </div> <!-- ./jipda -->
+                        <div class="fixed tooltip"></div>
+                    </div>
+                </div>
 
-                    <!-- Esprima -->
-                    <div class="tab-pane" id="esprima">
-                        <div class="container">
-                            <button id="esprimaparse" name="esprimaparse" onClick="esprimaparse()" class="btn btn-success" 
-                                    style="float: left; margin-right: 10px;margin-top: 1%;">Parse</button>
-                            <div style="float:left">
-                                <h4>Syntax</h4>
-                                <textarea id="syntax" rows="30" cols="60" readonly></textarea> 
-                            </div>
-                            <div style="margin-top:1%">
-                                <h4>Tree view </h4>
-                                <div id="treeview"></div>
-                            </div>
-                        </div>
-                    </div> <!--./esprima -->
+            </div>
+          </div>
 
-                    <!-- JSLint -->
-                    <div class="tab-pane" id="jslint">
-                        <div class="container">
-                            <div style="float: left; margin-top: 1%;">
-                                <button id="jslintbtn" name="jslint" onClick="jslint()" class="btn btn-success" 
-                                        style="float: left; margin-right: 10px">JSLint</button>
-                            </div>
-                            <ul class="nav nav-tabs" id="jslinttab">
-                                <li class="active"><a href="#jslinterrors" data-toggle="tab">Error report</a></li>
-                                <li><a href="#jslintfunction" data-toggle="tab">Function report</a></li>
-                                <li><a href="#jslintproperties" data-toggle="tab">Properties report</a></li>
-                            </ul>  
-                            <div class="tab-content" style="margin-top: 2%;">
-                                <div class="tab-pane active" id="jslinterrors"></div>
-                                <div class="tab-pane" id="jslintfunction"></div>
-                                <div class="tab-pane" id="jslintproperties"></div>
-                            </div>
-                        </div>
-                    </div> <!-- jslint -->
 
-                </div> <!--./tabcontent -->     
+                    
+    
             </div> <!-- ./well -->
         </div>  <!-- ./code -->     
     </div> <!-- ./main container -->
@@ -699,22 +820,36 @@
                 editor.setValue(text);
                 editor.setCursor(0,0);
                 editor.focus();
-        })
+        });
         $("#includeclient").change(function () {
             printCode();
-        })
+        });
         $("#includeserver").change(function () {
             printCode();
-        })
+        });
         $("#includesetup").change(function () {
             printCode();
+        });
+
+        $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+            var target = $(e.target).attr("href");
+            if (target == "#fdg") {
+                cy.resize();
+                cy.layout({name: 'cose'});
+            }
+
         })
+
 
         
 
     </script>
-    <script src="js/jquery.panzoom//test/libs/jquery.js"></script>
-    <script src="js/jquery.panzoom/dist/jquery.panzoom.js"></script>
+
+    <script type="text/javascript" src="lib/dagre-d3.js"></script>
+    <script type="text/javascript" src="lib/cytoscape.js"></script>
+    <script type="text/javascript" src="js/highcharts.js"></script>
+    <script type="text/javascript" src="js/highcharts-more.js"></script>
+    <script type="text/javascript" src="js/modules/solid-gauge.js"></script>
 
     </html>
 

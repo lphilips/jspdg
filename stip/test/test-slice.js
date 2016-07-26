@@ -44,8 +44,11 @@ function getNodeForSrc(statementsrc, nodes) {
 function slice (src, statementsrc) {
     var ast = Ast.createAst(src, {loc: true, owningComments: true, comment: true});
     ast = Hoist.hoist(ast, function (node) {
-        return Aux.isBlockStm(node) && (Comments.isTierAnnotated(node) || Comments.isComponentAnnotated(node))
-    });
+                    return Aux.isBlockStm(node) && 
+                        (Comments.isClientorServerAnnotated(node) || Comments.isFunctionalityAnnotated(node) || 
+                            (node.leadingComment && Comments.isBlockingAnnotated(node.leadingComment)));
+                });
+
     var pre_analysis = pre_analyse(ast, {callabcks: [], identifiers: []}),
         genast       = pre_analysis.ast,
         assumes      = pre_analysis.assumes,
@@ -138,6 +141,7 @@ suite('Slicing', function () {
 
     test('call argument', function () {
         var ast = slice('var y = 10; function foo(x) {return x+y;} foo(foo(42));', 'foo(42)');
+        console.log(escodegen.generate(ast.nosetup));
         compareAst(escodegen.generate(ast.nosetup),
             'var y; function foo(x) {return x + y;} y = 10; foo(foo(42));',
             {varPattern: /_v\d_/ })

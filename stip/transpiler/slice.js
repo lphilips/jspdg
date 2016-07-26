@@ -122,7 +122,8 @@ var CodeGenerator = (function () {
                     transpiled = toCode(option, nodes, n, ast);
                     if(transpiled.transpiledNode) {
                         if (Aux.isBlockStm(transpiled.transpiledNode) &&
-                            (Comments.isTierAnnotated(transpiled.transpiledNode) ||
+                            (Comments.isSliceAnnotated(transpiled.transpiledNode) ||
+                             Comments.isClientorServerAnnotated(transpiled.transpiledNode) ||
                                 transpiled.transpiledNode.leadingComment && Comments.isBlockingAnnotated(transpiled.transpiledNode.leadingComment)))
 
                             program.body = program.body

@@ -1,0 +1,22 @@
+var DefaultPlacementStrategy = (function () {
+
+    var toreturn = {};
+
+
+    function addPlacementTag(cnode, pdg) {
+
+    }
+
+
+    toreturn.addPlacementTag = addPlacementTag;
+
+
+    if (typeof module !== 'undefined' && module.exports != null) {
+        ARITY = require('./PDG/node.js').ARITY;
+        exports.Comments = toreturn;
+    }
+
+    return toreturn
+
+
+})()
