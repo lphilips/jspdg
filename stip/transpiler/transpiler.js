@@ -117,7 +117,6 @@ var Transpiler = (function () {
         }
 
         else if (node.parsenode) {
-
             switch (node.parsenode.type) {
                 case 'VariableDeclaration':
                     return transformer.transformVariableDecl(transpiler);
@@ -157,6 +156,8 @@ var Transpiler = (function () {
                     return transformer.transformReturnStm(transpiler);
                 case 'CatchClause' :
                     return transformer.transformCatchClause(transpiler);
+                default:
+                    return transpiler;
 
             }
         }

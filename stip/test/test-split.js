@@ -31,7 +31,7 @@ function tiersplit (src) {
     var ast = Ast.createAst(src, {loc: true, owningComments: true, comment: true});
     ast = Hoist.hoist(ast, function (node) {
                     return Aux.isBlockStm(node) && 
-                        (Comments.isClientorServerAnnotated(node) || Comments.isFunctionalityAnnotated(node) || 
+                        (Comments.isClientorServerAnnotated(node) || Comments.isSliceAnnotated(node) || 
                             (node.leadingComment && Comments.isBlockingAnnotated(node.leadingComment)));
                 });
 

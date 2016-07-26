@@ -376,6 +376,7 @@ var Nodeify = (function () {
         parsenode.body.body = remotebody;
         transpiledNode = localparsenode;
 
+ 
         /* CASE 2 : Server function that is called by client side */
         if(node.isServerNode() && node.clientCalls() > 0) {
             transpiled = transpiler.transformCPS.transformFunction(transpiler);    
@@ -390,9 +391,9 @@ var Nodeify = (function () {
             transpiler.transpiledNode = undefined;
         }
 
-        if ((node.isClientNode() && node.clientCalls() > 0) || 
-            (node.isServerNode() && node.serverCalls() > 0) || 
-            node.ctype === DNODES.SHARED || 
+        if ((node.isClientNode() && node.clientCalls() > 0) ||
+            (node.isServerNode() && node.serverCalls() > 0) ||
+            node.ctype === DNODES.SHARED ||
             node.parsenode.generated ||
             (node.clientCalls() == 0 && node.serverCalls() == 0)) {
             transpiler.nodes = transpiler.nodes.remove(node);
@@ -471,7 +472,7 @@ var Nodeify = (function () {
     function nodeifyCallExp (transpiler) {
         var node        = transpiler.node,
             actual_ins  = node.getActualIn(),
-            actual_outs = node.getActualOut(),  
+            actual_outs = node.getActualOut(),
             parent      = Ast.parent(node.parsenode, transpiler.ast),
             entryNode   = node.getEntryNode()[0],
             callargs    = 0,
@@ -488,7 +489,7 @@ var Nodeify = (function () {
             transpiler.nodes = transpiler.nodes.remove(a_in);
             return transpiled.transpiledNode;
         });
-       
+
         actual_ins.map(function (a_in) {
             transpiler.nodes = transpiler.nodes.remove(a_in);
             a_in.getOutNodes(EDGES.CONTROL)
@@ -496,7 +497,7 @@ var Nodeify = (function () {
                 .map(function (n) { callargs++; transpiler.nodes = transpiler.nodes.remove(n); });
             a_in.getOutNodes(EDGES.CONTROL)
                 .filter(function (n) {return !n.isCallNode})
-                .map(function (n) {transpiler.nodes = transpiler.nodes.remove(n); })    
+                .map(function (n) {transpiler.nodes = transpiler.nodes.remove(n); })
         });
         actual_outs.map(function (a_out) {
             transpiler.nodes = transpiler.nodes.remove(a_out);
@@ -505,9 +506,9 @@ var Nodeify = (function () {
         if (Aux.isMemberExpression(Pdg.getCallExpression(node.parsenode).callee)) {
             node.getInNodes(EDGES.DATA).concat(node.getInNodes(EDGES.REMOTED))
                     .map(function(n) {
-                        if (n.isStatementNode && 
+                        if (n.isStatementNode &&
                             (Aux.isVarDecl(n.parsenode) ||
-                             Aux.isVarDeclarator(n.parsenode))   &&
+                             Aux.isVarDeclarator(n.parsenode)) &&
                             n.name === Pdg.getCallExpression(node.parsenode).callee.object.name)
                         declarationnode = n;
                     })
@@ -540,8 +541,8 @@ var Nodeify = (function () {
             transpiler.transpiledNode = Aux.isExpStm(node.parsenode) ? node.parsenode : parent;
             return transpiler;
         }
-        
-        /* No entryNode found : can happen with library functions. 
+
+        /* No entryNode found : can happen with library functions.
            Just return call in this case */
         if (!entryNode) {
             if (Aux.isExpStm(parent) && Aux.isCallExp(parent.expression)) {
@@ -566,7 +567,7 @@ var Nodeify = (function () {
             /* CASE 1 : defined on server, called by server */
             else if(node.isServerNode()) {
                 transpiler.transpiledNode = Aux.isExpStm(node.parsenode) ? node.parsenode : parent;
-            }       
+            }
 
             return transpiler;
         }
@@ -664,7 +665,7 @@ var Nodeify = (function () {
 
     /* Update expression */
     transformer.transformUpdateExp = JSify.transformUpdateExp;
-    
+
     function noTransformationDefined (transpiler) {
         transpiler.transpiledNode = false;
         return transpiler;
@@ -697,14 +698,14 @@ var Nodeify = (function () {
         if (args1 && args2) {
             if(args1.length !== args2.length)
                 return false;
-            else 
+            else
                 for (var i = 0; i < args1.length; i++) {
                     if (escodegen.generate(args1[i]) !== escodegen.generate(args2[i]))
                         return false;
                 }
             return true;
         }
-        else 
+        else
             return false;
     }
 
