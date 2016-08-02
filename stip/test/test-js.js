@@ -7,6 +7,7 @@ var compareAst = require('compare-ast');
 /* Libraries */
 var esprima         = require('../lib/esprima.js');
 var escodegen       = require('../lib/escodegen.js');
+var estraverse      = require('../lib/estraverse.js');
 
 /* Jipda */
 var Ast             = require('../../jipda-pdg/ast.js').Ast;
