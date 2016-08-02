@@ -20,7 +20,8 @@ var CPSTransform = (function () {
         var callnode     = transpiler.node,
             asyncCall    = transpiler.parseUtils.createRPC(callnode)(callnode, callnode.name, []),
             parsenode    = Pdg.getCallExpression(callnode.parsenode),
-            callback     = transpiler.parseUtils.createCallback(cps_count),
+            trystm       = Aux.inTryStatement(transpiler.ast, parsenode),
+            callback     = transpiler.parseUtils.createCallback(cps_count, Aux.isTryStm(trystm) ? trystm : null),
             nodes        = transpiler.nodes,
             actual_ins   = callnode.getActualIn(),
             parent       = Ast.parent(callnode.parsenode, transpiler.ast),
@@ -34,6 +35,19 @@ var CPSTransform = (function () {
             entry        = getEntryNode(callnode),
             calledEntry  = callnode.getEntryNode()[0],
             calldeps, vardecls, objects, transpiledNode, transformargs, transpiled, nextcont;
+
+
+        if (parsenode.handlersAsync && parsenode.handlersAsync.length != 0) {
+			var handlerCtr = parsenode.handlersAsync.length,
+				lastHandler = parsenode.handlersAsync[handlerCtr - 1];
+
+			if (asyncCall.setObjectName) {
+				var proxyName = Handler.makeProxyName(lastHandler.getId());
+				asyncCall.setObjectName(proxyName);
+			}
+
+			lastHandler.incRpcCount();
+		}    
 
         /* Add original arguments to async call */
         actual_ins.map(function(a_in) {
@@ -62,7 +76,6 @@ var CPSTransform = (function () {
                 nodes = nodes.remove(a_in);
             } 
         });
-
 
 
         /* Upnode is given + of type var decl, assignment, etc */
@@ -239,6 +252,12 @@ var CPSTransform = (function () {
             if (nodesContains(nodes, n) && 
                 transpiler.parseUtils.shouldTransform(callnode)) {
                 transpiled = Transpiler.transpile(transpilerDataDep);
+
+                var e_in = transpiled.node.getInNodes(EDGES.CONTROL).filter(function (n) {
+                                return Aux.isTryStm(n.parsenode)
+                            });
+                transpiled.transpiledNode.inTryBlock = (e_in.length != 0);
+
                 nodes = transpiled.nodes;
                 transpiled.transpiledNode.cnt = transpiled.node.cnt;
                 callbackstms = callbackstms.concat(transpiled);
@@ -247,6 +266,7 @@ var CPSTransform = (function () {
 
         /* Add the callback as last argument to the async call. */
         asyncCall.addArg(callback.parsenode);
+
         asyncCall.setCallback(callback);
 
         (function (callback) {
@@ -525,8 +545,7 @@ var CPSTransform = (function () {
                     /* Make sure methods like equal, hashcode are defined on the node*/
                     if (enclosingFun && !enclosingFun.equals)
                         Ast.augmentAst(enclosingFun);
-                    if (
-                        Aux.isRetStm(node) && 
+                    if ( Aux.isRetStm(node) && 
                         node.__upnode.equals(func.parsenode)) {
                             /* callnode property is added if return statement is already transformed to a cps call
                                No need to wrap it in a callback call again */
@@ -540,6 +559,10 @@ var CPSTransform = (function () {
                                 node.type = "ReturnStatement";
                                 node.argument = transpiler.parseUtils.createCbCall('callback', {type: 'Literal', value: null}, node.argument);
                             }
+                    }
+                    if (Aux.isThrowStm(node)) {
+                        node.type = "ReturnStatement";
+                        node.argument = transpiler.parseUtils.createCbCall('callback', node.argument);
                     }
                 }
             })
@@ -682,8 +705,22 @@ var CPSTransform = (function () {
             if (arity && arityEquals(arity, ARITY.ONE)) {
                 transformCall = transpiler.parseUtils.createAsyncReplyCall();
                 transformCall.setName(callnode.name);
+
                 transformCall.addArgs(parsenode.arguments);
-                return [nodes, transformCall];
+
+                if (callnode.parsenode.handlersAsync && callnode.parsenode.handlersAsync.length != 0) {
+                    var handlerCtr = callnode.parsenode.handlersAsync.length,
+                        lastHandler = callnode.parsenode.handlersAsync[handlerCtr - 1];
+
+                    if (transformCall.setObjectName) {
+                        var proxyName = Handler.makeProxyName(lastHandler.getId());
+                        transformCall.setObjectName(proxyName);
+                    }
+
+                    lastHandler.incRpcCount();
+                }   
+
+                return [nodes, transformCall]
             }
         }
         return [nodes, callnode.parsenode]

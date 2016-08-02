@@ -41,11 +41,42 @@ var NodeParse = (function () {
      /*  Representation of a callback function :
      *    callback(errx, resx) {}
      */
-    var callback = function (cnt) {
-        return {  parsenode : {
-                    type: "FunctionExpression",
-                    id: null,
-                    params: [
+    var callback = function (cnt, syncHandler) {
+        var body = [];
+        if(syncHandler){
+            body = [{
+                "type": "TryStatement",
+                "block": {
+                    "type": "BlockStatement",
+                    "body": [
+                        {
+                            "type": "IfStatement",
+                            "test": {
+                                "type": "Identifier",
+                                "name": "err"+cnt
+                            },
+                            "consequent": {
+                                "type": "ThrowStatement",
+                                "argument": {
+                                    "type": "Identifier",
+                                    "name": "err"+cnt
+                                }
+                            },
+                            "alternate": null
+                        }
+                        ]
+                },
+                "guardedHandlers": [],
+                "handlers": syncHandler.handlers.slice(),
+                //"handler": syncHandler.handlers,
+                "finalizer": syncHandler.finalizer
+            }];
+        }   
+
+        return {  parsenode :{
+                    "type": "FunctionExpression",
+                    "id": null,
+                    "params": [
                         {
                             type: "Identifier",
                             name: "err"+cnt
@@ -65,25 +96,54 @@ var NodeParse = (function () {
                     expression: false
                   },
                   addBodyStm : function (stm) {
-                    this.parsenode.body.body = this.parsenode.body.body.concat(stm);
+
+                        if(syncHandler && stm.inTryBlock){
+                            this.parsenode.body.body[0].block.body = this.parsenode.body.body[0].block.body.concat(stm)
+                        }else{
+                            this.parsenode.body.body = this.parsenode.body.body.concat(stm)
+                        }
                   },
-                addBodyStms : function (stms) {
-                    this.parsenode.body.body = this.parsenode.body.body.concat(stms);
+                  addBodyStms : function (stms) {
+                    var self = this;
+                    stms.forEach(function (stm) {
+                        self.addBodyStm(stm);
+                    });
                   },
                   setBody    : function (body) {
-                    this.parsenode.body.body = body;
+                    if(syncHandler){
+                        var throwS = {
+                            "type": "IfStatement",
+                            "test": this.getErrPar(),
+                            "consequent": {
+                                "type": "ThrowStatement",
+                                "argument": this.getErrPar()
+                            },
+                            "alternate": null
+                        };
+                       this.parsenode.body.body[0].block.body = [throwS].concat(body); 
+                    }else{
+                        this.parsenode.body.body = body
+                    }
                   },
                   getBody    : function () {
-                    return this.parsenode.body.body;
+                    if(syncHandler){
+                        var inTryBody = this.parsenode.body.body[0].block.body.slice(1);
+                        return inTryBody.concat(this.parsenode.body.body.slice(1)); 
+                    }else{
+                        return this.parsenode.body.body;
+                    }
                   },
                   getResPar  : function () {
                     return this.parsenode.params[1];
+                  },
+                  getErrPar  : function () {
+                    return this.parsenode.params[0];
                   }
          };
     };
 
     /* Representation of a remote procedurecall from client -> server:
-     *   client.rpcCall(fname, args, callback(err, res) {})
+     *   client.rpc(fname, args, callback(err, res) {})
      */
 
     var RPC = function (call, fname, args) {
@@ -99,9 +159,9 @@ var NodeParse = (function () {
                                         type  : "Identifier",
                                         name  : "client"
                                             },
-                                    property  : {
-                                        type  : "Identifier",
-                                        name  : "rpcCall"
+                                    "property"  : {
+                                        "type"  : "Identifier",
+                                        "name"  : "rpcCall"
                                     }
                                 },
                                 arguments : [
@@ -134,9 +194,15 @@ var NodeParse = (function () {
                         this.callback = cb;
                     }
                   },
+                  setObjectName: function (name) {
+                     this.parsenode.expression.callee.object.name = name
+                  },
                   setName : function (name) {
                     this.parsenode.expression.arguments[0].value = name
                   },
+                
+
+
                   getCallback : function () {
                     if (this.callback) 
                         return this.callback
@@ -190,6 +256,7 @@ var NodeParse = (function () {
 
     var asyncFun = function () {
         return  {
+
                 parsenode :  
                         {
                             type: "Property",
@@ -214,6 +281,7 @@ var NodeParse = (function () {
                             kind: "init"
                         },
     
+
 
             setBody : function (body) {
                 this.parsenode.value.body.body = body 
@@ -262,6 +330,10 @@ var NodeParse = (function () {
 
             addArgs : function (args) {
                 this.parsenode.expression.arguments = this.parsenode.expression.arguments.concat(args);
+            },
+
+            setObjectName: function (name) {
+                this.parsenode.expression.callee.object.name = name
             }
         };
     };
@@ -304,6 +376,10 @@ var NodeParse = (function () {
 
             setName : function (name) {
                 this.parsenode.expression.arguments[0].name = name;
+            },
+
+            setObjectName: function (name) {
+                this.parsenode.expression.callee.object.name = name
             }
         };
     };
@@ -387,6 +463,7 @@ var NodeParse = (function () {
         }
     }
 
+
     var createGetterVarDecl = function (name) {
         return {
             "type": "ExpressionStatement",
@@ -421,7 +498,6 @@ var NodeParse = (function () {
             }
         }
     }
-
 
 
     var createServer = function () {

@@ -2,6 +2,8 @@
  * Works on the level of esprima nodes
  */
 
+
+
 var Comments = (function () {
 
     var toreturn = {};
@@ -9,10 +11,15 @@ var Comments = (function () {
     var beforeHandlers = [];
     var afterHandlers  = [];
 
+
     var component_annotation = "@slice"
     var client_annotation    = "@client";
     var server_annotation    = "@server";
     var assumes_annotation   = "@assumes";
+
+    var use_handler_annotation = "@useHandler";
+	var define_handler_annotation = "@defineHandlers";
+
     var reply_annotation     = "@reply";
     var broadcast_annotation = "@broadcast";
     var blocking_annotation  = "@blocking";
@@ -43,6 +50,14 @@ var Comments = (function () {
     	return string.indexOf(assumes_annotation) != -1;
     }
 
+    var isUseHandlerAnnotated = function (comment) {
+		return comment.value.indexOf(use_handler_annotation) != -1;
+	};
+
+	var isDefineHandlerAnnotated = function (node) {
+		return node.leadingComment && node.leadingComment.value.indexOf(define_handler_annotation) != -1;
+	};
+
     var isReplyAnnotated = function (comment) {
         return comment.value.indexOf(reply_annotation) != -1;
     }
@@ -50,7 +65,6 @@ var Comments = (function () {
     var isBroadcastAnnotated = function (comment) {
         return comment.value.indexOf(broadcast_annotation) != -1;
     }
-
 
     var isBlockingAnnotated = function (comment) {
         return comment.value.indexOf(blocking_annotation) != -1;
@@ -112,15 +126,15 @@ var Comments = (function () {
     }
     
     /*  Before handlers are called right before the parsenode is turned into a pdg node */
-    var handleBeforeComment = function (comment, parsenode) {
+    var handleBeforeComment = function (comment, parsenode, upnode) {
         beforeHandlers.map(function (handler) {
-            handler(comment, parsenode)
+            handler(comment, parsenode, upnode)
         })
     }
 
-    var handleAfterComment = function (comment, pdgNode) {
+    var handleAfterComment = function (comment, pdgNode, upnode) {
         afterHandlers.map(function (handler) {
-            handler(comment, pdgNode)
+            handler(comment, pdgNode, upnode)
         })
     }
 
@@ -157,6 +171,16 @@ var Comments = (function () {
             }
         })
     }
+
+    var handleUseHandler = function (comment, parsenode, upnode) {
+        var node = parsenode,
+            handlerCtr = parsenode.handlersAsync.length,
+    	    lastParent = (handlerCtr === 0) ? undefined : parsenode.handlersAsync[handlerCtr - 1],
+        	extraHandlers = Handler.Transform.HandlerAnnotation(lastParent, comment.value);
+		
+        node.handlersAsync = node.handlersAsync.concat(extraHandlers);	
+
+    };
 
     var handleReplyComment = function (comment, pdgNodes) {
         pdgNodes.map(function (pdgNode) {
@@ -267,9 +291,12 @@ var Comments = (function () {
             insert.addEdgeOut(to, EDGES.CONTROL);
     }
 
+
+    registerBeforeHandler(handleUseHandler);
     registerAfterHandler(handleReplyComment);
     registerAfterHandler(handleBroadcastComment);
     registerAfterHandler(handleBlockingComment);
+
     registerAfterHandler(handleBlockComment);
 
 
@@ -289,13 +316,15 @@ var Comments = (function () {
     toreturn.getSliceName               = getFunctionalityName;
     toreturn.getTierName                = getTierName;
     toreturn.handleProgramNode          = handleProgramNode;
+    toreturn.isDefineHandlerAnnotated   = isDefineHandlerAnnotated;
 
     if (typeof module !== 'undefined' && module.exports != null) {
         ARITY = require('./PDG/node.js').ARITY;
+        Handler = require('./handler.js').Handler;
         exports.Comments = toreturn;
     }
 
     return toreturn;
 
-
 })()
+

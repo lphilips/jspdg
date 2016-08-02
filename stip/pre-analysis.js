@@ -1,4 +1,3 @@
-
 /* Gets the ast and an array of strings, which represent names of functions
    that are used as callback functions on the client side.
    Calls for these functions are automatically added in the client side block.
@@ -17,6 +16,7 @@ var pre_analyse = function (ast, toGenerate) {
     var fundefs     = [];
     var sharedblock;
     var generatedIdentifiers;
+
 
     function function_args (callnode) {
         return callnode.arguments.filter(function (arg) {
@@ -134,6 +134,7 @@ var pre_analyse = function (ast, toGenerate) {
                     }
                 ]
             },
+
             generator: false,
             expression: false
         };
@@ -154,6 +155,8 @@ var pre_analyse = function (ast, toGenerate) {
         Ast.augmentAst(call);
         return call;
     }
+
+
 
 
     function createObjectArgument () {
@@ -199,7 +202,8 @@ var pre_analyse = function (ast, toGenerate) {
                 }
             });
         }
-    }
+    };
+
 
     var comments;
     function getComments (node) {
@@ -278,6 +282,30 @@ var pre_analyse = function (ast, toGenerate) {
         return identifiers;
 
     }
+
+
+    estraverse.replace(ast, {
+        enter: function (node, parent) {
+
+            if (Aux.isVarDecl(node) && Comments.isDefineHandlerAnnotated(parent)) {
+
+                node.declarations.map(function (el) {
+                    if (Aux.isObjExp(el.init)) {
+                        Handler.Transform.handlerDefinition(el);
+                    }
+                });
+
+                this.remove();
+            }
+
+        },
+        leave: function (node, parent) {
+            
+            if (Aux.isBlockStm(node) && Comments.isDefineHandlerAnnotated(node))
+                this.remove();
+        }
+    });   
+
 
     Aux.walkAst(ast, {
 
@@ -482,6 +510,8 @@ if (typeof module !== 'undefined' && module.exports !== null) {
     Aux = require('./aux.js').Aux;
     node  = require('./pdg/node.js');
     Comments = require('./annotations.js').Comments;
+    estraverse = require('./lib/estraverse.js');
+    Handler = require('./handler.js').Handler;
 
     js_libs = require('./jslibs.js').js_libs;
     DNODES  = node.DNODES;

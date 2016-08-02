@@ -42,6 +42,8 @@ var Stip = (function () {
         node.declarations.map(function (decl) {
             var stmNode = graphs.PDG.makeStm(decl);
             stmNode.parsenode.leadingComment = node.leadingComment;
+
+            stmNode.parsenode.handlersAsync = node.handlersAsync;
             if (upnode) 
                 stmNode.ftype = upnode.getFType();
             stmNode.name = decl.id.name;
@@ -104,6 +106,10 @@ var Stip = (function () {
             // Entry node for the function
             entryNode = new EntryNode(graphs.PDG.entIndex, func_node),
             prev_entry = graphs.PDG.entryNode;
+
+        if(node.handlersAsync){
+            entryNode.parsenode.handlersAsync = node.handlersAsync.slice();
+        }
 
         graphs.PDG.changeEntry(entryNode);
         graphs.ATP.addNodes(func_node, entryNode);
@@ -646,6 +652,9 @@ var Stip = (function () {
         var parsenode = node.expression ? node.expression : node,
             primitive = graphs.ATP.isPrimitive(Aux.getCalledName(parsenode)),
             callnode  = graphs.PDG.makeCall(node);
+
+        if(parsenode !== node)
+            parsenode.handlersAsync = node.handlersAsync;    
         
         callnode.name = Aux.getCalledName(parsenode);
         if (primitive) {
@@ -971,6 +980,10 @@ var Stip = (function () {
             a_in = new ActualPNode(graphs.PDG.funIndex, 1);
             graphs.PDG.funIndex++;
             a_in.parsenode = params[curr_param];
+
+            //pass handlers along!
+            a_in.parsenode.handlersAsync = callnode.parsenode.handlersAsync;
+
             var PDG_node = makePDGNode(graphs, a_in.parsenode, a_in);
             curr_param++;
             callnode.addEdgeOut(a_in, EDGES.CONTROL);
@@ -1140,6 +1153,7 @@ var Stip = (function () {
             },
             declaration, PDG_nodes;
         if (!isPrimitive) {
+            // SHOULD RETURN ALL DECLARATIONS OF...
             declaration = Pdg.declarationOf(node, graphs.AST);
             if (declaration) {
 
@@ -1289,11 +1303,18 @@ var Stip = (function () {
             parsetype = node.type,
             pdgnode;
 
+        if(upnode && upnode.parsenode && upnode.parsenode.handlersAsync){
+            node.handlersAsync = upnode.parsenode.handlersAsync.slice();
+        }else{
+            node.handlersAsync = [];
+        }        
+
         if (node.leadingComment) {
             if (Comments.isGeneratedAnnotated(node.leadingComment) && 
                 !(Aux.isCallExp(node) || Aux.isExpStm(node) && Aux.isCallExp(node.expression)))
                 return;
             Comments.handleBeforeComment(node.leadingComment, node)
+
         }
 
         switch (parsetype) {
@@ -1374,9 +1395,9 @@ var Stip = (function () {
                 break;
         }
 
-
         if (pdgnode && node.leadingComment && parsetype !== 'BlockStatement') {
-            Comments.handleAfterComment(node.leadingComment, pdgnode)
+            Comments.handleAfterComment(node.leadingComment, pdgnode, upnode)
+
         }
 
         return pdgnode;

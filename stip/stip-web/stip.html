@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 
     <link rel='shortcut icon' type='image/x-icon' href='favicon.ico' />
@@ -63,6 +64,10 @@
     <script src="js/transition.js"></script>
     <script src="js/collapse.js"></script>
     <script type="text/javascript" src="../aux.js"></script>
+    <script type="text/javascript" src="../handler-transform.js"></script>
+	<script type="text/javascript" src="../handler-predefined.js"></script>
+	<script type="text/javascript" src="../handler-generate.js"></script>
+	<script type="text/javascript" src="../handler.js"></script>
     <script type="text/javascript" src="../PDG/edge.js"></script>
     <script type="text/javascript" src="../PDG/node.js"></script>
     <script type="text/javascript" src="../PDG/graph.js"></script>
@@ -109,6 +114,7 @@
 
             $("#graph").empty();
             $("#error").empty();
+
             var src = editor.getValue(),
                 // First parse and create again via escodegen
                 ast = Ast.createAst(src, {loc:true, owningComments: true, comment: true});
@@ -118,7 +124,7 @@
                             (node.leadingComment && Comments.isBlockingAnnotated(node.leadingComment)));
                 });
 
-
+            Handler.init();
             /* Pre analysis step (uses falafel, so does not work on AST but string representation */
             var preanalysis = pre_analyse(ast, {callbacks: [], identifiers: []});
             src = escodegen.generate(preanalysis.ast);

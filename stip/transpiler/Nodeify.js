@@ -587,10 +587,24 @@ var Nodeify = (function () {
                     transpiler.transpiledNode = transpiled[1].parsenode;
                     return transpiler;
                 }
+
                 transpiled = NodeParse.createBroadcast();
                 transpiled.setName('"' + node.name + '"');
-                transpiled.addArgs(Pdg.getCallExpression(node.parsenode).arguments);
-                transpiler.transpiledNode= transpiled.parsenode;
+                transpiled.addArgs(Pdg.getCallExpression(node.parsenode).arguments);              
+
+                if (node.parsenode.handlersAsync && node.parsenode.handlersAsync.length != 0) {
+                    var handlerCtr = node.parsenode.handlersAsync.length,
+                        lastHandler = node.parsenode.handlersAsync[handlerCtr - 1];
+
+                    if (transpiled.setObjectName) {
+                        var proxyName = Handler.makeProxyName(lastHandler.getId());
+                        transpiled.setObjectName(proxyName);
+                    }
+
+                    lastHandler.incRpcCount();
+                }
+
+                transpiler.transpiledNode = transpiled.parsenode;
 
                 return transpiler;
             }
@@ -630,12 +644,67 @@ var Nodeify = (function () {
     /* For statement */
     transformer.transformForStm = JSify.transformForStm;
 
-    /* For in statement */
-    transformer.transformForInStm = JSify.transformForInStm;
+
+    function nodeifyTryStm  (transpiler) {
+        var block      = [],
+            node       = transpiler.node,
+            blocknodes = node.getOutEdges(EDGES.CONTROL)
+                             .map(function (e) {return e.to}),
+            /* Nodes that are calls are have calls in them */
+            callnodes  = blocknodes.filter(function (n) { return Aux.hasCallStm(n.parsenode)}),
+            /* Get the actual calls */
+            calls      = callnodes.flatMap(function (cn) { 
+                            if (cn.isCallNode) 
+                                return [cn];
+                            else return cn.findCallNodes();  }),
+            catches    = calls.flatMap(function (call) {
+                            return call.getOutEdges(EDGES.CONTROL)
+                                      .map(function (e) {return e.to})
+                                      .filter(function (n) {
+                                         return ! n.isExitNode && 
+                                           n.parsenode && 
+                                           Aux.isCatchStm(n.parsenode)})
+                        }),
+            handler;
+
+        blocknodes.map(function (node) {
+            if (slicedContains(sliced.nodes, node)) {
+                var toTranspile = Transpiler.copyTranspileObject(transpiler, n);
+                var blocknode = Transpiler.transpile(toTranspile);
+                transpiler.nodes = blocknode.nodes.remove(node);
+                block.push(blocknode.parsednode);
+            }
+        });
+
+        catches.map(function (node) {
+            if (slicedContains(sliced.nodes, node)) {
+                var toTranspile = Transpiler.copyTranspileObject(transpiler, n);
+                var catchnode = Transpiler.transpile(toTranspile);
+                handler = catchnode.parsednode;
+                transpiler.nodes = catchnode.nodes.remove(node);
+            }
+        });
+        node.parsenode.handler = handler;
+        node.parsenode.block.body = block;
+
+        //remote try-catch if all calls are remote
+        var allRemotes = block.filter(function (node){
+            return node.callnode && node.callnode.edges_out.filter(function(edge){
+                return edge.equalsType(EDGES.REMOTEC)
+            }).length >= 1
+        }).length === block.length;
+
+        if(allRemotes){
+            node.parsenode = block;
+        }
+
+        transpiler.nodes = transpiler.nodes.remove(node);
+        transpiler.transpiledNode = node.parsenode;
+        return transpiler;
+    }
 
     /* Try Statement */
-    transformer.transformTryStm = JSify.transformTryStm;
-
+    transformer.transformTryStm = nodeifyTryStm;
 
     /* Catch Statement */
     transformer.transformCatchClause = JSify.transformCatchClause;
@@ -656,9 +725,9 @@ var Nodeify = (function () {
     transformer.transformNewExp = JSify.transformNewExp;
 
 
+
     /* Object Property */
     transformer.transformProperty = JSify.transformProperty;
-
 
     /* Member expression */
     transformer.transformMemberExpression = JSify.transformMemberExpression;
@@ -688,33 +757,17 @@ var Nodeify = (function () {
         return transpiler;
     }
 
+
     transformer.transformActualParameter = transformActualParameter;
     transformer.transformFormalParameter = noTransformationDefined;
     transformer.transformExitNode = noTransformation;
-
-
-    /* Aux function: checks if two argument lists are the same */
-    var argumentsEqual = function (args1, args2) {
-        if (args1 && args2) {
-            if(args1.length !== args2.length)
-                return false;
-            else
-                for (var i = 0; i < args1.length; i++) {
-                    if (escodegen.generate(args1[i]) !== escodegen.generate(args2[i]))
-                        return false;
-                }
-            return true;
-        }
-        else
-            return false;
-    }
-
 
     function nodesContains (nodes, node, cps) {
         return nodes.filter(function (n) {
             return n.id === node.id;
         }).length > 0;
     }
+
 
     if (typeof module !== 'undefined' && module.exports != null) {
         EDGES = require('../PDG/edge.js').EDGES;

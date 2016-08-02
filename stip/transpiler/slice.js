@@ -1,3 +1,4 @@
+
 var CodeGenerator = (function () {
 
         var toreturn = {};
@@ -39,6 +40,58 @@ var CodeGenerator = (function () {
                     else
                         transpiled.setup = transpiled.setup.concat(NodeParse.createServer());
             }
+            if (option.asynccomm === 'callbacks' && option.target === 'node.js') {
+        var handlers      = [],
+            proxies       = [],
+            totalRpcCount = 0,
+            removedHandlers = {},
+            definedHandlers;
+
+        Handler.Generate.init();      
+
+        //filter out handlers that are not defined
+        definedHandlers = option.failurehandlers.reduce(
+            function(previousValue, current){
+                
+                if(removedHandlers[current.getParent()])
+                    current.setParent(removedHandlers[current.getParent()]);
+                var parent = current.getParent();
+                
+                if(current.getRpcCount() == 0 && !Handler.Generate.handlerDefinition(current)){
+                    removedHandlers[current.getUniqueName()] = parent;
+                }else{
+                    previousValue.push(current);
+                }
+                
+                return previousValue;
+        }, []);
+
+        definedHandlers.map(function (el) {
+            
+            totalRpcCount = totalRpcCount + el.getRpcCount();
+            handlers = handlers.concat(Handler.Generate.handlerNode(el));
+            
+            //we only need a leaf if there are calls to this handler.
+            if (el.getRpcCount() > 0) {
+                var proxyName = Handler.makeProxyName(el.getId());
+                proxies = proxies.concat(Handler.Generate.proxyDefinition(proxyName, el.getLeafName()));
+            }
+        });
+
+        //only add handlers if there are RPCs
+        if(totalRpcCount > 0){
+            transpiled.setup = transpiled.setup.concat(Handler.Generate.proxySetup(option.tier));
+
+            handlers.map(function(el){
+                transpiled.setup = transpiled.setup.concat(el);
+            });
+
+            proxies.map(function (el) {
+                transpiled.setup = transpiled.setup.concat(el)
+            });
+        }
+    }
+
             return transpiled;
         }
 
@@ -63,6 +116,7 @@ var CodeGenerator = (function () {
                         }
 
                         return body.concat(methodsDecl);
+
                     }
                     else {
                         /* server rpcs + cloudtypes are added */
@@ -116,6 +170,17 @@ var CodeGenerator = (function () {
                 transpiled;
 
             //program.body = addPrimitives(option);
+            option.failurehandlers = [];
+
+            nodes.map(function(node){
+                if(node.parsenode && node.parsenode.handlersAsync)
+                    node.parsenode.handlersAsync.map(function (el){
+                    if(option.failurehandlers.indexOf(el) === -1){
+                        option.failurehandlers.push(el)
+                    }
+                });
+            })
+
             while (nodes.length > 0) {
                 var n = nodes.shift();
                 if(n.parsenode) {
@@ -132,6 +197,7 @@ var CodeGenerator = (function () {
                                         .concat(transpiled.closeupNode);
                         else
                             program.body = program.body.concat(transpiled.getTransformed());
+
                     }
                     nodes = transpiled.nodes;  
                     nodes.remove(n);
@@ -182,3 +248,5 @@ var CodeGenerator = (function () {
 
 
 })();
+
+

@@ -45,7 +45,7 @@ PDG.prototype.addNode = function (node) {
 }
 
 PDG.prototype.makeStm = function (node) {
-    return new StatementNode(++this.stmIndex, node);
+	return new StatementNode(++this.stmIndex, node);
 }
 
 PDG.prototype.decrStm = function () {
@@ -53,11 +53,11 @@ PDG.prototype.decrStm = function () {
 }
 
 PDG.prototype.makeCall = function (node) {
-    return new CallNode(++this.calIndex, node);
+	return new CallNode(++this.calIndex, node);
 }
 
 PDG.prototype.makeObjEntry = function (node) {
-    return new ObjectEntryNode(++this.proIndex, node);
+	return new ObjectEntryNode(++this.proIndex, node);
 }
 
 PDG.prototype.makeExitNode = function (node, exception) {
