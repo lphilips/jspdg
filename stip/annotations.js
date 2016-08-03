@@ -173,13 +173,14 @@ var Comments = (function () {
     }
 
     var handleUseHandler = function (comment, parsenode, upnode) {
-        var node = parsenode,
-            handlerCtr = parsenode.handlersAsync.length,
-    	    lastParent = (handlerCtr === 0) ? undefined : parsenode.handlersAsync[handlerCtr - 1],
-        	extraHandlers = Handler.Transform.HandlerAnnotation(lastParent, comment.value);
-		
-        node.handlersAsync = node.handlersAsync.concat(extraHandlers);	
-
+        if (isUseHandlerAnnotated(comment)) {
+            var node = parsenode,
+                handlerCtr = parsenode.handlersAsync.length,
+        	    lastParent = (handlerCtr === 0) ? undefined : parsenode.handlersAsync[handlerCtr - 1],
+            	extraHandlers = Handler.Transform.HandlerAnnotation(lastParent, comment.value);
+    		
+            node.handlersAsync = node.handlersAsync.concat(extraHandlers);	
+        }
     };
 
     var handleReplyComment = function (comment, pdgNodes) {
