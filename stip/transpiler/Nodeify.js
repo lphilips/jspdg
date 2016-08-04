@@ -648,18 +648,19 @@ var Nodeify = (function () {
     function nodeifyTryStm  (transpiler) {
         var block      = [],
             node       = transpiler.node,
-            blocknodes = node.getOutEdges(EDGES.CONTROL)
-                             .map(function (e) {return e.to}),
+            blocknodes = node.getOutNodes(EDGES.CONTROL)
+                            .filter(function (node) {
+                                return !Aux.isCatchStm(node.parsenode)
+                            }),
             /* Nodes that are calls are have calls in them */
-            callnodes  = blocknodes.filter(function (n) { return Aux.hasCallStm(n.parsenode)}),
+            callnodes  = blocknodes.filter(function (n) { return Aux.hasCallStm(n)}),
             /* Get the actual calls */
             calls      = callnodes.flatMap(function (cn) { 
                             if (cn.isCallNode) 
                                 return [cn];
                             else return cn.findCallNodes();  }),
             catches    = calls.flatMap(function (call) {
-                            return call.getOutEdges(EDGES.CONTROL)
-                                      .map(function (e) {return e.to})
+                            return call.getOutNodes(EDGES.CONTROL)
                                       .filter(function (n) {
                                          return ! n.isExitNode && 
                                            n.parsenode && 
@@ -668,19 +669,19 @@ var Nodeify = (function () {
             handler;
 
         blocknodes.map(function (node) {
-            if (slicedContains(sliced.nodes, node)) {
-                var toTranspile = Transpiler.copyTranspileObject(transpiler, n);
+            if (nodesContains(transpiler.nodes, node)) {
+                var toTranspile = Transpiler.copyTranspileObject(transpiler, node);
                 var blocknode = Transpiler.transpile(toTranspile);
                 transpiler.nodes = blocknode.nodes.remove(node);
-                block.push(blocknode.parsednode);
+                block.push(blocknode.transpiledNode);
             }
         });
 
         catches.map(function (node) {
-            if (slicedContains(sliced.nodes, node)) {
-                var toTranspile = Transpiler.copyTranspileObject(transpiler, n);
+            if (nodesContains(transpiler.nodes, node)) {
+                var toTranspile = Transpiler.copyTranspileObject(transpiler, node);
                 var catchnode = Transpiler.transpile(toTranspile);
-                handler = catchnode.parsednode;
+                handler = catchnode.transpiledNode;
                 transpiler.nodes = catchnode.nodes.remove(node);
             }
         });
@@ -689,9 +690,7 @@ var Nodeify = (function () {
 
         //remote try-catch if all calls are remote
         var allRemotes = block.filter(function (node){
-            return node.callnode && node.callnode.edges_out.filter(function(edge){
-                return edge.equalsType(EDGES.REMOTEC)
-            }).length >= 1
+            return node.callnode && node.callnode.getOutEdges(EDGES.REMOTEC).length >= 1
         }).length === block.length;
 
         if(allRemotes){

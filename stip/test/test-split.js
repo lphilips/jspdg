@@ -19,6 +19,7 @@ var pre_analyse     = require('../pre-analysis.js').pre_analyse;
 var Hoist           = require('../hoist.js').Hoist;
 var Exceptions      = require('../exceptions.js');
 var Stip            = require('../stip.js').Stip;
+var Handler         = require('../handler.js').Handler;
 
 /* Transpiler */
 var CodeGenerator       = require('../transpiler/slice.js').CodeGenerator;
@@ -26,6 +27,7 @@ var CodeGenerator       = require('../transpiler/slice.js').CodeGenerator;
 
 var storeMethodsServer = "'updateStore' : function (key, val, cb) {store.set(key, val, false)}, 'retrieveStore' : function (key, val, cb) {var id = this.id; store.loop(function (key, value) {server.rpcTo(id, 'updateStore', key ,value)}); return cb(null, store.data)} ";
 var storeMethodsClient = "'updateStore' : function (key, val, cb) {store.set(key, val, true)}"
+Handler.init();
 
 function tiersplit (src) {
     var ast = Ast.createAst(src, {loc: true, owningComments: true, comment: true});
@@ -280,6 +282,37 @@ suite('Tier split - basic', function () {
 
    
 });
+
+
+suite('Failure Handling', function () {
+    test('try catch - 1' , function () {
+        var res = tiersplit('/*@server*/ {function foo(x) {if (x<0) throw "error"; else return x;}} /*@client*/{try{foo(2)} catch(e) {console.log(e)}}');
+        var ast0 = res[0].nosetup;
+        var ast1 = res[1].nosetup;
+        compareAst(escodegen.generate(ast0),
+            'try{client.rpcCall("foo", 2, function (_v1_, _v2_) {try {if(_v1_) throw _v1_} catch (_v3_) {console.log(_v3_)}})} catch (e) {console.log(e)} client.expose({'+storeMethodsClient+'})',
+            { varPattern: /_v\d_/});
+        compareAst(escodegen.generate(ast1),
+            'server.expose({'+storeMethodsServer +', "foo": function (x, callback) {if (x<0) return callback("error"); else return callback(null, x);}})');
+    });
+    test('try catch - 2', function () {
+        var res = tiersplit('/*@server*/ {function foo(x) {if (x<0) throw "error"; else return x;}} /*@client*/{try{var z = foo(2); console.log(z); foo(z) } catch(e) {console.log(e)}}');
+        var ast0 = res[0].nosetup;
+        var ast1 = res[1].nosetup;
+        compareAst(escodegen.generate(ast0),
+            'var z; try{client.rpcCall("foo", 2, function (_v1_, _v2_) {try {if(_v1_) throw _v1_; z = _v2_; console.log(z); client.rpcCall("foo", z, function (_v4_, _v5_) {try {if (_v4_) throw _v4_;} catch(e) {console.log(e);}})} catch (_v3_) {console.log(_v3_)}})} catch (e) {console.log(e)} client.expose({'+storeMethodsClient+'})',
+            { varPattern: /_v\d_/});
+        compareAst(escodegen.generate(ast1),
+            'server.expose({'+storeMethodsServer +', "foo": function (x, callback) {if (x<0) return callback("error"); else return callback(null, x);}})');
+    });
+    test('handlers - default', function () {
+        var res = tiersplit('/*@server*/{function broadcast(msg){}}/*@client @useHandler: log buffer*/{/*@useHandler: abort*/function speak(){broadcast("hello")} speak()}');
+        var ast0 = res[0].nosetup;
+        compareAst(escodegen.generate(ast0),
+            'function speak() {_v1_.rpcCall("broadcast", "hello", function (_v2_, _v3_) {})} speak(); client.expose({'+storeMethodsClient +'})',
+            { varPattern: /_v\d_/})
+    });
+})
 
 suite('CPS transform', function () {
     

@@ -316,7 +316,7 @@ var handlerTransform = (function () {
             estraverse.replace(parsenode, {
                 enter: function (node, upnode) {
                     
-                    if(Aux.isAssignmentExp (node) && Aux,isMemberExpression (node.left) && Aux.sIdentifier(node.left.property)){
+                    if(Aux.isAssignmentExp (node) && Aux.isMemberExpression (node.left) && Aux.isIdentifier(node.left.property)){
                         var name = node.left.property.name;
 
                         var override = annotOverrides.filter(function(e){
@@ -649,7 +649,6 @@ var handlerTransform = (function () {
     toreturn.handlerDefinition = extractHandlerObject;
     toreturn.HandlerAnnotation = extractUseHandlerAnnotation;
 
-    console.log(123);
     if (typeof module !== 'undefined' && module.exports !== null) {
         exports.handlerTransform = toreturn;
     }

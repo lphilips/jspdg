@@ -99,6 +99,11 @@ var CPSTransform = (function () {
 
         /* Upnode is given + of type var decl, assignment, etc */
         if(upnode && upnode.dataDependentNodes) {
+            var e_in = upnode.getInNodes(EDGES.CONTROL).filter(function (n) {
+                                return Aux.isTryStm(n.parsenode)
+                        });
+            upnode.parsenode.inTryBlock = (e_in.length != 0);
+
             if (!esp_exp) {
                 esp_exp = CPSgetExpStm(upnode.parsenode);
             }
@@ -605,7 +610,7 @@ var CPSTransform = (function () {
             cont      = false,
             passed    = false;
         remainder.map(function (remstm) {
-            var comment = remstm.parsenode.leadingComment;
+            var comment = remstm.parsenode ? remstm.parsenode.leadingComment : false;
             if (comment &&
                 Comments.isBlockingAnnotated(comment) &&
                 !passed && !cont)

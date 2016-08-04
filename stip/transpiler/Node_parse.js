@@ -89,7 +89,7 @@ var NodeParse = (function () {
                     defaults: [],
                     body: {
                         type: "BlockStatement",
-                        body: []
+                        body: body
                     },
                     rest: null,
                     generator: false,

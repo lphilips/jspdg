@@ -7,9 +7,9 @@ var Hoist = (function () {
     // Walk the tree, ignore x-* properties
     //
     function walk(ast, callback) {
-          if (typeof ast !== 'object' || !ast) {
+        if (typeof ast !== 'object' || !ast) {
                 return;
-          }
+        }
 
 
         if(callback.pre) callback.pre(ast);
@@ -73,12 +73,27 @@ var Hoist = (function () {
 
     var getParent = function (node, ast, tohoist) {
         var parent = Ast.parent(node, ast);
-        if (tohoist && tohoist(parent))
-            return parent
+        var pp = Ast.parent(parent, ast);
+        if (tohoist && tohoist(parent)) {
+            return parent;
+        }
+        else if (pp && (Aux.isTryStm(pp) || Aux.isCatchStm(pp))) {
+            return enclosingBlock(node, ast);
+        }
         else
             return Ast.enclosingFunScope(node, ast)
     };
 
+
+    function enclosingBlock (node, ast) {
+            var bl = Ast.enclosingBlock(node, ast);
+            var pa = Ast.parent(bl, ast);
+            if (Aux.isTryStm(pa) || Aux.isCatchStm(pa)) {
+                return Ast.enclosingBlock(pa, ast)
+            }
+            else
+                return bl
+    }
 
     /* Changes the AST destructively 
      * Optional parameter: tohoist = predicate function.
@@ -89,6 +104,8 @@ var Hoist = (function () {
 
         var hoisted = {}, 
             added;
+
+   
 
         walk(ast, {
 
@@ -107,7 +124,7 @@ var Hoist = (function () {
 
                     names.map(function (name) {
                         var declnode = declmap[name];
-                        if (!tohoist(Ast.enclosingBlock(declnode, ast))) {
+                        if (!tohoist(enclosingBlock(declnode, ast))) {
 
                             if (Aux.isFunDecl(declnode)) {
                                 declnode.hoist = true;
@@ -140,7 +157,7 @@ var Hoist = (function () {
 
                     names.map(function (name) {
                         var declnode = declmap[name];
-                        var enclosingB = Ast.enclosingBlock(declnode, ast);
+                        var enclosingB = enclosingBlock(declnode, ast);
 
                         if (Aux.isFunDecl(declnode)) {
                             declnode.hoist = true;
@@ -168,7 +185,15 @@ var Hoist = (function () {
                     if (Aux.isVarDecl(node) && !node.hoist) {
                         var parent = getParent(node, ast, tohoist);
                         var astparent = Ast.parent(node, ast);
-                        var body = Aux.isFunDecl(parent) || Aux.isFunExp(parent) ? parent.body.body : parent.body;
+                        var body;
+                        var astpp = astparent ? Ast.parent(astparent, ast) : false;
+                        
+                        if (Aux.isFunDecl(parent) || Aux.isFunExp(parent))
+                            body = parent.body.body;
+                        else if (Aux.isTryStm(astpp))
+                            body = astpp.block.body;
+                        else
+                            body = parent.body;
                         var index = body.indexOf(node);
                         node.declarations.map(function (decl) {
                             if (hoisted[parent.tag] && hoisted[parent.tag].indexOf(decl.id.name) >= 0 && decl.init) {

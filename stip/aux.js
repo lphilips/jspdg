@@ -127,11 +127,11 @@ var Aux = (function () {
       }
 
       var esp_hasCallStm = function (node, callnode) {
-        var src  = escodegen.generate(node.parsenode),
-            call = false,
-            calls;
         /* Try catch, because node could be a return statement, which is not a valid program*/
         try {
+            var src  = escodegen.generate(node.parsenode),
+                call = false,
+                calls;
             walkAst(node, {pre: function (node) {
                 if (esp_isCallExp(node)) {
                   if (callnode)

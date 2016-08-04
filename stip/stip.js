@@ -1018,7 +1018,8 @@ var Stip = (function () {
                         a_out = new ActualPNode(++graphs.PDG.funIndex, -1);
                         addToPDG(catchnode, callnode, graphs);
                         catchnode.addEdgeOut(a_out, EDGES.CONTROL);
-                        form_out.addEdgeOut(a_out, EDGES.PAROUT); // TODO remote par out as well
+                        if (form_out)
+                            form_out.addEdgeOut(a_out, EDGES.PAROUT); // TODO remote par out as well
                         toUpnode(a_out);
                     })
                 }
@@ -1026,7 +1027,8 @@ var Stip = (function () {
         })
         a_out = new ActualPNode(++graphs.PDG.funIndex, -1);
         normalExit.addEdgeOut(a_out, EDGES.CONTROL);
-        form_outs[0].addEdgeOut(a_out, EDGES.PAROUT);
+        if (form_outs.length > 0)
+            form_outs[0].addEdgeOut(a_out, EDGES.PAROUT);
         callnode.addEdgeOut(normalExit, EDGES.CONTROL);
         toUpnode(a_out);
     }

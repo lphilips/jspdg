@@ -211,15 +211,15 @@ PDG_Node.prototype.findCallNodes = function () {
     while (outs.length > 0) {
         var edge = outs.shift(),
             to   = edge.to;
-        if (to.isCallNode)
-            calls.push(to)
+        if (to.isCallNode && calls.indexOf(to) < 0)
+            calls.push(to);
         outs = outs.concat(to.getOutEdges(EDGES.CONTROL))
     }
     return calls;
 }
 
 PDG_Node.prototype.dataDependentNodes = function(crossTier, includeActualP) {
-    var set = [],
+    var set = [this],
         data_out = this.edges_out.slice().filter(function (e) {
             if (crossTier)
                 return e.equalsType(EDGES.DATA) || e.equalsType(EDGES.REMOTED)  
@@ -277,6 +277,7 @@ PDG_Node.prototype.dataDependentNodes = function(crossTier, includeActualP) {
                     data_out = data_out.concat(tout);
             }
     }
+    set.remove(this);
     return set;
 
 }
@@ -906,7 +907,7 @@ var arityEquals = function (type1, type2) {
     return type1.value === type2.value
 }
 
-DistributedNode = function (type) {
+var DistributedNode = function (type) {
     FunctionalityNode.call(this, type, type);
     this.isDistributedNode = true;
 }

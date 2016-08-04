@@ -239,6 +239,7 @@ var CodeGenerator = (function () {
         if (typeof module !== 'undefined' && module.exports != null) {
             Nodeify = require('./Nodeify.js').Nodeify;
             JSify   = require('./JSify.js').JSify;
+            Handler = require('../handler.js').Handler;
             Transpiler = require('./transpiler.js').Transpiler;
             exports.CodeGenerator = toreturn;
         }
