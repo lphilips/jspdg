@@ -743,8 +743,9 @@ var CPSTransform = (function () {
                                 return  n.isCallNode;
                         }),
             local_count = cps_count,
-            nodes     = transpiler.nodes,
-            outercps, innercps;
+            nodes       = transpiler.nodes,
+            exps        = [],
+            outercps, innercps, exps;
 
         cps_count = 0;
         //node.parsenode = Aux.clone(parsenode);
@@ -775,8 +776,12 @@ var CPSTransform = (function () {
                     }
 
                     if (transpiled[2]) {
-                        node.parsenode = Aux.clone(node.parsenode); 
-                        CPSsetExpStm(parsenode, transpiled[2]);}
+                        node.parsenode = Aux.clone(node.parsenode);
+                        exps.push(transpiled[2]); 
+                       // CPSsetExpStm(parsenode, transpiled[2]);
+                    }
+                    else 
+                        exps.push(false);
                     nodes = transpiled[0].remove(call);
 
                     if (outercps) {
@@ -795,7 +800,10 @@ var CPSTransform = (function () {
                 }
             })
         cps_count = local_count;
-
+        for(var i = 0; i < calls.length; i++) {
+            if (exps[i])
+                CPSsetExpStm(parsenode, exps[i]);
+        }
         if (outercps)
 
             return [nodes, outercps];

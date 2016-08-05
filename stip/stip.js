@@ -466,16 +466,17 @@ var Stip = (function () {
 
         stmNode.name = ident.name;
         addToPDG(stmNode, upnode, graphs);
-        if (declaration) // Can be false when identifier is this-expression
-            graphs.ATP.addNodes(declaration, stmNode);
-        else if (!Aux.isMemberExpression(parsenode.left)) {
-            throw new DeclarationNotFoundError(escodegen.generate(node));
-        }
         
         /* Will add data dependency to declaration node */
         makePDGNode(graphs, parsenode.left, stmNode);
         /* Right-hand side */
         makePDGNode(graphs, parsenode.right, stmNode);
+
+        if (declaration) // Can be false when identifier is this-expression
+            graphs.ATP.addNodes(declaration, stmNode);
+        else if (!Aux.isMemberExpression(parsenode.left)) {
+            throw new DeclarationNotFoundError(escodegen.generate(node));
+        }
         
         /* Recheck dependent call nodes for ctype (could be wrong because assign. exp had
            no ctype at that moment ) */

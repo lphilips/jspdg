@@ -220,7 +220,9 @@ PDG.prototype.slice = function (criterion, tiersplitting) {
   }
 
   function enclosingFunction (node) {
-    if (node.isEntryNode && !node.parsenode) 
+    if (node.isRootNode)
+      return node;
+    else if (node.isEntryNode && !node.parsenode) 
       return node; 
     else if (node.isEntryNode && (Aux.isFunExp(node.parsenode) || Aux.isFunDecl(node.parsenode))) 
       return node; 
