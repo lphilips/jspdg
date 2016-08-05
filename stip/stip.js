@@ -800,7 +800,13 @@ var Stip = (function () {
             callnode.primitive = primitive;
             upnode.primitive = primitive;
 
-            if (PDG_node){
+            if (primitive) {
+                callnode.primitive = true;
+                handleActualParameters(graphs, parsenode, callnode);
+                addToPDG(callnode, upnode, graphs);
+                return [callnode];
+            }
+            else if (PDG_node){
                 var res;
                 addToPDG(callnode, upnode, graphs);
                 for(var i = 0; i < PDG_node.length; i++) {
@@ -842,10 +848,6 @@ var Stip = (function () {
                 }
             }
         
-            else if (primitive) {
-                callnode.primitive = true;
-                addToPDG(callnode, upnode, graphs);
-            }
             else if (Aux.isNewExp(parsenode.callee.object)) {
                 var objectentry = makePDGNode(graphs, parsenode.callee.object, upnode);
                 addToPDG(objectentry[0], upnode);

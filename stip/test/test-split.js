@@ -237,6 +237,16 @@ suite('Tier split - basic', function () {
                  { varPattern: /_v\d_/ });
      });
 
+    test('function client to server - call argument', function () {
+         var res = tiersplit('/* @server */ {function foo (x) {return x}} /* @client */ {foo(foo(42))}');
+         var ast0 = res[0].nosetup;
+         var ast1 = res[1].nosetup;
+         compareAst(escodegen.generate(ast1), 'server.expose({' + storeMethodsServer +', "foo" : function (x, callback) {return callback(null, x)}})');
+         compareAst(escodegen.generate(ast0), 
+                 'client.rpcCall("foo", 42, function (_v1_, _v2_) {client.rpcCall("foo", _v2_, function (_v3_, _v4_) {})}); client.expose({'+storeMethodsClient+'});', 
+                 { varPattern: /_v\d_/ });
+    });
+
      test('function server to client: broadcast', function () {
          var res = tiersplit('/* @client */ {function clientf (x) { return x; }} /* @server */ {/* @all */ clientf(42)}');
          var ast0 = res[0].nosetup;
@@ -299,6 +309,7 @@ suite('Failure Handling', function () {
         var res = tiersplit('/*@server*/ {function foo(x) {if (x<0) throw "error"; else return x;}} /*@client*/{try{var z = foo(2); console.log(z); foo(z) } catch(e) {console.log(e)}}');
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
+
         compareAst(escodegen.generate(ast0),
             'var z; try{client.rpcCall("foo", 2, function (_v1_, _v2_) {try {if(_v1_) throw _v1_; z = _v2_; console.log(z); client.rpcCall("foo", z, function (_v4_, _v5_) {try {if (_v4_) throw _v4_;} catch(e) {console.log(e);}})} catch (_v3_) {console.log(_v3_)}})} catch (e) {console.log(e)} client.expose({'+storeMethodsClient+'})',
             { varPattern: /_v\d_/});
@@ -332,6 +343,13 @@ suite('CPS transform', function () {
         var ast = cpstransform('function foo(x) {return x} foo(foo(42));');
         compareAst(escodegen.generate(ast.nosetup),
             'function foo(x, _v1_) {return _v1_(null, x)} foo(42, function (_v2_, _v3_) {foo(_v3_, function (_v4_, _v5_) {})})',
+            {varPattern: /_v\d_/ })
+    })
+
+    test('anon function as call arg', function () {
+        var ast = cpstransform('function id(x) {return x}; function foo() {var a= https.get(id("foo"));  a.on("ev", function (d) {console.log(d)})} foo();');
+        compareAst(escodegen.generate(ast.nosetup),
+            'function id(x, callback) {return callback(null, x);}function foo(callback) {function anonf1(d) {console.log(d);}var a;id("foo", function (_v1_, _v2_) {https.get(_v2_, function (_v3_, _v4_) {a = _v4_;a.on("ev", anonf1, function (_v5_, _v6_) {});});});}foo(function (_v7_, _v8_) {});',
             {varPattern: /_v\d_/ })
     })
 

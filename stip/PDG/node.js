@@ -257,18 +257,18 @@ PDG_Node.prototype.dataDependentNodes = function(crossTier, includeActualP) {
                         var upedges = callnode.getInEdges(EDGES.CONTROL);
                         if (upedges.length > 0)
                             data_out = data_out.concat(upedges)
-                        else
+                        else if (!(contains(set,callnode)))
                             set.push(callnode)
                         }
                 }
             }
             else if (to.isCallNode) {
                 var upnode    = to.getInEdges(EDGES.CONTROL)[0].from;
-                if (!upnode.isEntryNode) {
+                if (!upnode.isEntryNode && !(contains(set, upnode))) {
                     set.push(upnode);
                     data_out = data_out.concat(upnode.getOutEdges(EDGES.DATA)); 
                 }
-                else 
+                else if (!(contains(set, to)))
                     set.push(to);
             }
             else 
@@ -277,8 +277,14 @@ PDG_Node.prototype.dataDependentNodes = function(crossTier, includeActualP) {
                     data_out = data_out.concat(tout);
             }
     }
-    set.remove(this);
-    return set;
+    set = set.remove(this);
+    function uniq(a) {
+        var seen = {};
+        return a.filter(function(item) {
+            return seen.hasOwnProperty(item) ? false : (seen[item] = true);
+        });
+    }
+    return uniq(set);
 
 }
 

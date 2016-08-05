@@ -136,6 +136,9 @@ var NodeParse = (function () {
                   getResPar  : function () {
                     return this.parsenode.params[1];
                   },
+                  getResParCnt : function () {
+                    return cnt;
+                  },
                   getErrPar  : function () {
                     return this.parsenode.params[0];
                   }

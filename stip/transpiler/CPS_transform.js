@@ -256,16 +256,23 @@ var CPSTransform = (function () {
             var transpilerDataDep = Transpiler.copyTranspileObject(transpiler, n, nodes);
             if (nodesContains(nodes, n) && 
                 transpiler.parseUtils.shouldTransform(callnode)) {
-                transpiled = Transpiler.transpile(transpilerDataDep);
+                if (n.isEntryNode && n.parsenode.__transpiledNode) {
+                    callbackstms = callbackstms.concat(n.parsenode.__transpiledNode);
+                } else {
+                    transpiled = Transpiler.transpile(transpilerDataDep);
 
-                var e_in = transpiled.node.getInNodes(EDGES.CONTROL).filter(function (n) {
-                                return Aux.isTryStm(n.parsenode)
-                            });
-                transpiled.transpiledNode.inTryBlock = (e_in.length != 0);
+                    var e_in = transpiled.node.getInNodes(EDGES.CONTROL).filter(function (n) {
+                                    return Aux.isTryStm(n.parsenode)
+                                });
+                    transpiled.transpiledNode.inTryBlock = (e_in.length != 0);
 
-                nodes = transpiled.nodes;
-                transpiled.transpiledNode.cnt = transpiled.node.cnt;
-                callbackstms = callbackstms.concat(transpiled);
+                    if (n.isEntryNode) {
+                        n.parsenode.__transpiledNode = transpiled;
+                    }
+                    nodes = transpiled.nodes;
+                    transpiled.transpiledNode.cnt = transpiled.node.cnt;
+                    callbackstms = callbackstms.concat(transpiled);
+                }
             }
         });
 
@@ -345,7 +352,7 @@ var CPSTransform = (function () {
                 callbackstms.map( function (transpiled) {
                     /* Prevent data dependencies to be included double in nested callbacks.
                        Does not apply for transformed call statements */
-                    if (transpiled.transpiledNode.cont || nodesContains(nodes, transpiled.node) ||
+                    if ( nodesContains(nodes, transpiled.node) || //transpiled.transpiledNode.cont ||
                         transpiled.node.edges_out.filter( function (e) {return e.to.isCallNode}).length > 0) {
                         transpiledNode.getCallback().addBodyStms(transpiled.getTransformed());
                         transpiled.transpiledNode.__upnode = getEnclosingFunction(transpiler.node.parsenode, transpiler.ast);
@@ -385,8 +392,9 @@ var CPSTransform = (function () {
                 callbackstms.map(function (transpiled) {
                     /* Prevent data dependencies to be included double in nested callbacks.
                        Does not apply for transformed call statements */
-                    if (nodesContains(nodes, transpiled.node)|| transpiled.transpiledNode.cont || 
-                        transpiled.node.edges_out.filter(function (e) {return e.to.isCallNode}).length>0) {
+                    if (nodesContains(nodes, transpiled.node)|| //transpiled.transpiledNode.cont || 
+                        (!transpiled.node.isEntryNode && 
+                            transpiled.node.getOutNodes().filter(function (n) {return n.isCallNode}).length>0))  {
                         asyncCall.getCallback().addBodyStms(transpiled.getTransformed());
                         transpiled.transpiledNode.__upnode = getEnclosingFunction(transpiler.node.parsenode, transpiler.ast);
                         nodes = nodes.remove(transpiled.node);
@@ -745,6 +753,7 @@ var CPSTransform = (function () {
             local_count = cps_count,
             nodes       = transpiler.nodes,
             exps        = [],
+            resp        = [],
             outercps, innercps, exps;
 
         cps_count = 0;
@@ -782,6 +791,10 @@ var CPSTransform = (function () {
                     }
                     else 
                         exps.push(false);
+                    if (transpiled[1].callback)
+                        resp.push(transpiled[1].callback.getResPar());
+                    else
+                        resp.push(false);
                     nodes = transpiled[0].remove(call);
 
                     if (outercps) {
@@ -800,9 +813,16 @@ var CPSTransform = (function () {
                 }
             })
         cps_count = local_count;
-        for(var i = 0; i < calls.length; i++) {
-            if (exps[i])
-                CPSsetExpStm(parsenode, exps[i]);
+        
+        if ( (calls.length == 1 && exps[0]) || calls.length > resp.length && exps[0])
+         {
+            CPSsetExpStm(parsenode, exps[0]);
+        }
+        else {
+            for(var i = 0; i < calls.length; i++) {
+                if (resp[i])
+                    replaceCall(parsenode, calls[i], resp[i]);
+            }
         }
         if (outercps)
 
@@ -836,7 +856,7 @@ var CPSTransform = (function () {
     }
 
 
-    var CPSsetExpStm = function (parsenode, newexp) {
+    var CPSsetExpStm = function (parsenode, newexp, call) {
        // parsenode = Aux.clone(parsenode);
         if(Aux.isVarDecl(parsenode)) {
             newexp.leadingComment = parsenode.declarations[0].leadingComment;
@@ -856,6 +876,16 @@ var CPSTransform = (function () {
         return parsenode;
     }
 
+    var replaceCall = function (node, call, resexp) {
+        Aux.walkAst(node, {
+            pre : function (n) {
+                if (n.hashCode() == call.parsenode.hashCode()) {
+                    n.type = "Identifier";
+                    n.name = resexp.name;
+                }
+            }
+        })
+    }
 
     /* Aux function : replaces occurence of expression with "resx" paremeter */
     var transformVar = function (expression, toreplace, cnt) {

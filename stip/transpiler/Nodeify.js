@@ -605,6 +605,7 @@ var Nodeify = (function () {
                 }
 
                 transpiler.transpiledNode = transpiled.parsenode;
+                transpiler.transpiledNode.__transformed = true;
 
                 return transpiler;
             }
