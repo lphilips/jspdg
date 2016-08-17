@@ -361,7 +361,7 @@ var CPSTransform = (function () {
                 })
             }
             //transpiledNode.parsenode.cont(callnode);
-            transpiledNode.parsenode.cont = asyncCall.parsenode.cont;
+            //transpiledNode.parsenode.cont = asyncCall.parsenode.cont;
             transpiledNode.parsenode._callnode = callnode;//transpiledNode;
             return [nodes, transpiledNode, esp_exp];
         }

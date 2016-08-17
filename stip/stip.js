@@ -804,6 +804,7 @@ var Stip = (function () {
                 callnode.primitive = true;
                 handleActualParameters(graphs, parsenode, callnode);
                 addToPDG(callnode, upnode, graphs);
+                PDG_node.map(function (p) {addDataDep(p, callnode);});
                 return [callnode];
             }
             else if (PDG_node){
@@ -952,8 +953,8 @@ var Stip = (function () {
         }
 
         else if (entry && !(Aux.isVarDeclarator(entry.parsenode)) && !entry.parsenode.init) {
-            handleActualParameters(graphs, parsenode, callnode);
             addToPDG(callnode, upnode, graphs); 
+            handleActualParameters(graphs, parsenode, callnode);
             return handle(entry);
         }
         else if (primitive) {
@@ -986,10 +987,10 @@ var Stip = (function () {
 
             //pass handlers along!
             a_in.parsenode.handlersAsync = callnode.parsenode.handlersAsync;
-
-            var PDG_node = makePDGNode(graphs, a_in.parsenode, a_in);
-            curr_param++;
             callnode.addEdgeOut(a_in, EDGES.CONTROL);
+            makePDGNode(graphs, a_in.parsenode, a_in);
+            curr_param++;
+            
         }
     }
 
@@ -1235,18 +1236,28 @@ var Stip = (function () {
     var addDataDep = function (from, to) {
         var fTypeFrom = from.getFType(),
             fTypeTo = to.getFType(),
+            /* Double check if no duplicate data dependencies are added */
             dupl   = from.getOutEdges(EDGES.REMOTED)
                          .concat(from.getOutEdges(EDGES.DATA))
                          .filter(function (e) {
                             return  e.to.equals(to) });
+        
+        /* Check on @tier-only */
+        if (fTypeFrom && fTypeTo && from.parsenode &&
+            from.parsenode.leadingComment && Comments.isTierOnlyAnnotated(from.parsenode.leadingComment) &&
+            fTypeFrom !== fTypeTo) {
+            throw new TierOnlyUsedByOtherTier("Declaration annotated as tier only referenced on wrong tier: " + escodegen.generate(to.parsenode));
+        }
+
+
         if(dupl.length < 1) {
             if(fTypeFrom && fTypeTo && 
                 (fTypeFrom !== DNODES.SHARED&&
                  fTypeTo   !== DNODES.SHARED) &&
                  fTypeFrom !== fTypeTo) 
-                from.addEdgeOut(to, EDGES.REMOTED)
+                from.addEdgeOut(to, EDGES.REMOTED);
             else
-                from.addEdgeOut(to, EDGES.DATA)
+                from.addEdgeOut(to, EDGES.DATA);
         }
     }
 
