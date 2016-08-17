@@ -28,6 +28,9 @@ var Transpiler = (function () {
             setupNode   : [],
             closeupNode : [],
             getTransformed : function () {
+                if (this.transpiledNode.leadingComment) {
+                    this.transpiledNode.leadingComment = undefined;
+                }
                 var nodes = this.setupNode.concat(this.transpiledNode).concat(this.closeupNode);
                 //this.setupNode = [];
                 //this.closeupNode = [];

@@ -28,6 +28,12 @@ var Comments = (function () {
     var placement_annotation = "@tier";
     var config_annotation    = "@config";
 
+    var datacopy_annotation = "@copy";
+    var datarepl_annotation = "@replicate";
+    var dataread_annotation = "@tier-only";
+    var copy_readonly_spec = "read-only";
+    var copy_update_spec   = "update";
+
 
     // Client annotations is @client in comment
     var isClientAnnotated = function (comment) {
@@ -82,6 +88,28 @@ var Comments = (function () {
         return node.leadingComment &&
                Aux.isBlockStm(node) &&
                node.leadingComment.value.indexOf(placement_annotation) != -1;
+    }
+
+    var isCopyAnnotated = function (comment) {
+        return comment.value.indexOf(datacopy_annotation) != -1;
+    }
+
+    var isCopyReadAnnotated = function (comment) {
+        return isCopyAnnotated(comment) &&
+                comment.value.indexOf(copy_readonly_spec) != -1;
+    }
+
+    var isCopyUpdateAnnotated = function (comment) {
+        return isCopyAnnotated(comment) &&
+                comment.value.indexOf(copy_update_spec) != -1;
+    }
+
+    var isReplicatedAnnotated = function (comment) {
+        return comment.value.indexOf(datarepl_annotation) != -1;
+    }
+
+    var isTierOnlyAnnotated = function (comment) {
+        return comment.value.indexOf(dataread_annotation) != -1;
     }
 
     var getTierName = function (comment) {
@@ -318,6 +346,11 @@ var Comments = (function () {
     toreturn.getTierName                = getTierName;
     toreturn.handleProgramNode          = handleProgramNode;
     toreturn.isDefineHandlerAnnotated   = isDefineHandlerAnnotated;
+    toreturn.isCopyAnnotated            = isCopyAnnotated;
+    toreturn.isCopyReadAnnotated        = isCopyReadAnnotated;
+    toreturn.isCopyUpdateAnnotated      = isCopyUpdateAnnotated;
+    toreturn.isReplicatedAnnotated      = isReplicatedAnnotated;
+    toreturn.isTierOnlyAnnotated        = isTierOnlyAnnotated;
 
     if (typeof module !== 'undefined' && module.exports != null) {
         ARITY = require('./PDG/node.js').ARITY;

@@ -124,6 +124,14 @@ var Hoist = (function () {
 
                     names.map(function (name) {
                         var declnode = declmap[name];
+                        var comment = declnode.leadingComment;
+                        var astnode, parent;
+
+                        if (Aux.isVarDeclarator(declnode)) {
+                            parent = Ast.parent(declnode, ast);
+                            comment = parent.leadingComment;
+                        }
+
                         if (!tohoist(enclosingBlock(declnode, ast))) {
 
                             if (Aux.isFunDecl(declnode)) {
@@ -138,7 +146,9 @@ var Hoist = (function () {
                             }
                             
                             else if (Aux.isVarDeclarator(declnode)) {
-                                added.push(createVarDecl(name));
+                                astnode = createVarDecl(name);
+                                astnode.leadingComment = comment;
+                                added.push(astnode);
                             }
                         }
                     });
@@ -158,6 +168,13 @@ var Hoist = (function () {
                     names.map(function (name) {
                         var declnode = declmap[name];
                         var enclosingB = enclosingBlock(declnode, ast);
+                        var comment = declnode.leadingComment;
+                        var astnode;
+                        
+                        if (Aux.isVarDeclarator(declnode)) {
+                            parent = Ast.parent(declnode, ast);
+                            comment = parent.leadingComment;
+                        }
 
                         if (Aux.isFunDecl(declnode)) {
                             declnode.hoist = true;
@@ -169,11 +186,15 @@ var Hoist = (function () {
                             then add it to current block. Otherwise skip it. */
 
                         else if (enclosingB.equals(node) && Aux.isVarDeclarator(declnode)) {
-                            added.push(createVarDecl(name));
+                            astnode = createVarDecl(name);
+                            astnode.leadingComment = comment;
+                            added.push(astnode);
                         }
                         else if (!enclosingB.equals(node) && !tohoist(enclosingB) &&
                             Aux.isVarDeclarator(declnode)) {
-                            added.push(createVarDecl(name));
+                            astnode = createVarDecl(name);
+                            astnode.leadingComment = comment;
+                            added.push(astnode);
                         }
                     });
                     /* TODO currently only for block */
