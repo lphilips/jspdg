@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html class="no-js" lang="">
+    <head>
+
+        <!-- Site Title -->
+        <title>Stip.js - tier splitter for JS </title>
+
+        <!-- Site Meta Info -->
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="description" content="Effacy is a bootstrap3 based creative one page HTML5 Template.">
+        <meta name="keywords" content="creative, html5, portfolio, parallax, personal, responsive">
+        <meta name="author" content="themebite.com">
+
+
+        <!-- Essential CSS Files -->
+        <link rel="stylesheet" href="css/normalize.css">
+        <link rel="stylesheet" href="css/font-awesome.min.css">
+        <link rel="stylesheet" href="css/animate.css">
+        <link rel="stylesheet" href="css/simplelightbox.min.css">
+        <link rel="stylesheet" href="css/bootstrap.min.css">
+        <link rel="stylesheet" href="css/owl.carousel.css">
+        <link rel="stylesheet" href="css/owl.theme.css">
+        <link rel="stylesheet" href="css/style.css">
+
+        <!-- Color Styles | To Chage the color simply remove all the stylesheet form bellow without the color you want to keep -->
+        <link rel="stylesheet" href="css/colors/color-green.css">
+        <link rel="stylesheet" href="css/colors/color-blue.css">
+        <link rel="stylesheet" href="css/colors/color-aqua.css">
+        <link rel="stylesheet" href="css/colors/color-purple.css">
+        <link rel="stylesheet" href="css/colors/default-color.css">
+
+        <!-- Responsive CSS -->
+        <link rel="stylesheet" href="css/responsive.css">
+
+        <!-- Google Web Fonts =:= Raleway , Montserrat and Roboto -->
+        <link href='https://fonts.googleapis.com/css?family=Raleway:400,500,600,700' rel='stylesheet' type='text/css'>
+        <link href='https://fonts.googleapis.com/css?family=Montserrat:700,400' rel='stylesheet' type='text/css'>
+        <link href='https://fonts.googleapis.com/css?family=Roboto:700,500,400' rel='stylesheet' type='text/css'>
+
+          <!-- Essential JS Files -->
+        <script src="js/vendor/jquery-1.11.3.min.js"></script>
+        <script src="js/vendor/modernizr-2.8.3.min.js"></script>
+
+        <!-- Code mirror -->
+        <link rel="stylesheet" href="css/codemirror.css"/>
+        <link rel="stylesheet" href="css/mdn-like.css"/>
+        <link rel="stylesheet" href="css/bootstrap-toggle.css"/>
+        <script src="lib/codemirror/codemirror.js"></script>
+        <script src="lib/codemirror/javascript.js"></script>
+        <script type="text/javascript" src="examples.js"></script>
+        <script src="lib/jquery-ui.min.js"></script>
+        <script src="js/prettify.js"></script>
+        <script src="js/tab.js"></script>
+        <script src="js/transition.js"></script>
+        <script src="js/collapse.js"></script>
+
+        <script src="run.js"></script>
+
+        <!-- Jipda -->
+    <script type="text/javascript" src="../lib/esprima.js"></script>
+    <script type="text/javascript" src="../../jipda-pdg/common.js"></script>
+    <script type="text/javascript" src="../../jipda-pdg/ast.js"></script>
+    <script type="text/javascript" src="../../jipda-pdg/agc.js"></script>
+    <script type="text/javascript" src="../../jipda-pdg/lattice.js"></script>
+    <script type="text/javascript" src="../../jipda-pdg/abstLattice1-2.js"></script>
+    <script type="text/javascript" src="../../jipda-pdg/concLattice.js"></script>
+    <script type="text/javascript" src="../../jipda-pdg/countingStore.js"></script>
+    <script type="text/javascript" src="../../jipda-pdg/graph.js"></script>
+    <script type="text/javascript" src="../../jipda-pdg/jsCesk.js"></script>
+    <script type="text/javascript" src="../../jipda-pdg/concreteAg.js"></script>
+    <script type="text/javascript" src="../../jipda-pdg/tagAg.js"></script>
+    <script type="text/javascript" src="../../jipda-pdg/benv.js"></script>
+    <script type="text/javascript" src="../../jipda-pdg/object.js"></script>
+    <script type="text/javascript" src="../../jipda-pdg/lib/web/jquery-2.1.1.min.js"></script>
+    <script type="text/javascript" src="../../jipda-pdg/lib/web/jquery-ui-1.11.1/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="../../jipda-pdg/lib/web/codemirror/codemirror.js"></script>
+    <script type="text/javascript" src="../../jipda-pdg/lib/web/codemirror/hint/show-hint.js"></script>
+    <script type="text/javascript" src="../../jipda-pdg/lib/web/codemirror/hint/anyword-hint.js"></script>
+    <script type="text/javascript" src="../../jipda-pdg/lib/web/codemirror/mode/javascript/javascript.js"></script>
+    <script type="text/javascript" src="../../jipda-pdg/lib/web/d3.min.js"></script>
+    <script type="text/javascript" src="../../jipda-pdg/pdg/pdg.js"></script>
+
+    <!--/end Jipda -->
+
+    <script type="text/javascript" src="examples.js"></script>
+    <script src="../lib/esprima.js"></script>
+    <script src="../lib/falafel_esprima.js"></script>
+    <script src="../lib/estraverse.js"></script>
+    <script src="../lib/escope.js"></script>
+    <script src="../lib/esrefactor.js"></script>
+    <script src="../lib/json2.js"></script>
+    <script src="../lib/beautifier.js"></script>
+    <script src="lib/codemirror/codemirror.js"></script>
+    <script src="lib/codemirror/javascript.js"></script>
+    <script type="text/javascript" src="../lib/falafel.js"></script>
+    <script src="https://code.jquery.com/jquery.js"></script>
+    <script src="http://yui.yahooapis.com/3.9.0/build/yui/yui-min.js"></script>
+    <script src="lib/jquery-ui.min.js"></script>
+    <script src="js/prettify.js"></script>
+    <script src="js/tab.js"></script>
+    <script src="js/transition.js"></script>
+    <script src="js/collapse.js"></script>
+    <script type="text/javascript" src="../aux.js"></script>
+    <script type="text/javascript" src="../handler-transform.js"></script>
+    <script type="text/javascript" src="../handler-predefined.js"></script>
+    <script type="text/javascript" src="../handler-generate.js"></script>
+    <script type="text/javascript" src="../handler.js"></script>
+    <script type="text/javascript" src="../PDG/edge.js"></script>
+    <script type="text/javascript" src="../PDG/node.js"></script>
+    <script type="text/javascript" src="../PDG/graph.js"></script>
+    <script type="text/javascript" src="../jslibs.js"></script>
+    <script type="text/javascript" src="../pre-analysis.js"></script>
+    <script type="text/javascript" src="../hoist.js"></script>
+    <script type="text/javascript" src="../annotations.js"></script>
+    <script type="text/javascript" src="../exceptions.js"></script>
+    <script type="text/javascript" src="../stip.js"></script>
+    <script type="text/javascript" src="../placement/default_strategy.js"></script>
+    <script type="text/javascript" src="../InterferenceAnalysis.js"></script>
+    <script type="text/javascript" src="../transpiler/CPS_transform.js"></script>
+    <script type="text/javascript" src="../transpiler/Promise_transform.js"></script>
+    <script type="text/javascript" src="../transpiler/CT_transform.js"></script>
+    <script type="text/javascript" src="../transpiler/JS_parse.js"></script>
+    <script type="text/javascript" src="../transpiler/Meteor_parse.js"></script>
+    <script type="text/javascript" src="../transpiler/Node_parse.js"></script>
+    <script type="text/javascript" src="../transpiler/JSify.js"></script>
+    <script type="text/javascript" src="../transpiler/Meteorify.js"></script>
+    <script type="text/javascript" src="../transpiler/Nodeify.js"></script>
+    <script type="text/javascript" src="../transpiler/CT_parse.js"></script>
+    <script type="text/javascript" src="../transpiler/slice.js"></script>
+    <script type="text/javascript" src="../transpiler/transpiler.js"></script>
+    <script type="text/javascript" src="../lib/esutils.js"></script>
+    <script type="text/javascript" src="../lib/esutils_code.js"></script>
+    <script type="text/javascript" src="../lib/escodegen.js"></script>
+    <script type="text/javascript" src="componentGraph.js"></script>
+
+
+
+      
+
+        <!-- IE9 Scripts -->
+        <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+        <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+        <![endif]-->
+
+        <style>
+            /* The default background color is #c00 */
+        .github-fork-ribbon.right-top:before {
+            background-color: #ff5959;
+        }
+
+        </style>
+
+    </head>
+    <body>
+
+    <!-- Heaser Area Start -->
+    <header class="header-area">
+        <!-- Navigation start -->
+        <nav class="navbar navbar-custom tb-nav" role="navigation">
+            <div class="container">        
+              <div class="navbar-header">
+                <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#tb-nav-collapse">
+                  <span class="sr-only">Toggle navigation</span>
+                  <span class="icon-bar"></span>
+                  <span class="icon-bar"></span>
+                  <span class="icon-bar"></span>
+                </button>
+                <a class="navbar-brand logo" href="#">
+                    <h2>
+                    stip
+                    <span>.js</span>
+                    </h2>
+                </a>
+                
+              </div>
+          
+              <div class="collapse navbar-collapse" id="tb-nav-collapse">
+          
+                <ul class="nav navbar-nav navbar-right">
+                    <li class="active"><a class="page-scroll" href="#top">Home</a></li>
+                    <li><a class="page-scroll" href="#tryit">Try it out</a></li>
+                    <li><a class="page-scroll" href="#portfolio">Links</a></li>
+                    <li><a class="page-scroll" href="#pricing">Publications</a></li>
+                    <li><a class="page-scroll" href="#contact">Contact Us</a></li>
+                </ul>
+              </div>
+            </div>
+        </nav>
+    </header>
+        <!-- Navigation end -->
+
+        <!-- hero-section 
+        <section class="hero-section" id="top">
+                <div class="slider-caption">
+                    <div class="container">
+                        <div class="row">
+                            
+                            <h1>welcome to <span>effacy</span></h1>
+                            
+                            <h5>we advice + we design + we develope</h5>
+                        </div>
+                    </div>
+                </div>
+        </section>
+         End Of Hero Section -->
+
+        <!-- About Us Section -->
+        
+        <section class="about-us" id="top">
+            <div class="container-fluid">
+                <div class="row">
+                    <div class="col-sm-6 col-xs-12 no-padding">
+                        <!-- About Us Left -->
+                        <div class="about-us-left">
+                            <!-- About Us Info -->
+                            <h2 class="section-title-left">About stip.js</h2>
+                            <div class="about-us-left-p">
+                                <p>Developing web applications needs to be about programming logic and not about
+                                writing glue code to overcome the impedance mismatch between different technologies for the different tiers (client, server, database). Stip.js allows programmers to write their code as one single artifact, in one single language, JavaScript. Using annotations inside comments, the programmer can guide the tier split and handle concerns like failure handling, remote communication, etc.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-xs-12 no-padding">
+                    <a class="github-fork-ribbon right-top" href="https://github.com/lphilips/jspdg" title="Fork me on GitHub"></a>
+                        <!-- About Us Right -->
+                        <div class="about-us-right">
+                            <!-- Our Features -->
+                            <div class="media">
+                                <div class="media-left dotted">
+                                    <i class="fa fa-eye"></i>
+                                </div>
+                                <div class="media-body">
+                                    <!-- About Right Title -->
+                                    <h3 class="media-heading">Analyse</h3>
+                                    <p>Program analysis for JavaScript to construct a Program Dependence Graph. </p>
+                                </div>
+                            </div>
+                            <!-- Our Features -->
+                            <div class="media">
+                                <div class="media-left dotted">
+                                    <i class="fa fa-object-ungroup"></i>
+                                </div>
+                                <div class="media-body">
+                                    <h3 class="media-heading">Tier split</h3>
+                                    <p>Split the tierless program to the actual tiers of the distributed program, based on annotations.</p>
+                                </div>
+                            </div>
+                            <!-- Our Features -->
+                            <div class="media">
+                                <div class="media-left">
+                                    <i class="fa fa-code"></i>
+                                </div>
+                                <div class="media-body">
+                                    <h3 class="media-heading">Transpile</h3>
+                                    <p>Program transformation to JavaScript on the server and JavaScript on the client. </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- End Of About Us Section -->
+
+
+        <section class="section-padding" id="tryit">
+            <div class="container">
+                <h2 class="section-title text-center">Try it out</h2>
+                <p class="sub-title text-center">This is a first prototype of the tier splitting tool Stip.js.(tested on Chrome and Firefox). <br>
+                When the cursor is placed inside left editor: [mac]Cmd + s for tier split, Cmd + k for CPS transformation, <br>[other]: Ctrl + s for tier split, Ctrl + k for CPS transformation
+                </p>
+
+                <div id= "code" style="line-height: 20px;">
+                    <div class="well row" style="margin-left: 0px; margin-right: 0px; margin-top: 5px; margin-bottom: 5px;">
+                        <div class="col-md-6" id="leftcode"> 
+                            <div class="row">
+                                <h4 style="float:left;">Your JavaScript code:</h4>
+                                <div class="dropdown" style="float: right; margin-right:20px">
+                                    <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" 
+                                            id="dropdownSnippets" style="float:right;">
+                                        Snippets
+                                        <span class="caret"></span>
+                                    </button>
+                                    <ul id="snippets" aria-labelledby="dropdownSnippets" class="dropdown-menu" role="menu"></ul>
+                                </div>
+                            </div>
+                            <textarea id="editor" name="editor"></textarea>
+                        </div>
+                        <div class="col-md-6" id="rightcode"> 
+                            <div class="row">
+                                <h4 style="float:left;">Results</h4>
+                                <div class="form-inline" id="editordashboard" style="float:right; margin:4px;">
+                                   <div class="checkbox">
+                                        <input data-toggle="toggle" data-size="small" type="checkbox" id="includeclient" data-on="client" data-off="client" checked>
+                                    </div>
+                                    <div class="checkbox">
+                                        <input data-toggle="toggle" data-size="small" type="checkbox" id="includeserver" data-on="server" data-off="server" checked>
+                                    </div>
+                                    <div class="checkbox">
+                                        <input data-toggle="toggle" data-size="small" type="checkbox" id="includesetup" data-on="setup" data-off="setup">
+                                    </div>
+                                </div> <!--/end dashboard -->
+                            </div> <!-- end row -->
+
+                           
+
+                            <div id="accordion" role="tablist" aria-multiselectable="true">
+                              <div class="panel panel-default">
+                                <div class="panel-heading" role="tab" id="headingOne">
+                                  <h5 class="panel-title">
+                                    <a data-toggle="collapse" data-parent="#accordion" href="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+                                      Code
+                                    </a>
+                                  </h5>
+                                </div>
+                                <div id="collapseOne" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="headingOne">
+                                  <textarea id="slicededitor" name="slicededitor"></textarea>
+                                </div>
+                              </div>
+                              <div class="panel panel-default">
+                                <div class="panel-heading" role="tab" id="headingTwo">
+                                  <h5 class="panel-title">
+                                    <a class="collapsed" data-toggle="collapse" data-parent="#accordion" href="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                                      Offline report
+                                    </a>
+                                  </h5>
+                                </div>
+                                <div id="collapseTwo" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingTwo">
+                                 <div role="tabpanel" class="tab-pane active" id="report">
+                                        <div class="report-well">
+                                            <h6>Web slice distribution</h6>
+                                            <div class="progress">
+                                                  <div id="clientbar" class="progress-bar progress-bar-info progress-bar-striped" role="progressbar" style="width: 0%">
+                                                    <span>CLIENT</span>
+                                                  </div>
+                                                  <div id="serverbar" class="progress-bar progress-bar-warning progress-bar-striped" role="progressbar" style="width: 0%">
+                                                    <span>SERVER</span>
+                                                  </div>
+                                                </div>
+                                            <h6>Detailed report</h6>
+                                            <div id="functionalities" class="list-group"></div>
+                                        </div>
+
+                                    </div> <!-- /report -->
+                                </div>
+                              </div>
+                              <div class="panel panel-default">
+                                <div class="panel-heading" role="tab" id="headingThree">
+                                  <h5 class="panel-title">
+                                    <a class="collapsed" data-toggle="collapse" data-parent="#accordion" href="#collapseThree" aria-expanded="true" aria-controls="collapseThree">
+                                      Slice Graph
+                                    </a>
+                                  </h5>
+                                </div>
+                                <div id="collapseThree" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingThree">
+                                     <div id="componentgraph" style="height:200px;"></div>
+                                </div>
+                              </div>
+                            </div> <!-- end accordion -->
+
+
+                         
+                           <!--<div class="row" id="slicededitor" style="height: 350px;"></div>-->
+                           
+                        </div>
+                    </div>
+            </div>
+        </section>
+
+        <!-- Our Services 
+
+        <section class="our-services-section section-padding" id="service">
+            <div class="container">
+             
+                <h2 class="section-title text-center">About</h2>
+            
+                <p class="sub-title text-center">More details can be found in publications or on the github page.</p>
+
+                <div class="row our-services">
+
+              
+                    <div class="col-md-6 col-lg-5 col-sm-12 col-lg-offset-1 col-xs-12 single-service">
+                        <div class="media">
+                            <div class="media-left">
+                                <i class="fa fa-laptop"></i>
+                            </div>
+                            <div class="media-body">
+                   
+                                <h3 class="media-heading">Ux/Ui Design</h3>
+                                <p>Lorem ipsum dolor sit amet, tetur adipisicing elit. Ut enim ad minim tae vitae dicta sunt explicabo.</p>
+                            </div>
+                        </div>
+                    </div>
+
+   
+                    <div class="col-md-6 col-lg-5 col-sm-12 col-xs-12 single-service">
+                        <div class="media">
+                            <div class="media-left">
+                                <i class="fa fa-modx"></i>
+                            </div>
+                            <div class="media-body">
+                                <h3 class="media-heading">Creative Layout</h3>
+                                <p>Lorem ipsum dolor sit amet, tetur adipisicing elit. Ut enim ad minim tae vitae dicta sunt explicabo.</p>
+                            </div>
+                        </div>
+                    </div>
+
+  
+                    <div class="col-md-6 col-lg-5 col-sm-12 col-xs-12 col-lg-offset-1 single-service">
+                        <div class="media">
+                            <div class="media-left">
+                                <i class="fa fa-binoculars"></i>
+                            </div>
+                            <div class="media-body">
+                                <h3 class="media-heading">Retina Ready</h3>
+                                <p>Lorem ipsum dolor sit amet, tetur adipisicing elit. Ut enim ad minim tae vitae dicta sunt explicabo.</p>
+                            </div>
+                        </div>
+                    </div>
+
+   
+                    <div class="col-md-6 col-lg-5 col-sm-12 col-xs-12 single-service">
+                        <div class="media">
+                            <div class="media-left">
+                                <i class="fa fa-code"></i>
+                            </div>
+                            <div class="media-body">
+                                <h3 class="media-heading">Transformation</h3>
+                                <p>To state-of-the art targets: node.js on the server, together with configurable libraries.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+         End Of Our Services -->
+
+
+       
+        <!-- Portfolio Section Starts Here -->
+        <section class="portfolio-section section-padding" id="portfolio">
+            <div>
+                <h2 class="section-title text-center">Links</h2>
+                 <div class="media">
+                    <div class="media-left dotted">
+                        <i class="fa fa-globe"></i>
+                    </div>
+                    <div class="media-body">
+                        <!-- About Right Title -->
+                        <h3 class="media-heading">Analysis</h3>
+                        <p>STiP.js makes use of <a href="https://github.com/jensnicolay/jipda">Jipda</a>, a JavaScript Introspective Pushdown Analysis. Based on this analysis, we construct a distributed program dependency graph.</p>
+                    </div>
+                </div>
+                <!-- Our Features -->
+                <div class="media">
+                    <div class="media-left dotted">
+                        <i class="fa fa-globe"></i>
+                    </div>
+                    <div class="media-body">
+                        <h3 class="media-heading">Communication Library</h3>
+                        <p>For Node.js we use the <a href="https://github.com/dielc/asyncCall.js">asyncCall</a> library for remote communication.
+                        This library has a high configurability and a variety of failure handling mechanisms.</p>
+                    </div>
+                </div>
+                <!-- Our Features -->
+                <div class="media">
+                    <div class="media-left">
+                        <i class="fa fa-globe"></i>
+                    </div>
+                    <div class="media-body">
+                        <h3 class="media-heading">Redstone</h3>
+                        <p><a href="https://github.com/Bjarno/redstone">Redstone</a>, an HTML templating system on top of stip.js.
+                        Transforms to reactive HTML and JavaScript.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- End of Portfolio Section Starts Here -->
+
+
+
+        <!-- Pricing And Plans Section -->
+
+        <section class="pricing-section section-padding" id="pricing">
+            <div class="container">
+                <!-- Pricing Section Title -->
+                <h2 class="section-title text-center">Publications</h2>
+
+                <div class="row mt-80 text-center">
+                    <!-- Pricing Table -->
+                    <div class="col-lg-4 col-md-4 col-sm-4 col-xs-12">
+                        <div class="single-pricing-table">
+                           <ul>
+                              <li><strong>Towards Tierless Web Development without Tierless Languages.</strong>  <br> Philips, Laure; De Roover, Coen; Van Cutsem, Tom; De Meuter, Wolfgang. <br>
+                                  Onward! '14. ACM, 2014. (Proceedings of the ACM International Symposium on New Ideas, New Paradigms, and Reflections on Programming and Software Proceedings). <a href="http://soft.vub.ac.be/Publications/2014/vub-soft-tr-14-15.pdf">link</a></li>
+                                  <br>
+                              <li><strong>Tierless Programming in JavaScript.</strong>  <br>Philips, Laure; De Meuter, Wolfgang; De Roover, Coen. <br>
+                                  37th International Conference on Software Engineering (ICSE 2015). IEEE, 2015. p. 831-832. <a href="http://soft.vub.ac.be/Publications/2015/vub-soft-tr-15-03.pdf">link</a></li>
+                            </ul>
+                            <br><br><br><br><br>
+                        </div>
+                    </div>
+
+                    <!-- Pricing Table -->
+                    <div class="col-lg-4 col-md-4 col-sm-4 col-xs-12">
+                        <div class="single-pricing-table">
+                            <h3>Poster at ICSE'15</h3>
+                            <img src="img/poster-icse.png" style="max-width:100%; max-height:100%"/>
+                           
+                        </div>
+                    </div>
+
+                    <!-- Pricing Table -->
+                    <div class="col-lg-4 col-md-4 col-sm-4 col-xs-12">
+                        <div class="single-pricing-table">
+                            <h3>Poster at Ecoop'16</h3>
+                            <img src="img/poster-ecoop.png" style="max-width:100%; max-height:100%"/>
+                           
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- End Of Pricing And Plans Section -->
+
+    
+
+        <!-- Contact Us Section -->
+
+        <section class="contact-us-section section-padding" id="contact">
+            <div class="container">
+                <!-- Contact Us Section Title -->
+                <h2 class="section-title contact-title text-center">Contact Us</h2>
+                <p class="sub-title contact-subtitle text-center"><i class="fa fa-envelope" style="color:#fff;font-size:20px;margin-right:5px;" aria-hidden="true"></i>   lphilips [at] vub.ac.be</p>
+                <p class="sub-title contact-subtitle text-center"><i class="fa fa-twitter-square" style="color:#fff;font-size:20px;margin-right:5px;" aria-hidden="true"></i>    @laurephilips</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- End Of Contact Us Section -->
+
+
+    
+
+        <!-- JS Files -->
+        <!-- Bootstrap JS -->
+        <script src="js/bootstrap.min.js"></script>
+        <script src="js/bootstrap-toggle.min.js"></script>
+        <!-- jQuery Easing -->
+        <script src="js/jquery.easing.min.js"></script>
+        <!-- PreLoader -->
+        <script src="js/queryloader2.min.js"></script>
+        <!-- WOW JS Animation -->
+        <script src="js/wow.min.js"></script>
+        <!-- Simple Lightbox -->
+        <script src="js/simple-lightbox.min.js"></script>
+        <!-- Sticky -->
+        <script src="js/jquery.sticky.js"></script>
+        <!-- OWL-Carousel -->
+        <script src="js/owl.carousel.min.js"></script>
+        <!-- jQuery inview -->
+        <script src="js/jquery.inview.js"></script>
+        <!-- Shuffle jQuery -->
+        <script src="js/jquery.shuffle.min.js"></script>
+        <!-- jQuery CountTo -->
+        <script src="js/jquery.counTo.js"></script>
+
+        <!-- Main JS -->
+        <script src="js/main.js"></script>
+
+        <script type="text/javascript" src="lib/cytoscape.js"></script>
+        <script type="text/javascript" src="js/highcharts.js"></script>
+        <script type="text/javascript" src="js/highcharts-more.js"></script>
+        <script type="text/javascript" src="js/modules/solid-gauge.js"></script>
+
+        <script type="text/javascript">
+        var print = function () { console.log(Array.prototype.slice.call(arguments).join(" ")) };
+        var keymap = {
+            "Ctrl-S" : function (cm) {
+                split(editor.getValue(), slicededitor);
+            },
+            "Ctrl-E" : function (cm) {
+                doIt(editor.getValue(), slicededitor);
+            },
+            "Ctr-K" : function (cm) {
+                cpstransform(editor.getValue(), slicededitor);
+            },
+            "Cmd-S" : function (cm) {
+                split(editor.getValue(), slicededitor);
+            },
+            "Cmd-E" : function (cm) {
+                doIt(editor.getValue(), slicededitor);
+            },
+            "Cmd-K" : function (cm) {
+                cpstransform(editor.getValue(), slicededitor);
+            }
+        };
+
+        var editor= CodeMirror(function (e) {
+            var txt = document.getElementById("editor");
+            txt.parentNode.replaceChild(e, txt);
+            }, {
+                lineNumbers: true,
+                styleActiveLine: true,
+                matchBrackets : true,
+                theme: "mdn-like"
+            });
+        editor.addKeyMap(keymap);
+        $(editor.getWrapperElement()).resizable({
+            resize: function() {
+                editor.setSize($(this).width() , $(this).height());
+                editor.refresh();
+            }
+        });
+        $(editor.getWrapperElement()).on('dblclick', function () {
+            $("#rightcode").toggle();
+            if ($("#rightcode").is(":visible")) {
+                editor.setSize($("#code").width() / 2-50 , $(this).height());
+            } else {
+                editor.setSize($("#code").width()- 50, $(this).height());
+                
+            }
+            editor.refresh();
+        });
+        var slicededitor= CodeMirror(function (e) {
+                var txt = document.getElementById("slicededitor");
+                txt.parentNode.replaceChild(e, txt);
+            }, {
+                lineNumbers: true,
+                styleActiveLine: true,
+                matchBrackets : true,
+                theme: "mdn-like"
+            });
+        $(slicededitor.getWrapperElement()).resizable({
+            resize: function() {
+                slicededitor.setSize($(this).width(), $(this).height());
+                slicededitor.refresh();
+            }
+        });
+        $(slicededitor.getWrapperElement()).on('dblclick', function () {
+            $("#leftcode").toggle();
+            if ($("#leftcode").is(":visible")) {
+                slicededitor.setSize($("#code").width() / 2 - 50, $(this).height());
+                
+            } else {
+                slicededitor.setSize($("#code").width()- 50, $(this).height());
+            }
+            slicededitor.refresh();
+        })
+
+
+        function fillSnippets(){
+        var list = document.getElementById('snippets'),
+            split = 'Tier-splitting',
+            normal = 'JavaScript',
+            cont   = 'Continuations',
+            head = document.createElement('li'),
+            i = 0;
+        head.appendChild(document.createTextNode(split));
+        list.appendChild(head);
+        Examples.tiersplittxt.map(function (txt) {
+            var li = document.createElement('li'),
+                a = document.createElement('a');
+            a.appendChild(document.createTextNode(txt));
+            a.setAttribute('data-value', i);
+            a.setAttribute('role', 'menuitem')
+            i++;
+            li.appendChild(a);
+            li.setAttribute('role', 'presentation')
+            list.appendChild(li);
+        });
+        head = document.createElement('li');
+        head.appendChild(document.createTextNode(normal));
+        list.appendChild(head);
+        Examples.slicetxt.map(function (txt) {
+            var li = document.createElement('li'),
+                a = document.createElement('a');
+            a.appendChild(document.createTextNode(txt));
+            a.setAttribute('data-value', i);
+            i++;
+            li.appendChild(a);
+            list.appendChild(li);
+        });
+        head = document.createElement('li');
+        head.appendChild(document.createTextNode(cont));
+        list.appendChild(head);
+        Examples.continuationstxt.map(function (txt) {
+            var li = document.createElement('li'),
+                a = document.createElement('a');
+            a.appendChild(document.createTextNode(txt));
+            a.setAttribute('data-value', i);
+            i++;
+            li.appendChild(a);
+            list.appendChild(li);
+        });
+      };
+
+        fillSnippets();
+        $(".dropdown-menu li a").click(function () {
+                var value = $(this).data('value'),
+                    nr_splits = Examples.tiersplitexs.length,
+                    nr_splits2 = Examples.sliceexs.length,
+                    text = '';
+                if(value < nr_splits) 
+                    text = Examples.tiersplitexs[value];
+                else if (value < (nr_splits + nr_splits2))
+                    text = Examples.sliceexs[value - nr_splits];
+                else 
+                    text = Examples.contexs[value - (nr_splits + nr_splits2)]
+                editor.setValue(text);
+                editor.setCursor(0,0);
+                //editor.focus();
+        });
+        $(function () {
+            editor.setValue(Examples.tiersplitexs[0]);
+            editor.setCursor(0,0);
+            //editor.focus();
+        });
+
+        $("#includeclient").change( function () {
+            printCode([clientprogram, serverprogram],slicededitor);
+        });
+        $("#includeserver").change(function () {
+            printCode([clientprogram, serverprogram],slicededitor);
+        });
+        $("#includesetup").change(function () {
+            printCode([clientprogram, serverprogram],slicededitor);
+        });
+
+
+        $('#accordion').on('show.bs.collapse', function () {
+            cy.resize();
+            cy.layout({name: 'cose'});
+            
+        });
+        </script>
+
+    </body>
+</html>

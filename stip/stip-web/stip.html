@@ -144,8 +144,6 @@
             cy = createComponentGraph(graphs.PDG);
             createOfflineReport(graphs);
 
-            
-
             return graphs; 
         } catch (err) {
             console.log(err.message);
@@ -456,7 +454,7 @@
             var divGraphD = $("<div class='col-sm-6' style='height: 130px;'></div");
             var divGraphC = $("<div class='col-sm-6' style='height: 130px;'></div");
             var divText = $("<div class='col-sm-6'></div>");
-            var divData = $("<div class='well 'style='text-align:left; padding: 5px;'><h5>DATA DEPENDENCIES</h5></div>");
+            var divData = $("<div class='well' 'style='text-align:left; padding: 5px;'><h5>DATA DEPENDENCIES</h5></div>");
             var divCall = $("<div class='well' style='text-align:left; padding: 5px;'><h5>CALL DEPENDENCIES</h5></div>");
             divData.append('<p> > Client: '+ dataCntC +'</p>');
             divData.append('<p> > Server: '+ dataCntS +'</p>');
