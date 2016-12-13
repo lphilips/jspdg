@@ -382,9 +382,11 @@ EntryNode.prototype.clientCalls = function () {
         .length;
 }
 
-EntryNode.prototype.getCalls = function () {
-    return this.getInEdges(EDGES.CALL)
-        .map(function (e) { return e.from});
+EntryNode.prototype.getCalls = function (remote) {
+    var edges = this.getInEdges(EDGES.CALL);
+    if (remote)
+        edges = edges.concat(this.getInEdges(EDGES.REMOTEC));
+    return edges.map(function (e) { return e.from});
 }
 
 /* Object Entry nodes, denoted by "OE+index" */
@@ -442,25 +444,23 @@ CallNode.prototype.getActualIn = function () {
 CallNode.prototype.getActualOut = function () {
     var actual_outs = this.edges_out.filter(function (e) {
             return (e.to.isActualPNode &&
-                   e.to.direction === -1) 
+                   e.to.direction === -1);
         }).map(function (e) {
-            return e.to
+            return e.to;
     });
-    var exit_outs = this.edges_out.map(function (e) {
-        return e.to
-        }).filter(function (node) {
-            return node.isExitNode
+    var exit_outs = this.getOutNodes().filter(function (node) {
+            return node.isExitNode;
         }).flatMap(function (node) {
-            return node.edges_out.map(function (e) {return e.to})
-        })
+            return node.getOutNodes();
+        });
 
     var catch_out = this.edges_out.map(function (e) {
-        return e.to
+        return e.to;
     }).filter( function (node) {
-        node.isStatementNode && Aux.isCatchStm(node.parsenode)
+        return node.isStatementNode && Aux.isCatchStm(node.parsenode)
     }).flatMap(function (n) {
-        return n.edges_out.map(function (e) {return e.to})
-    })
+        return n.getOutNodes().filter(function (n) {return n.isActualPNode});
+    });
 
     return actual_outs.concat(exit_outs).concat(catch_out);
 }
@@ -470,10 +470,10 @@ CallNode.prototype.getEntryNode = function () {
         return e.to.isEntryNode &&
                (e.equalsType(EDGES.CALL) ||
                 e.equalsType(EDGES.REMOTEC))
-    })
+    });
     return edges.map(function (e) {
-        return e.to
-    })
+        return e.to;
+    });
 }
 
 CallNode.prototype.getStmNode = function () {

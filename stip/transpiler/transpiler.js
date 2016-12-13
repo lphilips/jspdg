@@ -27,6 +27,7 @@ var Transpiler = (function () {
             methods     : [],
             setupNode   : [],
             closeupNode : [],
+            warnings    : [],
             getTransformed : function () {
                 if (this.transpiledNode.leadingComment) {
                     this.transpiledNode.leadingComment = undefined;
@@ -35,9 +36,11 @@ var Transpiler = (function () {
                 //this.setupNode = [];
                 //this.closeupNode = [];
                 return nodes;
+            },
+            addWarning : function (warning) {
+                this.warnings.push(warning);
             }
         };
-
     }
 
     function copyTranspileObject (transpiler, newnode, nodes) {
@@ -49,20 +52,20 @@ var Transpiler = (function () {
             transpiler.transform,
             transpiler.setup,
             transpiler.closeup,
-            transpiler.methods
-            );
+            transpiler.methods,
+            transpiler.warnings
+        )
+
         if (transpiler.parseUtils)
             copy.parseUtils = transpiler.parseUtils;
         if (transpiler.transformCPS)
             copy.transformCPS = transpiler.transformCPS;
-        //copy.setupNode = transpiler.setupNode;
-        //copy.closeupNode = transpiler.closeupNode;
         return copy;
     }
 
     function copySetups (transpilerFrom, transpilerTo) {
-        transpilerTo.setup = transpilerFrom.setup.concat(transpilerTo.setup);
-        transpilerTo.closeup = transpilerFrom.closeup.concat(transpilerTo.closeup);
+        //transpilerTo.setup = transpilerFrom.setup.concat(transpilerTo.setup);
+        //transpilerTo.closeup = transpilerFrom.closeup.concat(transpilerTo.closeup);
         transpilerTo.methods = transpilerFrom.methods.concat(transpilerTo.methods);
         transpilerTo.closeupNode = transpilerFrom.closeupNode.concat(transpilerTo.closeupNode);
         transpilerTo.setupNode = transpilerFrom.setupNode.concat(transpilerTo.setupNode);

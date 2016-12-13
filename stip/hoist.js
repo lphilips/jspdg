@@ -52,6 +52,7 @@ var Hoist = (function () {
             }],
             kind : "var",
             hoist: true,
+            hoisted: true,
         };
         Ast.augmentAst(decl);
         return decl;
@@ -65,7 +66,8 @@ var Hoist = (function () {
                     type: "Identifier",
                     name: name
                 },
-                right: value
+                right: value,
+                hoisted : true,
         };
         Ast.augmentAst(ass);
         return ass;
@@ -218,7 +220,7 @@ var Hoist = (function () {
                         var index = body.indexOf(node);
                         node.declarations.map(function (decl) {
                             if (hoisted[parent.tag] && hoisted[parent.tag].indexOf(decl.id.name) >= 0 && decl.init) {
-                                var exp = {type: "ExpressionStatement", expression : createAssignment(decl.id.name, decl.init)};
+                                var exp = {type: "ExpressionStatement", expression : createAssignment(decl.id.name, decl.init), hoisted: true};
                                 Ast.augmentAst(exp);
                                 exp.leadingComment = node.leadingComment;
                                 if (Aux.isForStm(astparent) && Aux.isVarDecl(astparent.init) && node.equals(astparent.init)) {
@@ -237,7 +239,7 @@ var Hoist = (function () {
                             astparent.body = astparent.body.remove(node);
                         }
                         else if (Aux.isFunDecl(parent) || Aux.isFunExp(parent)) 
-                            parent.body.body = body.remove(node)
+                            parent.body.body = body.remove(node);
                         else
                             parent.body = body.remove(node);
                     }
@@ -258,8 +260,6 @@ var Hoist = (function () {
 
             exports.Hoist            = toreturn;
     }
-
-
 
     return toreturn;
 

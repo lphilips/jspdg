@@ -38,6 +38,25 @@ var NodeParse = (function () {
         };
     };
 
+    var createReturnStm = function (arg) {
+        return {
+            type: "ReturnStatement",
+            argument: arg
+        };
+    };
+
+
+    var createNewExpression = function (fname, args) {
+        return {
+            type: "NewExpression",
+            callee: {
+                type: "Identifier",
+                name: fname
+            },
+            arguments: args
+        }
+    }
+
      /*  Representation of a callback function :
      *    callback(errx, resx) {}
      */
@@ -91,17 +110,29 @@ var NodeParse = (function () {
                         type: "BlockStatement",
                         body: body
                     },
+                    _transformed : true,
+                    _errArg : {
+                        type: "Identifier",
+                        name: "err"+cnt
+                    },
                     rest: null,
                     generator: false,
                     expression: false
                   },
-                  addBodyStm : function (stm) {
-
-                        if(syncHandler && stm.inTryBlock){
-                            this.parsenode.body.body[0].block.body = this.parsenode.body.body[0].block.body.concat(stm)
-                        }else{
-                            this.parsenode.body.body = this.parsenode.body.body.concat(stm)
-                        }
+                  addBodyStm : function (stm, upfront) {
+                      if (!upfront) {
+                          if (syncHandler && stm.inTryBlock) {
+                              this.parsenode.body.body[0].block.body = this.parsenode.body.body[0].block.body.concat(stm);
+                          } else {
+                              this.parsenode.body.body = this.parsenode.body.body.concat(stm);
+                          }
+                      } else {
+                          if (syncHandler && stm.inTryBlock) {
+                              this.parsenode.body.body[0].block.body = [stm].concat(this.parsenode.body.body[0].block.body);
+                          } else {
+                              this.parsenode.body.body = [stm].concat(this.parsenode.body.body);
+                          }
+                      }
                   },
                   addBodyStms : function (stms) {
                     var self = this;
@@ -288,7 +319,10 @@ var NodeParse = (function () {
 
             setBody : function (body) {
                 this.parsenode.value.body.body = body 
-            }, 
+            },
+            getBody : function (body) {
+                return this.parsenode.value.body.body;
+            },
 
             addParams : function (params) {
                 this.parsenode.value.params = this.parsenode.value.params.concat(params);
@@ -310,9 +344,8 @@ var NodeParse = (function () {
                         type      : "MemberExpression",
                         computed  : false,
                         object    : {
-                            type  : "Identifier",
-                            name  : "this"
-                                },
+                            type  : "ThisExpression"
+                        },
                         property  : {
                             type  : "Identifier",
                             name  : "rpcCall"
@@ -387,12 +420,46 @@ var NodeParse = (function () {
         };
     };
 
-    var createReturnStm = function (arg) {
-        return {
-            type: "ReturnStatement",
-            argument: arg
-        };
-    };
+
+
+
+    var addRenameThisStm = function (fn) {
+        fn.setBody([{
+            type: "VariableDeclaration",
+            declarations: [
+                {
+                    type: "VariableDeclarator",
+                    id: {
+                        type: "Identifier",
+                        name: "self"
+                    },
+                    init: {
+                        type: "ThisExpression"
+                    }
+                }
+            ],
+            kind: "var"
+        }].concat(fn.getBody()))
+    }
+
+    var transformCPStoReturn = function (cps) {
+        Aux.walkAst(cps.parsenode, {
+            post: function (node) {
+                if (Aux.isCallExp(node) && Aux.isMemberExpression(node.callee)) {
+                    if ( Aux.isIdentifier(node.callee.object) && node.callee.object.name === "client" || node.callee.object.name === "server") {
+                        node.callee.object.name= "self";
+                    }
+                    else if (Aux.isThisExpression((node.callee.object))) {
+                        node.callee.object = {
+                            type: 'Identifier',
+                            name: "self"
+                        }
+                    }
+                }
+            }
+        })
+    }
+
 
     var createCallCb = function (name, err, res) {
       return {
@@ -409,125 +476,56 @@ var NodeParse = (function () {
           };
     };
 
-
-
-    var createDataGetter = function (name) {
-        return {
-            type: "ExpressionStatement",
-            expression: {
-                type: "CallExpression",
-                callee: {
-                    type: "MemberExpression",
-                    computed: false,
-                    object: {
-                        type: "Identifier",
-                        name: "store"
-                    },
-                    property: {
-                        type: "Identifier",
-                        name: "get"
-                    }
-                },
-                arguments: [
-                    {
-                        type: "Literal",
-                        value: name
-                    }
-                ]
-            }
-        }
+    var createObservableObject = function (name, object, server) {
+        if (server)
+            return esprima.parse('server.makeObservableObject(' + name + ', ' + object + ')').body[0].expression;
+        else
+            return esprima.parse('client.makeObservableObject(' + name + ', ' + object + ')').body[0].expression;
     }
 
-    var createDataSetter = function (name, value) {
-        return {
-            type: "ExpressionStatement",
-            expression: {
-                type: "CallExpression",
-                callee: {
-                    type: "MemberExpression",
-                    computed: false,
-                    object: {
-                        type: "Identifier",
-                        name: "store"
-                    },
-                    property: {
-                        type: "Identifier",
-                        name: "set"
-                    }
-                },
-                "arguments": [
-                    {
-                        "type": "Literal",
-                        "value": name,
-                    },
-                    value
-                ]
-            }
-        }
+    var createAnonymousObservableObject = function (object, server) {
+        return createObservableObject(false, object, server)
     }
 
+    var createReplicatedObject = function (name, object, server) {
+        if (server)
+            return esprima.parse('server.makeReplicatedObject(' + name + ', ' + object + ')').body[0].expression;
+        else
+            return esprima.parse('client.makeReplicatedObject(' + name + ', ' + object + ')').body[0].expression;
+    }
 
-    var createGetterVarDecl = function (name) {
-        return {
-            "type": "ExpressionStatement",
-            "expression": {
-                "type": "AssignmentExpression",
-                "operator": "=",
-                "left": {
-                    "type": "Identifier",
-                    "name": name
-                },
-                "right": {
-                    "type": "CallExpression",
-                    "callee": {
-                        "type": "MemberExpression",
-                        "computed": false,
-                        "object": {
-                            "type": "Identifier",
-                            "name": "store"
-                        },
-                        "property": {
-                            "type": "Identifier",
-                            "name": "get"
-                        }
-                    },
-                    "arguments": [
-                        {
-                            "type": "Literal",
-                            "value": name
-                        }
-                    ]
-                }
-            }
-        }
+    var createAnonymousReplicatedObject = function (object, server) {
+        return createReplicatedObject(false, object, server);
     }
 
 
     var createServer = function () {
-        return esprima.parse('var server = new ServerRpc(serverHttp, {}); var store = new Store(); store.connectServer(server);').body;
+        return esprima.parse('var express = require("express"), app = express(); var server = new ServerData(app, 3030)').body;
     };
 
     var createClient = function () {
-        return esprima.parse("var client = new ClientRpc('http://127.0.0.1:8080');var store = new Store(); store.localStore(localStorage, 'app', true); store.connectClient(client);").body;
+        return esprima.parse("var client = new ClientData('http://127.0.0.1:8080', function (name, object) {});").body;
     };
 
     var createServerCloseUp = function () {
-        return esprima.parse("server.onConnection(function (client) {store.loop(function (key, value) {server.rpcTo(client.id, 'updateStore', key, value)});})")
+        return esprima.parse("");
     }
 
     var methodsServer = function () {
-        return esprima.parse("server.expose({'updateStore' : function (key, val, cb) {store.set(key, val, false)}, 'retrieveStore' : function (key, val, cb) {var id = this.id; store.loop(function (key, value) {server.rpcTo(id, 'updateStore', key ,value)}); return cb(null, store.data)}})").body[0]; 
+        return esprima.parse("server.expose({})").body[0];
     };
 
     var methodsClient = function () {
-        return esprima.parse("client.expose({'updateStore' : function (key, val, cb) {store.set(key, val, true)}})").body[0];
+        return esprima.parse("client.expose({})").body[0];
     };
 
 
     toreturn.createVarDecl      = createVarDecl;
     toreturn.createLiteral      = createLiteral;
-    toreturn.createIdentifier   = createIdentifier
+    toreturn.createIdentifier   = createIdentifier;
     toreturn.createExp          = createExp;
+    toreturn.createReturnStm    = createReturnStm;
+    toreturn.createNewExp       = createNewExpression;
     toreturn.callback           = callback;
     toreturn.RPC                = RPC;
     toreturn.RPCReturn          = RPCReturn;
@@ -540,10 +538,13 @@ var NodeParse = (function () {
     toreturn.asyncReplyC        = asyncReplyC;
     toreturn.createReturnStm    = createReturnStm;
     toreturn.createCallCb       = createCallCb;
-    toreturn.createDataSetter   = createDataSetter;
-    toreturn.createDataGetter   = createDataGetter;
-    toreturn.createGetterVarDecl = createGetterVarDecl;
     toreturn.createServerCloseUp = createServerCloseUp;
+    toreturn.transformCPSToReply = transformCPStoReturn;
+    toreturn.addRenameThisStm   = addRenameThisStm;
+    toreturn.createObservableObject = createObservableObject;
+    toreturn.createAnonymousObservableObject = createAnonymousObservableObject;
+    toreturn.createReplicatedObject = createReplicatedObject;
+    toreturn.createAnonymousReplicatedObject = createAnonymousReplicatedObject;
 
 
     if (typeof module !== 'undefined' && module.exports != null) {

@@ -28,11 +28,10 @@ var Comments = (function () {
     var placement_annotation = "@tier";
     var config_annotation    = "@config";
 
-    var datacopy_annotation = "@copy";
+    var dataobservable_annotation = "@observable";
     var datarepl_annotation = "@replicate";
-    var dataread_annotation = "@tier-only";
-    var copy_readonly_spec = "read-only";
-    var copy_update_spec   = "update";
+    var dataread_annotation = "@local";
+    var datacopy_annotation = "@copy";
 
 
     // Client annotations is @client in comment
@@ -76,6 +75,10 @@ var Comments = (function () {
         return comment.value.indexOf(blocking_annotation) != -1;
     }
 
+    var isReplyAnnotated = function (comment) {
+        return comment.value.indexOf(reply_annotation) != -1;
+    }
+
     var isSharedAnnotated = function (comment) {
         return comment.value.indexOf(shared_annotation) != -1;
     }
@@ -90,18 +93,8 @@ var Comments = (function () {
                node.leadingComment.value.indexOf(placement_annotation) != -1;
     }
 
-    var isCopyAnnotated = function (comment) {
-        return comment.value.indexOf(datacopy_annotation) != -1;
-    }
-
-    var isCopyReadAnnotated = function (comment) {
-        return isCopyAnnotated(comment) &&
-                comment.value.indexOf(copy_readonly_spec) != -1;
-    }
-
-    var isCopyUpdateAnnotated = function (comment) {
-        return isCopyAnnotated(comment) &&
-                comment.value.indexOf(copy_update_spec) != -1;
+    var isObservableAnnotated = function (comment) {
+        return comment.value.indexOf(dataobservable_annotation) != -1;
     }
 
     var isReplicatedAnnotated = function (comment) {
@@ -110,6 +103,10 @@ var Comments = (function () {
 
     var isTierOnlyAnnotated = function (comment) {
         return comment.value.indexOf(dataread_annotation) != -1;
+    }
+
+    var isCopyAnnotated = function (comment) {
+        return comment.value.indexOf(datacopy_annotation) != -1;
     }
 
     var getTierName = function (comment) {
@@ -182,8 +179,8 @@ var Comments = (function () {
                 else if (isServerAnnotated(comment)) {
                     graphs.PDG.addServerStm(pdgNode);
                     fnode = graphs.PDG.getFunctionalityNode(DNODES.SERVER);
-
-                    insertNode(upnode, pdgNode, fnode);
+                    upnode.removeEdgeOut(pdgNode, EDGES.CONTROL);
+                    pdgNode.removeEdgeIn(upnode, EDGES.CONTROL);
                 }
                 else if (isFunctionalityAnnotated(pdgNode.parsenode)) {
                     tag = getFunctionalityName(comment);
@@ -339,6 +336,7 @@ var Comments = (function () {
     toreturn.isClientAnnotated          = isClientAnnotated;
     toreturn.isClientorServerAnnotated  = isClientorServerAnnotated;
     toreturn.isBlockingAnnotated        = isBlockingAnnotated;
+    toreturn.isReplyAnnotated           = isReplyAnnotated;
     toreturn.isSharedAnnotated          = isSharedAnnotated;
     toreturn.isGeneratedAnnotated       = isGeneratedAnnotated;
     toreturn.isSliceAnnotated           = isFunctionalityAnnotated;
@@ -346,9 +344,8 @@ var Comments = (function () {
     toreturn.getTierName                = getTierName;
     toreturn.handleProgramNode          = handleProgramNode;
     toreturn.isDefineHandlerAnnotated   = isDefineHandlerAnnotated;
+    toreturn.isObservableAnnotated      = isObservableAnnotated;
     toreturn.isCopyAnnotated            = isCopyAnnotated;
-    toreturn.isCopyReadAnnotated        = isCopyReadAnnotated;
-    toreturn.isCopyUpdateAnnotated      = isCopyUpdateAnnotated;
     toreturn.isReplicatedAnnotated      = isReplicatedAnnotated;
     toreturn.isTierOnlyAnnotated        = isTierOnlyAnnotated;
 

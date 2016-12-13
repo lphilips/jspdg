@@ -39,8 +39,8 @@ var DefaultPlacementStrategy = (function () {
 
 
     if (typeof module !== 'undefined' && module.exports != null) {
-        ARITY = require('./PDG/node.js').ARITY;
-        exports.Comments = toreturn;
+        ARITY = require('../PDG/node.js').ARITY;
+        exports.DefaultPlacementStrategy = toreturn;
     }
 
     return toreturn;

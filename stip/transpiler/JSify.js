@@ -52,7 +52,7 @@ var JSify = (function () {
                   asyncFuncF : JSParse.asyncFun,
                   parseF     : JSParse,
                   shouldTransform : makeShouldTransform(transpiler.options.cps) ,
-                  option     : transpiler.options.cps
+                  option     : transpiler.options.cps,
                 };
     }
 
@@ -423,15 +423,15 @@ var JSify = (function () {
             parsenode = Aux.clone(node.parsenode),
             transpiled;
 
-        makeTransformer(transpiler);
         parsenode.__upnode = getEnclosingFunction(transpiler.node.parsenode, transpiler.ast);
 
         if (call.length > 0) {
+            if (!transpiler.parseUtils)
+                makeTransformer(transpiler);
             transpiled = transpiler.transformCPS.transformExp(transpiler);
             transpiler.nodes = transpiled[0];
             transpiler.transpiledNode = transpiled[1].parsenode;
             transpiler.transpiledNode.__upnode = parsenode.__upnode;
-
             return transpiler;
         }
         if (object.length > 0) {
@@ -631,11 +631,12 @@ var JSify = (function () {
     transformer.transformObjectExp = transformObjectExp;
 
 
-
+    /* New expression can be either an expression (call node)
+     * or a new expression (inside other statement)   */
     function transformNewExp (transpiler) {
         var node        = transpiler.node,
             upnode      = node.getInNodes(EDGES.DATA).concat(node.getInNodes(EDGES.CONTROL).filter(function (n) {return n.isActualPNode}))[0],
-            call        = upnode.getOutNodes(EDGES.CONTROL)
+            call        = node.isCallNode ? node : upnode.getOutNodes(EDGES.CONTROL)
                             .filter(function (n) {return n.isCallNode && n.parsenode.equals(node.parsenode) })[0],
             parsenode   = node.parsenode,
             actual_ins  = call.getActualIn(),

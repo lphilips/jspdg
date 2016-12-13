@@ -1,4 +1,4 @@
-var Stip = (function () {
+var Analysis = (function () {
 
     var module = {};
 
@@ -69,7 +69,6 @@ var Stip = (function () {
 
         graphs.PDG.changeEntry(entry);
         addToPDG(entry, upnode, graphs);
-        graphs.ATP.addNodes(node, entry);
         handleFormalParameters(graphs, node, entry);
         
         /* BODY */
@@ -86,7 +85,7 @@ var Stip = (function () {
                   handleFormalOutParameters(graphs, returnnode, entry, false);
             })
         })
-
+        graphs.ATP.addNodes(node, entry);
         graphs.PDG.reverseEntry(prevEntry);
 
         return [entry]
@@ -410,7 +409,7 @@ var Stip = (function () {
     }
 
     var handleNewExp = function (graphs, node, upnode, toadd) {
-        var name        = node.callee.name,
+        var name        = Aux.isExpStm(node) ? node.expression.callee.name : node.callee.name,
             calledf     = Pdg.functionsCalled(node, graphs.AST).values(),
             objectentry = graphs.PDG.makeObjEntry(node),
             hasEntryParent = upnode.isEntryNode ||
@@ -802,8 +801,8 @@ var Stip = (function () {
 
             if (primitive) {
                 callnode.primitive = true;
-                handleActualParameters(graphs, parsenode, callnode);
                 addToPDG(callnode, upnode, graphs);
+                handleActualParameters(graphs, parsenode, callnode);
                 PDG_node.map(function (p) {addDataDep(p, callnode);});
                 return [callnode];
             }
@@ -871,9 +870,6 @@ var Stip = (function () {
                 }
 
                 if (!callnode.name.startsWith('anonf')) {
-                    /* Recall comment handlers on upnode in case the entry node is handled later than the call node */
-                    if (!entry && upnode.parsenode.leadingComment)
-                        Comments.handleAfterComment(upnode.parsenode.leadingComment, [upnode]);
                     addCallDep(callnode, entrynode);
 
                     /* Bind the actual and formal parameters */
@@ -881,9 +877,7 @@ var Stip = (function () {
                         var a = callnode.getActualIn()[i],
                             f = formals[i];
                         /* actual-in parameter -> formal-in parameter */
-                        if (f && (!a.equalsFunctionality(f) || 
-                            !a.isSharedNode() ||
-                            !f.isSharedNode()))
+                        if (f && !a.equalsFunctionality(f))
                             a.addEdgeOut(f, EDGES.REMOTEPARIN);
                         else if (f)
                             a.addEdgeOut(f, EDGES.PARIN);
@@ -1242,14 +1236,6 @@ var Stip = (function () {
                          .filter(function (e) {
                             return  e.to.equals(to) });
         
-        /* Check on @tier-only */
-        if (fTypeFrom && fTypeTo && from.parsenode &&
-            from.parsenode.leadingComment && Comments.isTierOnlyAnnotated(from.parsenode.leadingComment) &&
-            fTypeFrom !== fTypeTo) {
-            throw new TierOnlyUsedByOtherTier("Declaration annotated as tier only referenced on wrong tier: " + escodegen.generate(to.parsenode));
-        }
-
-
         if(dupl.length < 1) {
             if(fTypeFrom && fTypeTo && 
                 (fTypeFrom !== DNODES.SHARED&&
@@ -1513,5 +1499,5 @@ if (typeof module !== 'undefined' && module.exports != null) {
     var Aux = require('./aux.js').Aux;
     var Ast = require('../jipda-pdg/ast.js').Ast;
     var Pdg = require('../jipda-pdg/pdg/pdg.js').Pdg;
-    exports.Stip  = Stip;
+    exports.Analysis  = Analysis;
 }

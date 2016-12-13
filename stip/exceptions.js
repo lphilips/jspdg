@@ -1,29 +1,68 @@
-function NotImplementedError (message) {
-    this.name = "NotImplementedError";
-    this.message = (message || "");
-    this.stack = (new Error()).stack;
-}
-NotImplementedError.prototype = Error.prototype;
+var Exceptions = (function () {
+
+    var toreturn = {};
+
+    function NotImplementedError (message) {
+        this.name = "NotImplementedError";
+        this.message = (message || "");
+        this.stack = (new Error()).stack;
+    }
+    NotImplementedError.prototype = Error.prototype;
+    toreturn.NotImplementedError = NotImplementedError;
+
+    function ReplyAnnotationLocation (message) {
+        this.name = "ReplyAnnotationLocation";
+        this.message = (message || "");
+        this.stack = (new Error()).stack;
+    }
+    ReplyAnnotationLocation.prototype = Error.prototype;
+    toreturn.ReplyAnnotationLocation = ReplyAnnotationLocation;
+
+    function DeclarationNotFoundError (message) {
+        this.name = "DeclarationNotFoundError";
+        this.message = (message || "");
+        this.stack = (new Error()).stack;
+    }
+    DeclarationNotFoundError.prototype = Error.prototype;
+    toreturn.DeclarationNotFoundError = DeclarationNotFoundError;
+
+    function MultipleFunctionsCalledError (message) {
+        this.name = "MultipleFunctionsCalledError";
+        this.message = (message || "");
+        this.stack = (new Error()).stack;
+    }
+    MultipleFunctionsCalledError.prototype = Error.prototype;
+    toreturn.MultipleFunctionsCalledError = MultipleFunctionsCalledError;
 
 
-function DeclarationNotFoundError (message) {
-    this.name = "DeclarationNotFoundError";
-    this.message = (message || "");
-    this.stack = (new Error()).stack;
-}
-DeclarationNotFoundError.prototype = Error.prototype;
-
-function MultipleFunctionsCalledError (message) {
-    this.name = "MultipleFunctionsCalledError";
-    this.message = (message || "");
-    this.stack = (new Error()).stack;
-}
-MultipleFunctionsCalledError.prototype = Error.prototype;
+    function LocalUsedByOtherTier (message) {
+        this.name = "LocalUsedByOtherTier";
+        this.message = (message || "");
+        this.stack = (new Error()).stack;
+    }
+    LocalUsedByOtherTier.prototype = Error.prototype;
+    toreturn.LocalUsedByOtherTier = LocalUsedByOtherTier;
 
 
-function TierOnlyUsedByOtherTier (message) {
-    this.name = "TierOnlyUsedByOtherTier";
-    this.message = (message || "");
-    this.stack = (new Error()).stack
-}
-TierOnlyUsedByOtherTier.prototype = Error.prototype;
+    function ObservableAssignmentOnOtherTier (message) {
+        this.name = "ObservableAssignmentOnOtherTier";
+        this.message = (message || "");
+        this.stack = (new Error()).stack;
+    }
+
+    ObservableAssignmentOnOtherTier.prototype = Error.prototype;
+
+    if (typeof module !== 'undefined' && module.exports != null) {
+        exports.NotImplementedError = NotImplementedError;
+        exports.ReplyAnnotationLocation = ReplyAnnotationLocation;
+        exports.DeclarationNotFoundError = DeclarationNotFoundError;
+        exports.MultipleFunctionsCalledError = MultipleFunctionsCalledError;
+        exports.LocalUsedByOtherTier = LocalUsedByOtherTier;
+        exports.ObservableAssignmentOnOtherTier = ObservableAssignmentOnOtherTier;
+
+    }
+
+    return toreturn;
+
+
+})()

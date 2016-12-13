@@ -59,6 +59,9 @@ var JSParse = (function () {
                   getResPar  : function () {
                     return this.parsenode.params[1];
                   },
+                  getErrPar  : function () {
+                      return this.parsenode.params[0];
+                  },
                   getResParCnt : function () {
                     return cnt;
                   }

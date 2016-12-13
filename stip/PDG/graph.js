@@ -86,7 +86,7 @@ PDG.prototype.getEntryNode = function (parsenode) {
     return filtered[0];
 }
 
-PDG.prototype.getAllNodes = function () {
+PDG.prototype.getAllNodes = function (filter) {
     var nodes     = [],
         contains  = function (set, id) {
                         for (var i = 0; i < set.length; i++) {
@@ -97,16 +97,20 @@ PDG.prototype.getAllNodes = function () {
                     };
         selectAll = function (node) {
             if (!contains(nodes, node.id )) {
-                nodes = nodes.concat(node);
-                var out = node.edges_out.map(function (e) { return e.to});
+                nodes.push(node);
+                var out = node.getOutNodes();
                 out.map(function (n) {selectAll(n)})
             }
         };
     this.nodes.map(function (n) {selectAll(n)});
+    this.getFunctionalityNodes().map(function (n) {selectAll(n)});
     nodes.sort(function (n1, n2) {
         return n1.cnt - n2.cnt;
-    })
-    return nodes;
+    });
+    if (filter)
+      return nodes.filter(function (n) {return filter(n)});
+    else
+      return nodes;
 }
 
 
@@ -334,7 +338,7 @@ PDG.prototype.sliceDistributedNode = function (ctype) {
         getLeaves = function (node) {
           var leaves = [],
               visited = [],
-              out = node.edges_out;
+              out = node.edges_out.slice();
           while (out.length > 0) {
                 var edge = out.shift(),
                     target = edge.to,

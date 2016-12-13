@@ -1431,6 +1431,9 @@ box-shadow: inset 0px 2px 25px -8px rgba(0,0,0,0.76);
   transform: rotate(-45deg);
 }
 
+#tb-nav-collapse {
+    margin-right: 50px;
+}
 
 
 /* CODE */

@@ -531,7 +531,7 @@ var CPSTransform = (function () {
 
             transpiledNode = latestcall;
         }
-       
+
 
         return [nodes, transpiledNode, esp_exp];
 
@@ -555,21 +555,20 @@ var CPSTransform = (function () {
             Aux.walkAst(func.parsenode, {
                 post : function (node) {
                     var enclosingFun = getEnclosingFunction(node, transpiler.ast);
+                    var errorArg = enclosingFun._transformed ? enclosingFun._errArg : {type: 'Literal', value: null};
                     /* Make sure methods like equal, hashcode are defined on the node*/
                     if (enclosingFun && !enclosingFun.equals)
                         Ast.augmentAst(enclosingFun);
-                    if ( Aux.isRetStm(node) && 
+                    if ( Aux.isRetStm(node) && !node.__returnTransformed &&
                         node.__upnode.equals(func.parsenode)) {
                             /* callnode property is added if return statement is already transformed to a cps call
                                No need to wrap it in a callback call again */
                             if (node.argument && !node._callnode) {
-                                node.type = "ReturnStatement";
-                                node.argument = transpiler.parseUtils.createCbCall('callback', {type: 'Literal', value: null}, node.argument);
+                                node.argument = transpiler.parseUtils.createCbCall('callback', errorArg, node.argument);
                             }
                             /* callnode property is added if return statement is already transformed to a cps call
                                No need to wrap it in a callback call again */
                             else if (!node._callnode) {
-                                node.type = "ReturnStatement";
                                 node.argument = transpiler.parseUtils.createCbCall('callback', {type: 'Literal', value: null}, node.argument);
                             }
                     }
@@ -729,14 +728,12 @@ var CPSTransform = (function () {
                         var proxyName = Handler.makeProxyName(lastHandler.getId());
                         transformCall.setObjectName(proxyName);
                     }
-
                     lastHandler.incRpcCount();
                 }   
-
                 return [nodes, transformCall]
             }
         }
-        return [nodes, callnode.parsenode]
+        return [nodes, callnode]
     }
 
     /* Used for expression with calls :
@@ -786,8 +783,7 @@ var CPSTransform = (function () {
 
                     if (transpiled[2]) {
                         node.parsenode = Aux.clone(node.parsenode);
-                        exps.push(transpiled[2]); 
-                       // CPSsetExpStm(parsenode, transpiled[2]);
+                        exps.push(transpiled[2]);
                     }
                     else 
                         exps.push(false);
@@ -814,9 +810,22 @@ var CPSTransform = (function () {
             })
         cps_count = local_count;
         
-        if ( (calls.length == 1 && exps[0]) || calls.length > resp.length && exps[0])
-         {
+        if (!Aux.isRetStm(parsenode) &&
+            (calls.length == 1 && exps[0]) || calls.length > resp.length && exps[0]) {
             CPSsetExpStm(parsenode, exps[0]);
+        }
+
+        else if (Aux.isRetStm(parsenode) && outercps) {
+            var returnstm = Aux.clone(parsenode);
+            for(var i = 0; i < calls.length; i++) {
+                if (resp[i])
+                    replaceCall(returnstm.argument, calls[i], resp[i]);
+            }
+            parsenode.argument = transpiler.parseUtils.createCbCall('callback', outercps.callback.getErrPar(), returnstm.argument);
+            returnstm.argument = outercps.parsenode.expression;
+            returnstm.__returnTransformed = true;
+            parsenode.__returnTransformed = true;
+            outercps.parsenode = returnstm;
         }
         else {
             for(var i = 0; i < calls.length; i++) {
@@ -825,7 +834,6 @@ var CPSTransform = (function () {
             }
         }
         if (outercps)
-
             return [nodes, outercps];
         else
 
