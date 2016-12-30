@@ -181,28 +181,29 @@ var CodeGenerator = (function () {
 
         while (nodes.length > 0) {
             var n = nodes.shift();
-            if (n.parsenode) {
+            if (n.parsenode && !(Aux.isBlockStm(n.parsenode) &&
+                (Comments.isSliceAnnotated(n.parsenode) ||
+                Comments.isClientorServerAnnotated(n.parsenode)))) {
+
                 transpiled = toCode(option, nodes, n, ast);
                 if (transpiled.transpiledNode) {
-                    if (Aux.isBlockStm(transpiled.transpiledNode) &&
-                        (Comments.isSliceAnnotated(transpiled.transpiledNode) ||
-                        Comments.isClientorServerAnnotated(transpiled.transpiledNode) ||
-                        transpiled.transpiledNode.leadingComment && Comments.isBlockingAnnotated(transpiled.transpiledNode.leadingComment)))
-
+                    if (transpiled.transpiledNode.leadingComment &&
+                        Comments.isBlockingAnnotated(transpiled.transpiledNode.leadingComment)) {
                         program.body = program.body
                             .concat(transpiled.setupNode)
                             .concat(transpiled.transpiledNode.body)
                             .concat(transpiled.closeupNode);
+                    }
                     else
                         program.body = program.body.concat(transpiled.getTransformed());
-
                 }
                 nodes = transpiled.nodes;
                 nodes.remove(n);
-                option.cloudtypes = transpiled.cloudtypes;
                 methods = methods.concat(transpiled.methods);
             }
-        };
+
+        }
+        ;
 
         addSetUp(option, transpiled);
         addCloseUp(option, transpiled);
@@ -221,7 +222,7 @@ var CodeGenerator = (function () {
     }
 
 
-    var prepareNodes = function (clientnodes, servernodes, graphs) {
+    var prepareNodes = function (clientnodes, servernodes, graphs, options) {
         var cnodes = clientnodes.slice(0),
             snodes = servernodes.slice(0),
             removes = [],
@@ -299,42 +300,55 @@ var CodeGenerator = (function () {
         /* Copy @copy, @observable, @replicated declarations on server tier to client tier.
          *  Replicated and observable will be transformed during transpilation */
         servernodes.map(function (node) {
-            var declarationparent;
-            var parsenode;
-            var declarationcomment;
-            var callsTo;
+            function addControlDepRec(n) {
+                n.getOutNodes(EDGES.CONTROL).map(function (n) {
+                    copydeclarations.push(n);
+                    addControlDepRec(n);
+                })
+            }
 
             if (node.isStatementNode) {
-                parsenode = node.parsenode;
-                declarationcomment = parsenode.leadingComment;
-                callsTo = node.getOutNodes(EDGES.CONTROL).filter(function (n) {
-                    return n.isCallNode
-                }).flatMap(function (n) {
-                    return n.getOutNodes(EDGES.CALL);
-                }).filter(function (n) {
-                    return n.isEntryNode && n.isConstructor && n.parsenode.leadingComment &&
-                        (Comments.isObservableAnnotated(n.parsenode.leadingComment) ||
-                        Comments.isReplicatedAnnotated(n.parsenode.leadingComment));
-                });
+
+                if (Analysis.isRemoteData(options, node)) {
+
+                    if (options.analysis && Aux.isExpStm(node.parsenode)) {
+                        var callsTo = node.getOutNodes(EDGES.CONTROL).filter(function (n) {
+                            return n.isCallNode
+                        }).flatMap(function (n) {
+                            return n.getOutNodes(EDGES.CALL);
+                        }).filter(function (n) {
+                            return n.isEntryNode && n.isConstructor && n.parsenode.leadingComment &&
+                                (Comments.isObservableAnnotated(n.parsenode.leadingComment) ||
+                                Comments.isReplicatedAnnotated(n.parsenode.leadingComment));
+                        });
+                        /* Push declaration node as well */
+                        var decl = node.getInNodes(EDGES.DATA).filter(function (n) {
+                            return n.isStatementNode && n.parsenode &&
+                                Aux.isVarDeclarator(n.parsenode)
+                        })[0];
+                        if (decl && callsTo.length > 0)
+                            copydeclarations.push(decl);
+                    }
+
+                    copydeclarations.push(node);
+                    addControlDepRec(node);
+                }
 
 
-                if (Aux.isVarDeclarator(parsenode)) {
-                    declarationparent = Aux.parent(parsenode, graphs.AST);
-                }
-                if (declarationcomment && (Comments.isCopyAnnotated(declarationcomment) ||
-                    Comments.isObservableAnnotated(declarationcomment) || Comments.isReplicatedAnnotated(declarationcomment))) {
-                    copydeclarations.push(node);
-                }
-                if (Aux.isExpStm(parsenode) && callsTo.length > 0) {
-                    /* Push declaration node as well */
-                    var decl = node.getInNodes(EDGES.DATA).filter(function (n) {
-                        return n.isStatementNode && n.parsenode &&
-                            Aux.isVarDeclarator(n.parsenode)
-                    })[0];
-                    if (decl)
-                        copydeclarations.push(decl);
-                    copydeclarations.push(node);
-                }
+                // if (declarationcomment && (Comments.isCopyAnnotated(declarationcomment) ||
+                //     Comments.isObservableAnnotated(declarationcomment) || Comments.isReplicatedAnnotated(declarationcomment))) {
+                //     copydeclarations.push(node);
+                // }
+                // if (Aux.isExpStm(parsenode) && callsTo.length > 0) {
+                //     /* Push declaration node as well */
+                //     var decl = node.getInNodes(EDGES.DATA).filter(function (n) {
+                //         return n.isStatementNode && n.parsenode &&
+                //             Aux.isVarDeclarator(n.parsenode)
+                //     })[0];
+                //     if (decl)
+                //         copydeclarations.push(decl);
+                //     copydeclarations.push(node);
+                // }
 
             }
 
@@ -346,7 +360,7 @@ var CodeGenerator = (function () {
             }
         });
         cnodes = copydeclarations.concat(cnodes);
- 
+
         return [cnodes, snodes];
     }
 

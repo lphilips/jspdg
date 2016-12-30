@@ -3,7 +3,7 @@ var CheckAnnotations = (function () {
     var toreturn = {};
 
 
-    function checkAnnotations(PDG) {
+    function checkAnnotations(PDG, options) {
         var nodes = PDG.getAllNodes();
         var warnings = [];
 
@@ -16,41 +16,38 @@ var CheckAnnotations = (function () {
         })
 
         varDecls.forEach(function (node) {
-            warnings = warnings.concat(checkDataAnnotations(node));
+            warnings = warnings.concat(checkDataAnnotations(node, options));
         })
 
         calls.forEach(function (node) {
-            warnings = warnings.concat(checkCommunicationAnnotations(node));
+            warnings = warnings.concat(checkCommunicationAnnotations(node, options));
         })
         return warnings;
     }
 
-    function checkCommunicationAnnotations(node) {
+    function checkCommunicationAnnotations(node, options) {
         var comment = node.parsenode.leadingComment;
         var warnings = [];
-        var entry, remotecalls, entryTier, calls;
+        var entry, remote, local, entryTier;
 
         if (node.isCallNode && comment && Comments.isReplyAnnotated(comment)) {
             entry = node.enclosingEntry();
             entryTier = entry.getTier();
             /* Does the surrounding function needs to be transformed? */
-            remotecalls = entry.getCalls(true).filter(function (c) {
-                return c.getTier() !== entryTier;
-            });
-            calls = entry.getCalls().filter(function (c) {
-                return c.getTier() === entryTier;
-            })
-            if (remotecalls.length <= 0)
+            remote = Analysis.isRemoteFunction(options, entry);
+            local  = Analysis.isLocalFunction(options, entry);
+            if (local && !remote)
                warnings.push(new Exceptions.ReplyAnnotationLocation("Reply annotation not inside remote function: " + escodegen.generate(node.parsenode)));
-            if (calls.length > 0)
+            else if (local)
                 warnings.push(new Exceptions.ReplyAnnotationLocation("Reply annotation in local function definition transformed to broadcast: " + escodegen.generate(entry.parsenode)));
-
+            else if (!local && !remote)
+                warnings.push(new Exceptions.ReplyAnnotationLocation("Reply annotation in wrong place " + escodegen.generate(node.parsenode)));
         }
 
         return warnings;
     }
 
-    function checkDataAnnotations(node) {
+    function checkDataAnnotations(node, options) {
         var warnings = [];
         var fTypeNode = node.getFType();
         var comment = node.parsenode.leadingComment;

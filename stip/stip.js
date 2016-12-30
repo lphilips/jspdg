@@ -1,4 +1,4 @@
-var Analysis = (function () {
+var FlowGraph = (function () {
 
     var module = {};
 
@@ -9,6 +9,8 @@ var Analysis = (function () {
         return arrayprims.indexOf(callname) >= 0 || stringprims.indexOf(callname) >= 0
     } 
 
+
+    var analysis = true; // default true
 
 
     /*   _________________________________ PROGRAMS _________________________________
@@ -441,7 +443,7 @@ var Analysis = (function () {
         if (!hasEntryParent)
             upnode.addEdgeOut(objectentry, EDGES.DATA);
         if (calledf.length > 1) 
-            throw new MultipleFunctionsCalledError(escodegen.generate(node));
+            throw new Exceptions.MultipleFunctionsCalledError(escodegen.generate(node));
 
 
 
@@ -473,7 +475,7 @@ var Analysis = (function () {
 
         if (declaration) // Can be false when identifier is this-expression
             graphs.ATP.addNodes(declaration, stmNode);
-        else if (!Aux.isMemberExpression(parsenode.left)) {
+        else if (!Aux.isMemberExpression(parsenode.left) && analysis) {
             throw new DeclarationNotFoundError(escodegen.generate(node));
         }
         
@@ -665,16 +667,16 @@ var Analysis = (function () {
         if (Aux.isMemberExpression(parsenode.callee)) { 
             var  getObject = function (member) {
                     if (member.object && Aux.isIdentifier(member.object))
-                        return member.object
+                        return member.object;
                     else if (member.callee)
-                        return member.callee
+                        return member.callee;
                     else
                         return getObject(member.object)
                  },
                  declaration = Pdg.declarationOf(getObject(parsenode.callee), graphs.AST);
             var hasEntryParent = upnode.isEntryNode || (upnode.parsenode && (Aux.isIfStm(upnode.parsenode) ||
                              Aux.isForStm(upnode.parsenode) || Aux.isCatchStm(upnode.parsenode) || Aux.isThrowStm(upnode.parsenode)));
-            if (!declaration)
+            if (!declaration && analysis)
                 throw new DeclarationNotFoundError(escodegen.generate(getObject(parsenode.callee)));
             var PDG_node = graphs.ATP.getNode(declaration),
                  handle = function (pdgnode, objectentry) {
@@ -937,12 +939,31 @@ var Analysis = (function () {
                     entrynode.addCall(callnode);
                 return [callnode];
             };
-        if (calledf.length > 1) {
-            throw new MultipleFunctionsCalledError(escodegen.generate(node));
+        if (calledf.length > 1 && analysis) {
+            if ((Comments.isLocalCallAnnotated(node) ||
+                Comments.isRemoteCallAnnotated(node)) || (upnode && upnode.parsenode &&
+                (Comments.isLocalCallAnnotated(upnode.parsenode) || Comments.isRemoteCallAnnotated(upnode.parsenode)))) {
+                    calledf.forEach(function (fn) {
+                        var entry = graphs.PDG.getEntryNode(fn);
+                        if (entry)
+                            handle(entry);
+                        else {
+                            graphs.ATP.installListener(fn, handle);
+                            if (!callnode.name.startsWith('anonf')) {
+                                addToPDG(callnode, upnode, graphs);
+                                handleActualParameters(graphs, parsenode, callnode);
+                            }
+                        }
+
+                    })
+                }
+
+            else
+                throw new Exceptions.MultipleFunctionsCalledError(escodegen.generate(node));
         }
 
         /* generated calls should add call info to entry node */
-        if (Comments.isGeneratedAnnotated(node.leadingComment)) {
+        else if (Comments.isGeneratedAnnotated(node.leadingComment)) {
             return;
         }
 
@@ -1152,15 +1173,14 @@ var Analysis = (function () {
                    addDataDep(PDG_node, upnode)
             },
             declaration, PDG_nodes;
-        if (!isPrimitive) {
-            // SHOULD RETURN ALL DECLARATIONS OF...
+        if (!isPrimitive && analysis) {
+
             declaration = Pdg.declarationOf(node, graphs.AST);
             if (declaration) {
 
                 PDG_nodes = graphs.ATP.getNode(declaration);
                 if (PDG_nodes)
                     PDG_nodes.map(function (pdgnode) {
-                        /* TODO check if exec. can reach the pdg_node before adding data dep */
                         handle(pdgnode)
                     })
                 else 
@@ -1202,7 +1222,6 @@ var Analysis = (function () {
 
     /* Auxiliary Functions to add correct edges to nodes, etc. */
     var addToPDG = function (node, upnode, graphs) {
-        var comment;
         if (upnode.isObjectEntry)
             upnode.addEdgeOut(node, EDGES.OBJMEMBER)
         else
@@ -1211,39 +1230,45 @@ var Analysis = (function () {
     }
 
     var addCallDep = function (from, to) {
-        var fTypeFrom = from.getFType(),
-            fTypeTo   = to.getFType();
+        if (analysis) {
+            var fTypeFrom = from.getFType(),
+                fTypeTo = to.getFType();
 
-        if (fTypeFrom && fTypeTo) {
 
-            if (fTypeFrom === DNODES.SHARED || fTypeTo === DNODES.SHARED) 
-                from.addEdgeOut(to, EDGES.CALL);
-            else if (fTypeFrom!== fTypeTo) 
-                from.addEdgeOut(to, EDGES.REMOTEC);
-            else 
+            if (fTypeFrom && fTypeTo) {
+
+                if (fTypeFrom === DNODES.SHARED || fTypeTo === DNODES.SHARED)
+                    from.addEdgeOut(to, EDGES.CALL);
+                else if (fTypeFrom !== fTypeTo)
+                    from.addEdgeOut(to, EDGES.REMOTEC);
+                else
+                    from.addEdgeOut(to, EDGES.CALL);
+            }
+            else
                 from.addEdgeOut(to, EDGES.CALL);
         }
-        else
-            from.addEdgeOut(to, EDGES.CALL)
     }
 
     var addDataDep = function (from, to) {
-        var fTypeFrom = from.getFType(),
-            fTypeTo = to.getFType(),
-            /* Double check if no duplicate data dependencies are added */
-            dupl   = from.getOutEdges(EDGES.REMOTED)
-                         .concat(from.getOutEdges(EDGES.DATA))
-                         .filter(function (e) {
-                            return  e.to.equals(to) });
-        
-        if(dupl.length < 1) {
-            if(fTypeFrom && fTypeTo && 
-                (fTypeFrom !== DNODES.SHARED&&
-                 fTypeTo   !== DNODES.SHARED) &&
-                 fTypeFrom !== fTypeTo) 
-                from.addEdgeOut(to, EDGES.REMOTED);
-            else
-                from.addEdgeOut(to, EDGES.DATA);
+        if (analysis) {
+            var fTypeFrom = from.getFType(),
+                fTypeTo = to.getFType(),
+                /* Double check if no duplicate data dependencies are added */
+                dupl = from.getOutEdges(EDGES.REMOTED)
+                    .concat(from.getOutEdges(EDGES.DATA))
+                    .filter(function (e) {
+                        return e.to.equals(to)
+                    });
+
+            if (dupl.length < 1) {
+                if (fTypeFrom && fTypeTo &&
+                    (fTypeFrom !== DNODES.SHARED &&
+                    fTypeTo !== DNODES.SHARED) &&
+                    fTypeFrom !== fTypeTo)
+                    from.addEdgeOut(to, EDGES.REMOTED);
+                else
+                    from.addEdgeOut(to, EDGES.DATA);
+            }
         }
     }
 
@@ -1254,44 +1279,9 @@ var Analysis = (function () {
      * This function rechecks them.
      */
     var postRemoteDep = function (params) {
-        params.map( function (param) {
-            var datadeps = param.getInEdges(EDGES.DATA)
-                                .concat(param.getInEdges(EDGES.REMOTED)),
-                calldeps = param.getInEdges().filter( function (e) {
-                    return e.from.isCallNode  
-                }).map( function (e) { return e.from});
+        if (analysis) {
 
-            var paramtype = param.getFType(true);   
-
-            datadeps.map(function (e) {
-                var fTypeFrom = e.from.getFType(true);
-                if(fTypeFrom && paramtype && 
-                   (fTypeFrom !== DNODES.SHARED &&
-                    paramtype !== DNODES.SHARED) && 
-                    fTypeFrom !== paramtype)
-                    e.type = EDGES.REMOTED;
-                else
-                    e.type = EDGES.DATA;
-            })
-
-            calldeps.map(function (n) {
-                 n.getOutEdges(EDGES.CALL).concat(n.getOutEdges(EDGES.REMOTEC))
-                  .map( function (e) {
-                    var fTypeTo = e.to.getFType(true),
-                        fTypeFrom = e.from.getFType(true);
-                    if(fTypeFrom && fTypeTo) {
-                        if(fTypeFrom === DNODES.SHARED ||
-                           fTypeTo === DNODES.SHARED) 
-                              e.type = EDGES.CALL;
-                        else if (fTypeFrom !== fTypeTo) 
-                              e.type = EDGES.REMOTEC;
-                        else 
-                           e.type =  EDGES.CALL;
-                    }
-                });
-
-            })
-        })
+        }
     }
 
     /* make PDG node out of an AST node:
@@ -1459,9 +1449,11 @@ var Analysis = (function () {
     }
 
     /* Create the program dependency graph */
-    start = function (graphs) {
+    start = function (graphs, analysisFlag) {
+        analysis = analysisFlag;
         makePDGNode(graphs, graphs.AST);
     }
+
 
     module.start = start;
     module.Graphs = Graphs;
@@ -1499,5 +1491,6 @@ if (typeof module !== 'undefined' && module.exports != null) {
     var Aux = require('./aux.js').Aux;
     var Ast = require('../jipda-pdg/ast.js').Ast;
     var Pdg = require('../jipda-pdg/pdg/pdg.js').Pdg;
-    exports.Analysis  = Analysis;
+    var Exceptions = require('./exceptions.js');
+    exports.FlowGraph  = FlowGraph;
 }

@@ -4,7 +4,7 @@ var cy;
 var warnings;
 function analyse (src) {
         try {
-            graphs = Stip.analyse(src);
+            graphs = Stip.generateGraphs(src, true);
             cy = createComponentGraph(graphs.PDG);
             createOfflineReport(graphs);
             return graphs; 
@@ -67,7 +67,7 @@ function analyse (src) {
             var serverprogram;
             var split;
             editor.setValue("");
-            split = Stip.tierSplit(src);
+            split = Stip.tierSplit(src, true);
             clientprogram = split[0];
             serverprogram = split[1];
             printCode([clientprogram, serverprogram], editor);

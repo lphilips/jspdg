@@ -1,12 +1,11 @@
-global.warnings;
 var Stip = (function () {
 
     var interface = {};
 
 
-    function generateGraphs(source) {
-        var ast, preanalysis, warnings;
-
+    function generateGraphs(source, analysis) {
+        var warnings = [],
+            ast, preanalysis;
         ast = Ast.createAst(source, {loc: true, owningComments: true, comment: true});
         ast = Hoist.hoist(ast, function (node) {
             return Aux.isBlockStm(node) &&
@@ -19,57 +18,61 @@ var Stip = (function () {
         asyncs = preanalysis.asyncs;
         shared = preanalysis.shared;
 
-        graphs = new Analysis.Graphs(preanalysis.ast, source, preanalysis.primitives);
-        Analysis.start(graphs);
+        graphs = new FlowGraph.Graphs(preanalysis.ast, source, preanalysis.primitives);
+        FlowGraph.start(graphs, analysis);
         graphs.PDG.distribute(DefaultPlacementStrategy);
-        graphs.warnings = CheckAnnotations.checkAnnotations(graphs.PDG);
+        graphs.warnings = warnings.concat(CheckAnnotations.checkAnnotations(graphs.PDG, {analysis: analysis}));
         graphs.assumes = preanalysis.assumes;
         return graphs;
     }
 
 
-    function tiersplit(source) {
+    function tiersplit(source, analysis) {
+        try {
+            var graphs = generateGraphs(source, analysis),
+                PDG = graphs.PDG;
 
-        var graphs = generateGraphs(source),
-            PDG = graphs.PDG;
-
-        var slicedc = PDG.sliceTier(DNODES.CLIENT),
-            sliceds = PDG.sliceTier(DNODES.SERVER),
-            splitCode = function (nodes, option) {
-                var target = "node.js",
-                    asyncomm = "callbacks",
-                    program = CodeGenerator.transpile(nodes, {
-                        target: target,
-                        tier: option,
-                        asynccomm: asyncomm
-                    }, graphs.AST);
-                return program;
-            },
-            nodes = CodeGenerator.prepareNodes(slicedc, sliceds, graphs);
-        clientprogram = splitCode(nodes[0], "client");
-        serverprogram = splitCode(nodes[1], "server");
-        return [clientprogram, serverprogram, graphs.warnings];
+            var slicedc = PDG.sliceTier(DNODES.CLIENT),
+                sliceds = PDG.sliceTier(DNODES.SERVER),
+                splitCode = function (nodes, option) {
+                    var target = "node.js",
+                        asyncomm = "callbacks",
+                        program = CodeGenerator.transpile(nodes, {
+                            target: target,
+                            tier: option,
+                            asynccomm: asyncomm,
+                            analysis: analysis,
+                        }, graphs.AST);
+                    return program;
+                },
+                nodes = CodeGenerator.prepareNodes(slicedc, sliceds, graphs, {analysis: analysis});
+            clientprogram = splitCode(nodes[0], "client");
+            serverprogram = splitCode(nodes[1], "server");
+            return [clientprogram, serverprogram, graphs.warnings];
+        } catch (e) {
+            return [false, false, [e]];
+        }
     }
 
-    function cpsTransform(source) {
-        var graphs = generateGraphs(source),
+    function cpsTransform(source, analysis) {
+        var graphs = generateGraphs(source, analysis),
             nodes = graphs.PDG.getAllNodes();
 
-        nodes = CodeGenerator.prepareNodes([], nodes, graphs);
-        program = CodeGenerator.transpile(nodes[1], {target: 'normal', cps: true}, graphs.AST);
+        nodes = CodeGenerator.prepareNodes([], nodes, graphs, {analysis: analysis});
+        program = CodeGenerator.transpile(nodes[1], {target: 'normal', cps: true, analysis: analysis}, graphs.AST);
         return program;
     }
 
 
-    function generateJavaScript(source) {
-        var graphs = generateGraphs(source),
+    function generateJavaScript(source, analysis) {
+        var graphs = generateGraphs(source, analysis),
             nodes = graphs.PDG.getAllNodes();
-        nodes = CodeGenerator.prepareNodes([], nodes, graphs);
-        program = CodeGenerator.transpile(nodes[1], {target: 'normal', cps: false}, graphs.AST);
+        nodes = CodeGenerator.prepareNodes([], nodes, graphs, {analysis: analysis});
+        program = CodeGenerator.transpile(nodes[1], {target: 'normal', cps: false, analysis: analysis}, graphs.AST);
         return program;
     }
 
-    function slice(source, sliceStm) {
+    function slice(source, sliceStm, analysis) {
         function getNodeForSrc(statementsrc, nodes) {
             var node;
             nodes.forEach(function (n) {
@@ -87,31 +90,31 @@ var Stip = (function () {
             return node;
         }
 
-        var graphs = generateGraphs(source),
+        var graphs = generateGraphs(source, analysis),
             nodes = graphs.PDG.getAllNodes(),
             node;
 
-        nodes = CodeGenerator.prepareNodes([], nodes, graphs)[1];
+        nodes = CodeGenerator.prepareNodes([], nodes, graphs, {analysis: analysis})[1];
         node = getNodeForSrc(sliceStm, nodes);
         nodes = graphs.PDG.slice(node);
         nodes.sort(function (n1, n2) {
             return n1.cnt - n2.cnt;
         });
-        program = CodeGenerator.transpile(nodes, {target: 'normal', cps: false}, graphs.AST);
+        program = CodeGenerator.transpile(nodes, {target: 'normal', cps: false, analysis: analysis}, graphs.AST);
 
         return program;
     }
 
 
-    interface.generateGraph = generateGraphs;
+    interface.generateGraphs = generateGraphs;
     interface.tierSplit = tiersplit;
     interface.cpsTransform = cpsTransform;
     interface.generateJavaScript = generateJavaScript;
     interface.slice = slice;
-    
+
     if (typeof module !== 'undefined' && module.exports != null) {
         CPSTransform = require('./transpiler/CPS_transform.js').CPSTransform;
-        Analysis = require('./stip.js').Analysis;
+        FlowGraph = require('./stip.js').FlowGraph;
         Handler = require('./handler.js').Handler;
         pre_analyse = require('./pre-analysis.js').pre_analyse;
         CodeGenerator = require('./transpiler/slice.js').CodeGenerator;

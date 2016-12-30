@@ -12,10 +12,18 @@ var Comments = (function () {
     var afterHandlers  = [];
 
 
-    var component_annotation = "@slice"
+    var component_annotation = "@slice";
     var client_annotation    = "@client";
     var server_annotation    = "@server";
     var assumes_annotation   = "@assumes";
+
+    var remotefunction_annotation ="@remoteFunction";
+    var remotecall_annotation = "@remoteCall";
+    var remotedata_annotation = "@remoteData";
+    var localcall_annotation  = "@localCall";
+    var localfunction_annotation = "@localFunction";
+    var localdata_annotation = "@localData";
+
 
     var use_handler_annotation = "@useHandler";
 	var define_handler_annotation = "@defineHandlers";
@@ -49,6 +57,37 @@ var Comments = (function () {
             Aux.isBlockStm(node) &&
             (isClientAnnotated(node.leadingComment) || 
                 isServerAnnotated(node.leadingComment));
+    }
+
+
+    var isRemoteFunctionAnnotated = function (node) {
+        return  node.leadingComment &&
+                node.leadingComment.value.indexOf(remotefunction_annotation) != -1;
+    }
+
+    var isRemoteCallAnnotated = function (node) {
+        return  node.leadingComment &&
+            node.leadingComment.value.indexOf(remotecall_annotation) != -1;
+    }
+
+    var isRemoteDataAnnotated = function (node) {
+        return  node.leadingComment &&
+            node.leadingComment.value.indexOf(remotedata_annotation) != -1;
+    }
+
+    var isLocalFunctionAnnotated = function (node) {
+        return node.leadingComment &&
+                node.leadingComment.value.indexOf(localfunction_annotation) != -1;
+    }
+
+    var isLocalCallAnnotated = function (node) {
+        return node.leadingComment &&
+                node.leadingComment.value.indexOf(localcall_annotation) != -1;
+    }
+
+    var isLocalDataAnnotated = function (node) {
+        return node.leadingComment &&
+                node.leadingComment.value.indexOf(localdata_annotation) != -1;
     }
 
     var isAssumesAnnotated = function (string) {
@@ -334,6 +373,12 @@ var Comments = (function () {
     toreturn.isTierAnnotated            = isTierAnnotated;
     toreturn.isServerAnnotated          = isServerAnnotated;
     toreturn.isClientAnnotated          = isClientAnnotated;
+    toreturn.isRemoteFunctionAnnotated  = isRemoteFunctionAnnotated;
+    toreturn.isRemoteCallAnnotated      = isRemoteCallAnnotated;
+    toreturn.isRemoteDataAnnotated      = isRemoteDataAnnotated;
+    toreturn.isLocalFunctionAnnotated   = isLocalFunctionAnnotated;
+    toreturn.isLocalCallAnnotated       = isLocalCallAnnotated;
+    toreturn.isLocalDataAnnotated       = isLocalDataAnnotated;
     toreturn.isClientorServerAnnotated  = isClientorServerAnnotated;
     toreturn.isBlockingAnnotated        = isBlockingAnnotated;
     toreturn.isReplyAnnotated           = isReplyAnnotated;
