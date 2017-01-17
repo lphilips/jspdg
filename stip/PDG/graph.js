@@ -433,6 +433,7 @@ if (typeof module !== 'undefined' && module.exports != null) {
     var FormalPNode     = node.FormalPNode;
     var ActualPNode     = node.ActualPNode;
     var ExitNode        = node.ExitNode;
+    var FunctionalityNode = node.FunctionalityNode;
     var DNODES          = node.DNODES;
     var ARITY           = node.ARITY;
     var DistributedNode = node.DistributedNode;

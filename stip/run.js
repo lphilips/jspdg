@@ -3,7 +3,7 @@ var Stip = (function () {
     var interface = {};
 
 
-    function generateGraphs(source, analysis) {
+    function generateGraphs(source, analysis, toGenerate) {
         var warnings = [],
             ast, preanalysis;
         ast = Ast.createAst(source, {loc: true, owningComments: true, comment: true});
@@ -14,7 +14,7 @@ var Stip = (function () {
         });
 
         Handler.init();
-        preanalysis = pre_analyse(ast, {callbacks: [], identifiers: []});
+        preanalysis = pre_analyse(ast, (toGenerate ? toGenerate : {methodCalls: [], identifiers: []}));
         asyncs = preanalysis.asyncs;
         shared = preanalysis.shared;
 
@@ -23,19 +23,36 @@ var Stip = (function () {
         graphs.PDG.distribute(DefaultPlacementStrategy);
         graphs.warnings = warnings.concat(CheckAnnotations.checkAnnotations(graphs.PDG, {analysis: analysis}));
         graphs.assumes = preanalysis.assumes;
+        graphs.genAST = preanalysis.ast;
+        graphs.identifiers = preanalysis.identifiers;
         return graphs;
     }
 
-
     function tiersplit(source, analysis) {
         try {
-            var graphs = generateGraphs(source, analysis),
+            var extract = RedStone.generate(source);
+            var toGenerate = extract.context.toGenerate;
+            var storeDeclNode = extract.storeDeclNode;
+            var graphs = generateGraphs(extract.inputJS, analysis, toGenerate),
                 PDG = graphs.PDG;
+
+            extract.context.stip.generatedAST = graphs.genAST;
+            extract.context.stip.generatedIdentifiers = graphs.identifiers;
+            // Find declaration nodes for the reactive variables
+            for (var varname in graphs.identifiers) {
+                if (graphs.identifiers.hasOwnProperty(varname)) {
+                    if (storeDeclNode !== undefined) {
+                        var declNode = Pdg.declarationOf(graphs.identifiers[varname], graphs.genAST);
+                        storeDeclNode(varname, declNode);
+                    }
+                }
+            }
+
 
             var slicedc = PDG.sliceTier(DNODES.CLIENT),
                 sliceds = PDG.sliceTier(DNODES.SERVER),
                 splitCode = function (nodes, option) {
-                    var target = "node.js",
+                    var target = extract.hasUI ? "redstone" : "node.js",
                         asyncomm = "callbacks",
                         program = CodeGenerator.transpile(nodes, {
                             target: target,
@@ -48,9 +65,9 @@ var Stip = (function () {
                 nodes = CodeGenerator.prepareNodes(slicedc, sliceds, graphs, {analysis: analysis});
             clientprogram = splitCode(nodes[0], "client");
             serverprogram = splitCode(nodes[1], "server");
-            return [clientprogram, serverprogram, graphs.warnings];
+            return [clientprogram, serverprogram, extract.html, graphs.warnings];
         } catch (e) {
-            return [false, false, [e]];
+            return [false, false, false, [e]];
         }
     }
 
@@ -121,6 +138,7 @@ var Stip = (function () {
         Hoist = require('./hoist.js').Hoist;
         DefaultPlacementStrategy = require('./placement/default_strategy.js');
         CheckAnnotations = require('./check-annotations.js').CheckAnnotations;
+        RedStone = require('./redstone/redstone.js');
         exports.Stip = interface;
     }
 

@@ -85,19 +85,26 @@ var Analysis = (function () {
 
     function PDG_isRemoteData(node) {
         var parsenode = node.parsenode;
+        var upnode = node.getInNodes(EDGES.CONTROL).filter(function (n) {
+            var ins = n.getInNodes(EDGES.CONTROL);
+            return n.isEntryNode && ins.length == 1 && ins[0].isSliceNode;
+        });
 
-            var callsTo = node.getOutNodes(EDGES.CONTROL).filter(function (n) {
-                return n.isCallNode
-            }).flatMap(function (n) {
-                return n.getOutNodes(EDGES.CALL);
-            }).filter(function (n) {
-                return n.isEntryNode && n.isConstructor && n.parsenode.leadingComment &&
-                    (Comments.isObservableAnnotated(n.parsenode.leadingComment) ||
-                    Comments.isReplicatedAnnotated(n.parsenode.leadingComment));
-            });
-            return (parsenode.leadingComment && (Comments.isObservableAnnotated(parsenode.leadingComment) ||
-                Comments.isReplicatedAnnotated(parsenode.leadingComment) || Comments.isCopyAnnotated(parsenode.leadingComment))) ||
-                (Aux.isExpStm(node.parsenode) && callsTo.length > 0);
+        if (upnode && upnode.length != 1)
+            return false;
+
+        var callsTo = node.getOutNodes(EDGES.CONTROL).filter(function (n) {
+            return n.isCallNode
+        }).flatMap(function (n) {
+            return n.getOutNodes(EDGES.CALL);
+        }).filter(function (n) {
+            return n.isEntryNode && n.isConstructor && n.parsenode.leadingComment &&
+                (Comments.isObservableAnnotated(n.parsenode.leadingComment) ||
+                Comments.isReplicatedAnnotated(n.parsenode.leadingComment));
+        });
+        return (parsenode.leadingComment && (Comments.isObservableAnnotated(parsenode.leadingComment) ||
+            Comments.isReplicatedAnnotated(parsenode.leadingComment) || Comments.isCopyAnnotated(parsenode.leadingComment))) ||
+            (Aux.isExpStm(node.parsenode) && callsTo.length > 0);
     }
 
 
@@ -146,4 +153,4 @@ var Analysis = (function () {
     }
     return interface;
 
-}())
+}());

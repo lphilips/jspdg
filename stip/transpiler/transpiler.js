@@ -117,6 +117,8 @@ var Transpiler = (function () {
                     return transformer.transformMemberExpression(transpiler);
                 case 'UpdateExpression':
                     return transformer.transformUpdateExp(transpiler);
+                case 'ArrayExpression' :
+                    return transformer.transformArrayExpression(transpiler);
 
             }
 
@@ -162,6 +164,8 @@ var Transpiler = (function () {
                     return transformer.transformReturnStm(transpiler);
                 case 'CatchClause' :
                     return transformer.transformCatchClause(transpiler);
+                case 'ArrayExpression' :
+                    return transformer.transformArrayExpression(transpiler);
                 default:
                     return transpiler;
 

@@ -6,6 +6,12 @@ var NodeParse = (function () {
 
     var toreturn = {};
 
+    var context = undefined;
+
+    var setContext = function setContext(newcontext) {
+        context = newcontext;
+    };
+
 
     var createVarDecl = function (declarator) {
         return {
@@ -500,11 +506,47 @@ var NodeParse = (function () {
 
 
     var createServer = function () {
-        return esprima.parse('var express = require("express"), app = express(); var server = new ServerData(app, 3030)').body;
+        var port = 3000;
+
+        if (context !== undefined) {
+            port = context.options.server_port;
+        }
+        return esprima.parse('var express = require("express"), app = express(); var ServerData = require("./rpc/data-server.js");var server = new ServerData(app,'+ port +');\n'+
+            'app.use("/client", express.static(__dirname + "/../client_env/js"));app.use("/", express.static(__dirname + "/../client_env"));').body;
     };
 
     var createClient = function () {
-        return esprima.parse("var client = new ClientData('http://127.0.0.1:8080', function (name, object) {});").body;
+        var host = "localhost";
+        var port = 3000;
+        var has_server = true;
+        var objectcb = "function (name, object) {if (typeof ractive !== 'undefined') ractive.update()}";
+        var updatecb = "function (id,prop,value) {if (typeof ractive !== 'undefined') ractive.update()}"
+
+        if (context !== undefined) {
+            host = context.options.server_hostname;
+            port = context.options.server_port;
+            has_server = context.has_server;
+        }
+
+        var pre_init;
+
+        if (!has_server) {
+            pre_init =
+                "var client = new REDSTONE.DUMMYCLIENT();\n"
+        } else {
+            pre_init =
+                "var client = new ClientData('http://" + host + ":" + port + "',{},"+objectcb +","+updatecb +")";
+        }
+
+        return esprima.parse(
+            pre_init + "\n" +
+            "client.onConnected(function() {\n" +
+            "REDSTONE.onConnected();\n" +
+            "});\n" +
+            "client.onDisconnected(function() {\n" +
+            "REDSTONE.onDisconnected();" +
+            "});\n"
+        ).body;
     };
 
     var createServerCloseUp = function () {
@@ -545,6 +587,7 @@ var NodeParse = (function () {
     toreturn.createAnonymousObservableObject = createAnonymousObservableObject;
     toreturn.createReplicatedObject = createReplicatedObject;
     toreturn.createAnonymousReplicatedObject = createAnonymousReplicatedObject;
+    toreturn.setContext         = setContext;
 
 
     if (typeof module !== 'undefined' && module.exports != null) {

@@ -583,7 +583,9 @@ var JSify = (function () {
             transpiled;
 
         test.map(function (testnode) {
-            transpiler.nodes = transpiler.nodes.remove(testnode);  /* TODO not just remove them */
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, testnode));
+            transpiler.nodes = transpiled.nodes.remove(testnode);
+            parsenode.test = transpiled.transpiledNode;
         });
 
         conseq.map(function (consnode) {
@@ -639,10 +641,11 @@ var JSify = (function () {
             call        = node.isCallNode ? node : upnode.getOutNodes(EDGES.CONTROL)
                             .filter(function (n) {return n.isCallNode && n.parsenode.equals(node.parsenode) })[0],
             parsenode   = node.parsenode,
-            actual_ins  = call.getActualIn(),
-            actual_outs = call.getActualOut();
+            actual_ins  = call ? call.getActualIn() : [],
+            actual_outs = call ? call.getActualOut() : [];
 
-        transpiler.nodes = transpiler.nodes.remove(call);
+        if (call)
+            transpiler.nodes = transpiler.nodes.remove(call);
 
         actual_outs.map(function (a_out) {
             if (nodesContains(transpiler.nodes, a_out)) {
@@ -668,14 +671,51 @@ var JSify = (function () {
     }
     transformer.transformNewExp = transformNewExp;
 
+
+    function transformArrayExpression (transpiler) {
+        var node    = transpiler.node,
+            entries = node.getOutNodes(EDGES.DATA)
+                .filter( function (n) { return n.isEntryNode}),
+            objectentries = node.getOutNodes(EDGES.CONTROL)
+                .filter(function (n) {return n.isObjectEntry}),
+            calls   = node.getOutNodes(EDGES.CONTROL)
+                .filter( function (n) { return n.isCallNode; }),
+            transpiled;
+
+        entries.map(function (entry) {
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, entry));
+            //node.parsenode.value = transpiled.transpiledNode;
+            transpiler.nodes = transpiled.nodes.remove(entry);
+        });
+
+        objectentries.map(function (entry) {
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, entry));
+            //node.parsenode.value = transpiled.transpiledNode;
+            transpiler.nodes = transpiled.nodes.remove(entry);
+        });
+
+        calls.map(function (call) {
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, call));
+            transpiler.nodes = transpiled.nodes.remove(call);
+        });
+        /* TODO do smth with results */
+        transpiler.transpiledNode = node.parsenode;
+
+        return transpiler;
+    }
+    transformer.transformArrayExpression = transformArrayExpression;
+
     function transformProperty (transpiler) {
         var node    = transpiler.node,
             entries = node.getOutNodes(EDGES.DATA)
-                          .filter( function (n) { return n.isEntryNode}),
+                .filter( function (n) { return n.isEntryNode}),
             objectentries = node.getOutNodes(EDGES.CONTROL)
-                            .filter(function (n) {return n.isObjectEntry}),
+                .filter(function (n) {return n.isObjectEntry}),
             calls   = node.getOutNodes(EDGES.CONTROL)
-                          .filter( function (n) { return n.isCallNode; }),
+                .filter( function (n) { return n.isCallNode; }),
+            exps    = node.getOutNodes(EDGES.CONTROL)
+                .filter(function (n) {return n.isStatementNode && !n.isObjectEntry && !n.isCallNode}),
+
             transpiled;
 
         entries.map(function (entry) {
@@ -693,6 +733,11 @@ var JSify = (function () {
         calls.map(function (call) {
             transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, call));
             transpiler.nodes = transpiled.nodes.remove(call);
+        });
+        exps.map(function (exp) {
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, exp));
+            node.parsenode.value = transpiled.transpiledNode;
+            transpiler.nodes = transpiled.nodes.remove(exp);
         });
 
         transpiler.transpiledNode = node.parsenode;

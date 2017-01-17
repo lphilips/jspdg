@@ -9,6 +9,8 @@ var CodeGenerator = (function () {
             //return Meteorify.transpile(slicednodes, node, ast)
             case 'node.js':
                 return Transpiler.transpile(Transpiler.createTranspileObject(node, nodes, ast, option, Nodeify, [], []));
+            case 'redstone':
+                return Transpiler.transpile(Transpiler.createTranspileObject(node, nodes, ast, option, Reactify, [], []));
         }
     }
 
@@ -24,20 +26,23 @@ var CodeGenerator = (function () {
 
     var addCloseUp = function (option, transpiled) {
         switch (option.target) {
-            case 'node.js':
+            case 'redstone':
                 if (option.tier === 'server')
                     transpiled.closeup = transpiled.closeup.concat(NodeParse.createServerCloseUp());
         }
+
         return transpiled;
     }
 
     var addSetUp = function (option, transpiled) {
         switch (option.target) {
             case 'node.js':
+            case 'redstone':
                 if (option.tier === 'client')
                     transpiled.setup = transpiled.setup.concat(NodeParse.createClient());
                 else
                     transpiled.setup = transpiled.setup.concat(NodeParse.createServer());
+
         }
         if (option.asynccomm === 'callbacks' && option.target === 'node.js') {
             var handlers = [],
@@ -352,8 +357,8 @@ var CodeGenerator = (function () {
 
             }
 
-            if (node.isEntryNode && node.parsenode &&
-                node.isConstructor && node.parsenode.leadingComment &&
+            if (node.isEntryNode && node.parsenode && node.parsenode.leadingComment &&
+                    node.isConstructor &&
                 (Comments.isObservableAnnotated(node.parsenode.leadingComment) || Comments.isReplicatedAnnotated(node.parsenode.leadingComment))) {
                 copydeclarations.push(node);
                 copydeclarations = copydeclarations.concat(node.getFormalIn()).concat(node.getFormalOut());
@@ -371,6 +376,7 @@ var CodeGenerator = (function () {
     if (typeof module !== 'undefined' && module.exports != null) {
         Nodeify = require('./Nodeify.js').Nodeify;
         JSify = require('./JSify.js').JSify;
+        Reactify = require('./Reactify.js').Reactify;
         Handler = require('../handler.js').Handler;
         Transpiler = require('./transpiler.js').Transpiler;
         exports.CodeGenerator = toreturn;
@@ -379,6 +385,7 @@ var CodeGenerator = (function () {
     return toreturn;
 
 
-})();
+})
+();
 
 

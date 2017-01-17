@@ -15,7 +15,7 @@ var pre_analyse = function (ast, toGenerate) {
     var primtoadd   = {};
     var fundefs     = [];
     var sharedblock;
-    var generatedIdentifiers;
+    var generatedIdentifiers = {};
 
 
     function function_args (callnode) {
@@ -246,9 +246,10 @@ var pre_analyse = function (ast, toGenerate) {
 
     function generateCallbackCalls() {
         var calls = [];
-        toGenerate.callbacks.map(function (cb) {
+        toGenerate.methodCalls.map(function (cb) {
             var call = createCall(cb);
             var func = fundefs[cb];
+            var objectarg = createObjectArgument();
 
 
             call.leadingComment = {type: "Block", value:"@generated", range: [0,16]};
@@ -256,10 +257,31 @@ var pre_analyse = function (ast, toGenerate) {
 
             if (func) {
                 func.params.map(function (param) {
-                    call.expression.arguments = call.expression.arguments.concat({
-                        type: "Literal",
-                        value: null
+                    Aux.walkAst(func.body, {
+                        pre: function (node) {
+                            var parent = Ast.parent(node, ast);
+                            if (Aux.isCallExp(node) && Aux.isMemberExpression(node.callee) &&
+                                Aux.isIdentifier(node.callee.object) && param.name == node.callee.object.name) {
+                                objectarg.addProperty(node.callee.property, createFunExp([], false));
+                            }
+                            else if (Aux.isMemberExpression(node) && Aux.isIdentifier(node.property) &&
+                                !(Aux.isCallExp(parent) && parent.callee.equals(node))) {
+                                objectarg.addProperty(node.property, {type: "Literal",value: null});
+                            }
+                        }
                     });
+                    if (objectarg.hasProperties()) {
+                        Ast.augmentAst(objectarg.object);
+                        call.expression.arguments.push(objectarg.object);
+                        objectarg = createObjectArgument();
+                    }
+
+
+                    else
+                        call.expression.arguments = call.expression.arguments.concat({
+                            type: "Literal",
+                            value: null
+                        });
                 });
                 Ast.augmentAst(call);
                 calls.push(call);
@@ -276,11 +298,10 @@ var pre_analyse = function (ast, toGenerate) {
             var id = createIdentifier(name);
             id.leadingComment = {type: "Block", value:"@generated", range: [0,16]};
             Ast.augmentAst(id);
+            generatedIdentifiers[name] = id;
             identifiers.push(id);
-        })
-        generatedIdentifiers = identifiers;
+        });
         return identifiers;
-
     }
 
 
@@ -411,11 +432,12 @@ var pre_analyse = function (ast, toGenerate) {
                     comment = isBlockAnnotated(node);
                     node.arguments = node.arguments.map(function (arg) {
                         comment = isBlockAnnotated(arg);
+                        var objectarg = createObjectArgument();
                         if (Aux.isFunExp(arg)) {
                             name = anonf_name + ++anonf_ct;
                             var func = createFunDecl(name, arg.params);
                             var call = createCall(name);
-                            var objectarg = createObjectArgument();
+
                             func.generated = true;
 
                             call.leadingComment = {type: "Block", value:"@generated", range: [0,16]};
@@ -463,6 +485,33 @@ var pre_analyse = function (ast, toGenerate) {
                         }
                         else if (Aux.isIdentifier(arg) && fundefs[arg.name]) {
                             call = createCall(arg.name);
+                            func = fundefs[arg.name];
+                            if (func)
+                                Aux.walkAst(func.body, {
+                                    pre: function (node) {
+                                        var parent = Ast.parent(node, ast);
+                                        if (Aux.isCallExp(node) && Aux.isMemberExpression(node.callee) &&
+                                            Aux.isIdentifier(node.callee.object) && param.name == node.callee.object.name) {
+                                            objectarg.addProperty(node.callee.property, createFunExp([], false));
+                                        }
+                                        else if (Aux.isMemberExpression(node) && Aux.isIdentifier(node.property) &&
+                                            !(Aux.isCallExp(parent) && parent.callee.equals(node))) {
+                                            objectarg.addProperty(node.property, {type: "Literal",value: null});
+                                        }
+                                    }
+                                });
+                            if (objectarg.hasProperties()) {
+                                Ast.augmentAst(objectarg.object);
+                                call.expression.arguments.push(objectarg.object);
+                                objectarg = createObjectArgument();
+                            }
+                            else {
+                                call.expression.arguments = call.expression.arguments.concat({
+                                    type: "Literal",
+                                    value: null
+                                });
+                            }
+
                             call.leadingComment = {type: "Block", value:"@generated"};
                             if (comment && Comments.isClientAnnotated(comment)) {
                                 call.clientCalls = 1;

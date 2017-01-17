@@ -576,7 +576,7 @@ function FunctionalityNode (tag, tier) {
     PDG_Node.call(this, 'C'+tag);
     this.ftype = tag;
     this.tier  = tier ? tier : false;
-    this.isFunctionalityNode = true;
+    this.isSliceNode = true;
 }
 
 FunctionalityNode.prototype = new PDG_Node();
@@ -740,7 +740,7 @@ PDG_Node.prototype.getFunctionality = function () {
     };
 
 
-    if (this.isFunctionalityNode) {
+    if (this.isSliceNode) {
         return this;
     }
     else {
@@ -753,7 +753,7 @@ PDG_Node.prototype.getFunctionality = function () {
             var edge = incoming.shift();
             node = edge.from;
             visited.push(node);
-            if (node.isFunctionalityNode || node.isRootNode)
+            if (node.isSliceNode || node.isRootNode)
                 break;
             var proceed = node.edges_in.filter(filterIncoming);
             proceed = proceed.filter(function (e) {
@@ -765,7 +765,7 @@ PDG_Node.prototype.getFunctionality = function () {
         }
 
         if (node) 
-            if (node.isFunctionalityNode) {
+            if (node.isSliceNode) {
                 return node;
             }
             else {
@@ -833,7 +833,7 @@ PDG_Node.prototype.getFType = function (recheck) {
     /* If distributed type is already calculated, return it */
     if (!recheck && this.ftype) 
       return this.ftype;
-    else if (this.isFunctionalityNode) {
+    else if (this.isSliceNode) {
         return this.ftype;
     }
     else {
@@ -962,6 +962,7 @@ if (typeof module !== 'undefined' && module.exports != null) {
     exports.DNODES              = DNODES;
     exports.ARITY               = ARITY;
     exports.DistributedNode     = DistributedNode;
+    exports.FunctionalityNode   = FunctionalityNode;
     exports.arityEquals         = arityEquals;
     exports.fTypeEquals         = fTypeEquals;
 

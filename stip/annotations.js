@@ -35,6 +35,8 @@ var Comments = (function () {
     var generated_annotation = "@generated";
     var placement_annotation = "@tier";
     var config_annotation    = "@config";
+    var ui_annotation        = "@ui";
+    var css_annotation       = "@css";
 
     var dataobservable_annotation = "@observable";
     var datarepl_annotation = "@replicate";
@@ -59,6 +61,18 @@ var Comments = (function () {
                 isServerAnnotated(node.leadingComment));
     }
 
+
+    var isUiAnnotated = function (node) {
+        return node.leadingComment &&
+                Aux.isBlockStm(node) &&
+            isUiAnnotated(node.leadingComment);
+    }
+
+    var isCssAnnotated = function (node) {
+        return node.leadingComment &&
+                Aux.isBlockStm(node) &&
+                isCssAnnotated(node.leadingComment);
+    }
 
     var isRemoteFunctionAnnotated = function (node) {
         return  node.leadingComment &&
@@ -373,6 +387,8 @@ var Comments = (function () {
     toreturn.isTierAnnotated            = isTierAnnotated;
     toreturn.isServerAnnotated          = isServerAnnotated;
     toreturn.isClientAnnotated          = isClientAnnotated;
+    toreturn.isUiAnnotated              = isUiAnnotated;
+    toreturn.isCssAnnotated             = isCssAnnotated;
     toreturn.isRemoteFunctionAnnotated  = isRemoteFunctionAnnotated;
     toreturn.isRemoteCallAnnotated      = isRemoteCallAnnotated;
     toreturn.isRemoteDataAnnotated      = isRemoteDataAnnotated;

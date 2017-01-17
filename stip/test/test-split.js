@@ -3,13 +3,13 @@
 var compareAst = require('compare-ast');
 var assert = require('assert');
 
+var fs = require('fs');
 
 /* Libraries */
 var esprima = require('../lib/esprima.js');
 var escodegen = require('../lib/escodegen.js');
 
-/* Jipda */
-var Ast = require('../../jipda-pdg/ast.js').Ast;
+
 
 
 /* Stip - constructing pdg */
@@ -28,7 +28,7 @@ suite('Tier split - basic', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0), 'var a; var b; var c; a = 1; b = 2; c = a + b; client.expose({});');
         compareAst(escodegen.generate(ast1), 'var a; var b; var c; a = 1; b = 2; c = a + b; server.expose({});');
     });
@@ -37,7 +37,7 @@ suite('Tier split - basic', function () {
         var res = tierSplit('/* @server */ {function foo (x) {return x}} /* @client */ {var a = foo(42)}');
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;        /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast1), 'server.expose({"foo" : function (x, callback) {var self = this; return callback(null, x)}})');
         compareAst(escodegen.generate(ast0),
             'var a; client.rpcCall("foo", 42, function (_v1_, _v2_) {a = _v2_;}); client.expose({});',
@@ -49,7 +49,7 @@ suite('Tier split - basic', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast1), 'server.expose({"foo" : function (x, callback) {var self = this; return callback(null, x)}})');
         compareAst(escodegen.generate(ast0),
             'client.rpcCall("foo", 42, function (_v1_, _v2_) {client.rpcCall("foo", _v2_, function (_v3_, _v4_) {})}); client.expose({});',
@@ -61,7 +61,7 @@ suite('Tier split - basic', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'client.expose({"clientf" : function (x, callback) {return callback(null, x)}});');
         compareAst(escodegen.generate(ast1),
@@ -73,7 +73,7 @@ suite('Tier split - basic', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'client.rpcCall("foo", function (_v1_, _v2_) {}); client.expose({"bar" : function (y,callback) {return callback(null,42+y);}})',
             {varPattern: /_v\d_/});
@@ -86,7 +86,7 @@ suite('Tier split - basic', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'function bar(y) {return 42+y;} client.rpcCall("foo", function (_v1_, _v2_) {}); bar(2); client.expose({"bar" : function (y,callback) {return callback(null,42+y);}})',
             {varPattern: /_v\d_/});
@@ -99,7 +99,7 @@ suite('Tier split - basic', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'function bar(y) {client.rpcCall("foo", function (_v1_, _v2_){}); return 42+y;}  bar(2); client.expose({"bar" : function (y,callback) {client.rpcCall("foo", function (_v1_, _v2_){}); return callback(null,42+y);}})',
             {varPattern: /_v\d_/});
@@ -114,7 +114,7 @@ suite('Tier split - basic', function () {
         console.log(escodegen.generate(ast0)); console.log();
         console.log(escodegen.generate(ast1))
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'client.expose({"foo" : function (y,callback) {return client.rpcCall("bar", function (_v1_, _v2_){ return callback(_v1_,_v2_)})}})',
             {varPattern: /_v\d_/});
@@ -128,7 +128,7 @@ suite('Tier split - basic', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'client.rpcCall("foo", 3, function (_v1_, _v2_) {}); client.expose({"bar" : function (callback) {return callback(null, 42)}})',
             {varPattern: /_v\d_/});
@@ -142,7 +142,7 @@ suite('Tier split - basic', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'client.rpcCall("foo", 3, function (_v1_, _v2_) {}); client.expose({"bar" : function (callback) {return callback(null, 42)}})',
             {varPattern: /_v\d_/});
@@ -165,7 +165,7 @@ suite('Tier split without analysis - basic', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(res[2].length,0);
+        assert.equal(res[3].length,0);
         compareAst(escodegen.generate(ast0), 'var a; var b; var c; a = 1; b = 2; c = a + b; client.expose({});');
         compareAst(escodegen.generate(ast1), 'var a; var b; var c; a = 1; b = 2; c = a + b; server.expose({});');
     });
@@ -175,7 +175,7 @@ suite('Tier split without analysis - basic', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(res[2].length,0);
+        assert.equal(res[3].length,0);
         compareAst(escodegen.generate(ast1), 'server.expose({"foo" : function (x, callback) {var self = this; return callback(null, x)}})');
         compareAst(escodegen.generate(ast0),
             'var a; client.rpcCall("foo", 42, function (_v1_, _v2_) {a = _v2_;}); client.expose({});',
@@ -187,7 +187,7 @@ suite('Tier split without analysis - basic', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(res[2].length,0);
+        assert.equal(res[3].length,0);
         compareAst(escodegen.generate(ast1), 'server.expose({"foo" : function (x, callback) {var self = this; return callback(null, x)}})');
         compareAst(escodegen.generate(ast0),
             'client.rpcCall("foo", 42, function (_v1_, _v2_) {client.rpcCall("foo", _v2_, function (_v3_, _v4_) {})}); client.expose({});',
@@ -199,7 +199,7 @@ suite('Tier split without analysis - basic', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(res[2].length,0);
+        assert.equal(res[3].length,0);
         compareAst(escodegen.generate(ast0),
             'client.expose({"clientf" : function (x, callback) {return callback(null, x)}});');
         compareAst(escodegen.generate(ast1),
@@ -211,7 +211,7 @@ suite('Tier split without analysis - basic', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(res[2].length, 0);
+        assert.equal(res[3].length, 0);
         compareAst(escodegen.generate(ast0),
             'client.rpcCall("foo", function (_v1_, _v2_) {}); client.expose({"bar" : function (y,callback) {return callback(null,42+y);}})',
             {varPattern: /_v\d_/});
@@ -224,7 +224,7 @@ suite('Tier split without analysis - basic', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(res[2].length,0);
+        assert.equal(res[3].length,0);
         compareAst(escodegen.generate(ast0),
             'function bar(y) {return 42+y;} client.rpcCall("foo", function (_v1_, _v2_) {bar(2);});  client.expose({"bar" : function (y,callback) {return callback(null,42+y);}})',
             {varPattern: /_v\d_/});
@@ -237,7 +237,7 @@ suite('Tier split without analysis - basic', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(res[2].length,0);
+        assert.equal(res[3].length,0);
         compareAst(escodegen.generate(ast0),
             'function bar(y) {client.rpcCall("foo", function (_v1_, _v2_){return callback(_v1_, 42+y);});}  bar(2); client.expose({"bar" : function (y,callback) {client.rpcCall("foo", function (_v1_, _v2_){return callback(_v1_,42+y);}); }})',
             {varPattern: /_v\d_/});
@@ -250,7 +250,7 @@ suite('Tier split without analysis - basic', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(res[2].length,0);
+        assert.equal(res[3].length,0);
         compareAst(escodegen.generate(ast0),
             'client.expose({"foo" : function (y,callback) {return client.rpcCall("bar", function (_v1_, _v2_){ return callback(_v1_,_v2_)})}})',
             {varPattern: /_v\d_/});
@@ -264,7 +264,7 @@ suite('Tier split without analysis - basic', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(res[2].length,0);
+        assert.equal(res[3].length,0);
         compareAst(escodegen.generate(ast0),
             'client.rpcCall("foo", 3, function (_v1_, _v2_) {}); client.expose({"bar" : function (callback) {return callback(null, 42)}})',
             {varPattern: /_v\d_/});
@@ -278,7 +278,7 @@ suite('Tier split without analysis - basic', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(res[2].length,0);
+        assert.equal(res[3].length,0);
         compareAst(escodegen.generate(ast0),
             'client.rpcCall("foo", 3, function (_v1_, _v2_) {}); client.expose({"bar" : function (callback) {return callback(null, 42)}})',
             {varPattern: /_v\d_/});
@@ -298,7 +298,7 @@ suite('Data sharing', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'var c; c = 22; client.expose({})',
             {varPattern: /_v\d_/});
@@ -312,7 +312,7 @@ suite('Data sharing', function () {
         var ast1 = res[1].nosetup;
 
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'var a; a = 1; var c; c = a * 3; client.expose({})',
             {varPattern: /_v\d_/});
@@ -325,7 +325,7 @@ suite('Data sharing', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'var obs; obs = client.makeObservableObject("obs", {x:1, y: 2}); console.log(obs); client.expose({})',
             {varPattern: /_v\d_/});
@@ -338,7 +338,7 @@ suite('Data sharing', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'function Point(id, x, y) {function Point(x,y) {this.x = x; this.y = y;} return client.makeObservableObject(id, new Point(x,y));} var p; p = new Point("p", 1, 2); console.log(p.x); client.expose({})',
             {varPattern: /_v\d_/});
@@ -351,7 +351,7 @@ suite('Data sharing', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'var coll; coll = client.makeObservableObject("coll", []); coll.push({x:1}); client.expose({})',
             {varPattern: /_v\d_/});
@@ -366,7 +366,7 @@ suite('Data sharing', function () {
         console.log(escodegen.generate(ast0)); console.log();
         console.log(escodegen.generate(ast1));
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'var coll; coll = client.makeObservableObject("coll", []); function Point(id, x, y) {function Point(x,y) {this.x = x; this.y = y;} return client.makeObservableObject(id, new Point(x,y))} coll.push(new Point(false, 1, 2)); client.expose({})',
             {varPattern: /_v\d_/});
@@ -379,7 +379,7 @@ suite('Data sharing', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'var obs; obs = client.makeReplicatedObject("obs", {x:1, y: 2}); console.log(obs); client.expose({})',
             {varPattern: /_v\d_/});
@@ -394,7 +394,7 @@ suite('Data sharing', function () {
         console.log(escodegen.generate(ast0)); console.log();
         console.log(escodegen.generate(ast1));
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'function Point(id, x, y) {function Point(x,y) {this.x = x; this.y = y;} return client.makeReplicatedObject(id, new Point(x,y));} var p; p = new Point("p", 1, 2); console.log(p.x); client.expose({})',
             {varPattern: /_v\d_/});
@@ -407,7 +407,7 @@ suite('Data sharing', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'var coll; coll = client.makeReplicatedObject("coll", []); coll.push({x:1}); client.expose({})',
             {varPattern: /_v\d_/});
@@ -422,7 +422,7 @@ suite('Data sharing', function () {
         console.log(escodegen.generate(ast0)); console.log();
         console.log(escodegen.generate(ast1));
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'var coll; coll = client.makeReplicatedObject("coll", []); function Point(id, x, y) {function Point(x,y) {this.x = x; this.y = y;} return client.makeReplicatedObject(id, new Point(x,y))} coll.push(new Point(false, 1, 2)); client.expose({})',
             {varPattern: /_v\d_/});
@@ -442,7 +442,7 @@ suite('Data sharing - without analysis ', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'var c; c = 22; client.expose({})',
             {varPattern: /_v\d_/});
@@ -455,7 +455,7 @@ suite('Data sharing - without analysis ', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'var a; a = 1; var c; c = a * 3; client.expose({})',
             {varPattern: /_v\d_/});
@@ -468,7 +468,7 @@ suite('Data sharing - without analysis ', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'var obs; obs = client.makeObservableObject("obs", {x:1, y: 2}); console.log(obs); client.expose({})',
             {varPattern: /_v\d_/});
@@ -483,7 +483,7 @@ suite('Data sharing - without analysis ', function () {
         console.log(escodegen.generate(ast0)); console.log();
         console.log(escodegen.generate(ast1));
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'var p; function Point(id, x, y) {function Point(x,y) {this.x = x; this.y = y;} return client.makeObservableObject(id, new Point(x,y));} p = new Point("p", 1, 2); console.log(p.x); client.expose({})',
             {varPattern: /_v\d_/});
@@ -496,7 +496,7 @@ suite('Data sharing - without analysis ', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'var coll; coll = client.makeObservableObject("coll", []); coll.push({x:1}); client.expose({})',
             {varPattern: /_v\d_/});
@@ -510,7 +510,7 @@ suite('Data sharing - without analysis ', function () {
         var ast1 = res[1].nosetup;
 
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'var coll; coll = client.makeObservableObject("coll", []); function Point(id, x, y) {function Point(x,y) {this.x = x; this.y = y;} return client.makeObservableObject(id, new Point(x,y))} coll.push(new Point(false, 1, 2)); client.expose({})',
             {varPattern: /_v\d_/});
@@ -523,7 +523,7 @@ suite('Data sharing - without analysis ', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'var obs; obs = client.makeReplicatedObject("obs", {x:1, y: 2}); console.log(obs); client.expose({})',
             {varPattern: /_v\d_/});
@@ -538,7 +538,7 @@ suite('Data sharing - without analysis ', function () {
         console.log(escodegen.generate(ast0)); console.log();
         console.log(escodegen.generate(ast1));
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'var p; function Point(id, x, y) {function Point(x,y) {this.x = x; this.y = y;} return client.makeReplicatedObject(id, new Point(x,y));} p = new Point("p", 1, 2); console.log(p.x); client.expose({})',
             {varPattern: /_v\d_/});
@@ -551,7 +551,7 @@ suite('Data sharing - without analysis ', function () {
         var ast0 = res[0].nosetup;
         var ast1 = res[1].nosetup;
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'var coll; coll = client.makeReplicatedObject("coll", []); coll.push({x:1}); client.expose({})',
             {varPattern: /_v\d_/});
@@ -566,7 +566,7 @@ suite('Data sharing - without analysis ', function () {
         console.log(escodegen.generate(ast0)); console.log();
         console.log(escodegen.generate(ast1));
         /* no warnings */
-        assert.equal(0, res[2].length);
+        assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
             'var coll; coll = client.makeReplicatedObject("coll", []); function Point(id, x, y) {function Point(x,y) {this.x = x; this.y = y;} return client.makeReplicatedObject(id, new Point(x,y))} coll.push(new Point(false, 1, 2)); client.expose({})',
             {varPattern: /_v\d_/});
@@ -610,6 +610,25 @@ suite('Failure Handling', function () {
             'function speak() {_v1_.rpcCall("broadcast", "hello", function (_v2_, _v3_) {})} speak(); client.expose({})',
             {varPattern: /_v\d_/})
     });
+})
+
+
+suite('RedStone', function () {
+    function tierSplit(filename) {
+        var src = fs.readFileSync(filename, "utf-8");
+        return Stip.tierSplit(src, true);
+    }
+
+    test('basic', function () {
+        var res = tierSplit('./redstone/examples/chat.redstone');
+        var clientprogram = res[0];
+        var serverprogram = res[1];
+        var html = res[2];
+        var warnings = res[3];
+        /* no warnings */
+        assert.equal(warnings.length, 0);
+    })
+
 })
 
 suite('CPS transform', function () {
