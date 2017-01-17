@@ -1,0 +1,24 @@
+{
+  "name": "stip.js",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "private": true,
+  "license": "BSD-2-Clause",
+  "repository": "https://github.com/lphilips/jspdg",
+  "scripts": {
+    "test": "mocha"
+  },
+  "author": "Laure Philips",
+  "dependencies": {
+    "compare-ast": "^0.2.0",
+    "es6-shim": "^0.34.4",
+    "escodegen": "^1.8.0",
+    "esprima": "^2.7.2",
+    "performance-now": "^0.2.0",
+    "randomstring": "^1.1.4",
+    "errio": "^1.2.1",
+    "node-uuid": "^1.4.7",
+    "harmony-proxy": "^1.0.1"
+  }
+}

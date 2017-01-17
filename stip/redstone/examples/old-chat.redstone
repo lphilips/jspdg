@@ -1,0 +1,29 @@
+/* @server */
+{
+	function broadcast(name, message) {
+		displayMessage(name, message);
+	}
+}
+
+/* @client */
+{
+	var name     = "user" + (Math.floor(Math.random() * 9901) + 100),
+		msg      = "",
+		messages = [];
+
+	function sendMessage() {
+		broadcast(name, msg);
+		msg = "";
+	}
+
+	function displayMessage(name, message) {
+		messages.push({name: name, message: message});
+	}
+}
+
+/* @ui */
+{{#each messages}}
+	p {{name + " says: " + message}}
+input[value={{name}}]
+input[value={{msg}}][placeholder=Message]
+button[@click=sendMessage]#send Send "{{msg}}"

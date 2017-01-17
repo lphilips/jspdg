@@ -1,0 +1,30 @@
+/* @client */
+{
+	var currentidx = 0,
+		lines = [],
+	    lines_length = 20;
+
+	for (var i = 0; i < lines_length; i++) {
+		lines.push({text: "line" + i});
+	}
+
+	function inc() {
+		if (currentidx < lines_length - 1) {
+			currentidx += 1;
+		}
+	}
+
+	function dec() {
+		if (currentidx > 0) {
+			currentidx -= 1;
+		}
+	}
+}
+
+/* @ui */
+{{#each lines}}
+	p {{text}}
+input[value={{lines[currentidx].text}}]
+button[@click=inc] ++
+button[@click=dec] --
+p Current idx = {{currentidx}}

@@ -1,0 +1,122 @@
+/* @server */
+{
+  function broadcast(name, message) {
+	  console.log(name + " said: " + message);
+	  displayMessage(name, message);
+  }
+
+  var serverCount = 0;
+
+  function sendCounter() {
+       receiveCounter(serverCount);
+  }
+
+  function sendIncrease() {
+       serverCount = serverCount + 1;
+       sendCounter();
+  }
+}
+
+/* @client */
+{
+	var last      = {message: "no-message", author: "no-author"},
+	    username  = "user" + randomInt(100, 10000),
+	    text      = $("#msg"),
+	    messages  = [],
+	    testObj   = {},
+	    smiley    = false;
+
+	testObj.a = 0;
+	testObj.display = function() {
+		return testObj.a * 2;
+	};
+
+	function randomInt(min, max) {
+		return Math.floor(Math.random() * (max - min + 1)) + min;
+	}
+
+	function sendMessage() {
+	   var msg = text.val();
+	   broadcast(username, msg);
+	   text.val("");
+	}
+
+	function displayMessage(name, message) {
+		last.message = message; // Must be on client (!)
+		last.author  = name;
+
+		var m = {name: name, message: message};
+		messages.push(m);
+
+		smiley = (message.indexOf(":D") != -1);
+	}
+
+	var bar = 123;
+
+	// This function is used in GUI with variable bar as an argument
+	// Updating/initializing the variable bar means that this function should be executed, but the function object
+	// is only "saved" at the end of the @client block, thus we need to wait before updating the GUI
+	function foo() {
+		bar = bar + 1; // This should update the GUI **AGAIN**, but it's not done because we locked the 'bar' variable
+		return bar * 2;
+	}
+
+	var count = 0;
+    function clickIncrease() { testObj.a += 1; sendIncrease(); }
+    function handshake() { sendCounter(); }
+    function receiveCounter(c) { count = c; }
+    handshake();
+}
+
+/* @ui */
+head
+	title Chatting, made simple.
+	style..
+		textarea, #log {
+			display: block;
+			font-family: monospace;
+			width: 85%;
+		}
+		#log {
+			height: 100px;
+			overflow: auto;
+			background-color: white;
+		}
+body
+	div#log
+		{{#each messages}}
+			p {{name}} says: {{message}}
+	textarea#msg
+	p {{- visible in HTML comment}}
+	p {{/ not visible in HTML comment}}
+	{{- visible in HTML comment}}
+	{{/ not visible in HTML comment}}
+	button[@click=sendMessage]#send Send
+	{{#if smiley}}
+		p I have smiley
+	{{#else}}
+		p I don't have smiley
+	p.
+		Last message: {{last.message}} by {{last.author + "a"}}.
+	p.
+		Last author only: {{last["author"]}}
+	{{#with last}}
+		p Last message: {{message}}
+		p Last author: {{author}}
+	p.
+		1 + 2 = {{1+2}}
+	p.
+		Foo: {{foo(bar)}}
+	p.
+		Your lucky number: {{randomInt(1, 1000)}}
+	p.
+		Test with member: {{testObj.display()}}
+	{{#unless last.author == "Bjarno"}}
+		p Het laatste bericht is niet van Bjarno!
+	div
+		span Username
+		input[value={{username}}]
+	div
+		span Last message
+		input[value={{last.message}}]
+	button[@click=clickIncrease]#countbutton I've been clicked {{count}} times.
