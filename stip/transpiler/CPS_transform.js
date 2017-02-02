@@ -245,9 +245,20 @@ var CPSTransform = (function () {
 
             else {
                 var nodecall = node.getCall()[0],
-                    stm = nodecall.getStmNode();
-                if (stm.length > 0)
-                    datadep = datadep.concat(stm);
+                    stms = nodecall.getStmNode();
+                if (stms.length > 0) {
+                    stms.forEach(function (stm) {
+                        datadep = datadep.concat(stm);
+                        if (stm.dataDependentNodes) {
+                            datas = stm.dataDependentNodes();
+                            datas.map(function (n) {
+                                if (!nodesContains(datadep, n) && !n.isActualPNode)
+                                    datadep.push(n);
+                            })
+                        }
+                    })
+                }
+
                 else
                     datadep = datadep.concat(nodecall);
             }

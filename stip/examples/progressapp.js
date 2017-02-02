@@ -1,4 +1,6 @@
-/* @server */
+/* @server
+   @require [fs later]
+   */
 {
 	/* @replicated */
 	var meetings = [];
@@ -6,24 +8,6 @@
 	var tasks = [];
 	/* @replicated */
 	var courses = [];
-
-    var coursesJSON = [
-        {
-            title: "Structuur 1 Exam",
-            start: "January 10, 2017 09:00:00",
-            end: "January 10, 2017 13:00:00"
-        },
-        {
-            title: "Structuur 1 Oral exam",
-            start: "January 12, 2017 10:00:00",
-            end: "January 12, 2017 18:00:00"
-        },
-        {
-            title: "Structuur 1 Oral exam",
-            start: "January 15, 2017 10:00:00",
-            end: "January 15, 2017 18:00:00"
-        }
-    ];
 
 	/* @replicated */
 	function Meeting(title, notes, time) {
@@ -41,18 +25,20 @@
 	}
 
 	/* @replicated */
-	function Course(title, start, end) {
+	function Course(title, duration, time) {
 		this.title = title;
-		this.start = new Date(start).getTime();
-		this.end = new Date(end).getTime();
+		this.duration = duration;
+		this.time = time;
 	}
 
 	tasks.push(new Task("Learn uni-corn!"));
+
+	var dataCourses = fs.readFile('data.json');
+	var coursesJSON = JSON.parse(dataCourses);
 	coursesJSON.forEach(function (json) {
-		var course = new Course(json.title, json.start, json.end);
+		var course = new Course(json.title, json.duration, json.time);
 		courses.push(course);
 	})
-
 }
 
 /* @client */
@@ -146,66 +132,66 @@
 		var task = tasks[idx];
 		var now = new Date();
 		if (task.status < 1) {
-            task.status = task.status + 1;
-            task.lastUpdate = now.getTime();
-        }
-        updateActivity();
+			task.status = task.status + 1;
+			task.lastUpdate = now.getTime();
+		}
+		updateActivity();
 	}
 
 	function createTaskChart () {
-        var finished = {name: 'finished', y: 0};
-        var todo = {name: 'to start', y: 0};
-        var inprogress = {name: 'in progress', y: 0};
-        tasks.forEach(function (task) {
-            if (task.status < 0) {
-                todo.y = todo.y + 1;
-            }
-            else if (task.status > 0) {
-                finished.y = finished.y + 1;
-            }
-            else {
-                inprogress.y = inprogress.y + 1;
-            }
-        })
-        var chart = {
-            chart: {type: 'pie', options3d: {
-                enabled: true,
-                alpha: 45
-            }},
-            title: {text: 'Tasks'},
-            plotOptions: { pie: { innerSize: 100, depth: 45 }},
-            colors: ['#249AA7', '#ABD25E', '#F1594A', '#F8C830'],
-            series: [{
-                name: 'Tasks',
-                data: [finished, todo, inprogress]
-            }]
-        }
-        $("#chartscontainer").highcharts(chart);
+		var finished = {name: 'finished', y: 0};
+		var todo = {name: 'to start', y: 0};
+		var inprogress = {name: 'in progress', y: 0};
+		tasks.forEach(function (task) {
+			if (task.status < 0) {
+				todo.y = todo.y + 1;
+			}
+			else if (task.status > 0) {
+				finished.y = finished.y + 1;
+			}
+			else {
+				inprogress.y = inprogress.y + 1;
+			}
+		})
+		var chart = {
+			chart: {type: 'pie', options3d: {
+				enabled: true,
+				alpha: 45
+			}},
+			title: {text: 'Tasks'},
+			plotOptions: { pie: { innerSize: 100, depth: 45 }},
+			colors: ['#249AA7', '#ABD25E', '#F1594A', '#F8C830'],
+			series: [{
+				name: 'Tasks',
+				data: [finished, todo, inprogress]
+			}]
+		}
+		$("#chartscontainer").highcharts(chart);
 	}
 	function createMeetingChart() {
-        var currYear = new Date().getFullYear();
-        var options = Highcharts.getOptions();
-        var months = [0,0,0,0,0,0,0,0,0,0,0,0];
-        meetings.forEach(function (meeting) {
-            var date = new Date(meeting.start);
-            var month = date.getMonth();
-            var year = date.getFullYear();
-            if (year == currYear)
-            	months[month] = months[month] + 1;
-        });
-        var chart =  {
-            chart: {type:'column', options3d: {enabled:true, alpha:10, beta:25, depth:70} },
-            title: {text: 'Meetings this year'},
-            colors: ['#249AA7', '#ABD25E', '#F1594A', '#F8C830'],
-            plotOptions: {column: {depth: 25}},
-            xAxis: {categories: options.lang.shortMonths},
-            yAxis: { title: { text: null}},
-            series: [{
-                name: 'Meetings',
-                data: months
-            }]
-        }
-        $("#chartmeetingcontainer").highcharts(chart);
+		var currYear = new Date().getFullYear();
+		var options = Highcharts.getOptions();
+		var months = [0,0,0,0,0,0,0,0,0,0,0,0];
+		meetings.forEach(function (meeting) {
+			var date = new Date(meeting.start);
+			var month = date.getMonth();
+			var year = date.getFullYear();
+			if (year == currYear)
+				months[month] = months[month] + 1;
+		});
+		var chart =  {
+			chart: {type:'column', options3d: {enabled:true, alpha:10, beta:25, depth:70} },
+			title: {text: 'Meetings this year'},
+			colors: ['#249AA7', '#ABD25E', '#F1594A', '#F8C830'],
+			plotOptions: {column: {depth: 25}},
+			xAxis: {categories: options.lang.shortMonths},
+			yAxis: { title: { text: null}},
+			series: [{
+				name: 'Meetings',
+				data: months
+			}]
+		}
+		$("#chartmeetingcontainer").highcharts(chart);
 	}
 
 	function createCharts() {
@@ -214,10 +200,29 @@
 	}
 
 	function displaySchedule() {
-		var schedule = meetings.concat(courses);
-		schedule.forEach(function (appointment) {
+		var schedule = [];
+		later.date.localTime();
+		meetings.forEach(function (appointment) {
 			appointment.class= "event-info";
-		})
+			schedule.push(appointment);
+		});
+		courses.forEach(function (course) {
+		    var parsed = later.parse.text(course.time);
+            var s = later.schedule(parsed);
+            // only 1 next and 1 previous
+            var next = s.next(1);
+            var nextDate = new Date(next);
+            var nextSec = nextDate.getTime();
+            var end = nextSec+course.duration * 60000;
+            var prev = s.prev(1);
+            var prevDate = new Date(prev);
+            var prevSec = prevDate.getTime();
+            var prevend = prevSec+course.duration*60000;
+            var c = {title: course.title, start: nextSec, end: end, class: "event-info"};
+            var c1 = {title: course.title, start: prevSec, end: prevend, class: "event-info"};
+            schedule.push(c);
+            schedule.push(c1);
+        })
 		var calendar = $("#calendar").calendar({
 			tmpl_path : "tmpls/",
 			view : "week",
@@ -240,6 +245,7 @@ head
 	link[rel=stylesheet][href=css/calendar.css]
 	link[rel=stylesheet][href=http://fonts.googleapis.com/css?family=Lobster]
 	script[src=js/moment.js]
+	script[src=js/later.min.js]
 	script[src=js/transition.js]
 	script[src=js/collapse.js]
 	script[src=js/bootstrap.min.js]

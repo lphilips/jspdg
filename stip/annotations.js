@@ -37,6 +37,7 @@ var Comments = (function () {
     var config_annotation    = "@config";
     var ui_annotation        = "@ui";
     var css_annotation       = "@css";
+    var import_annotation    = "@require";
 
     var dataobservable_annotation = "@observable";
     var datarepl_annotation = "@replicate";
@@ -65,13 +66,17 @@ var Comments = (function () {
     var isUiAnnotated = function (node) {
         return node.leadingComment &&
                 Aux.isBlockStm(node) &&
-            isUiAnnotated(node.leadingComment);
+                node.leadingComment.value.indexOf(css_annotation) != -1;
     }
 
     var isCssAnnotated = function (node) {
         return node.leadingComment &&
                 Aux.isBlockStm(node) &&
-                isCssAnnotated(node.leadingComment);
+                node.leadingComment.value.indexOf(css_annotation) != -1;
+    }
+
+    var isImportAnnotated = function (comment) {
+        return comment.value.indexOf(import_annotation) != -1;
     }
 
     var isRemoteFunctionAnnotated = function (node) {
@@ -409,6 +414,7 @@ var Comments = (function () {
     toreturn.isCopyAnnotated            = isCopyAnnotated;
     toreturn.isReplicatedAnnotated      = isReplicatedAnnotated;
     toreturn.isTierOnlyAnnotated        = isTierOnlyAnnotated;
+    toreturn.isImportAnnotated         = isImportAnnotated;
 
     if (typeof module !== 'undefined' && module.exports != null) {
         ARITY = require('./PDG/node.js').ARITY;

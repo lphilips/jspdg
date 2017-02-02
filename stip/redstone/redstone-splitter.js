@@ -54,26 +54,27 @@ var split = function split(input, blocks) {
  * its values arrays of the different blocks.
  */
 var splitInternal = function splitInternal(input) {
+
 	var blockcomments = currentBlocks.map(function(val) {
-		return "/* @" + val + " */";
+		return new RegExp("\\/\\*[^\\*\\/]*\\@\\b"+val+"\\b[\\s\\S]*?\\*\\/",'g')
 	});
 	var positions = blockcomments.map(function(val) {
-		return input.indexOf(val);
+		return input.search(val);
 	});
 	var smallestidx = array_indexOfSmallest(positions, -1);
 
 	if (smallestidx === -1) {
-		return {"unknown": [input]};
+		return {"unknown": [input], "comments" : {}};
 	}
 
 	var smallestpos = positions[smallestidx];
-	var smallestblockcomment = blockcomments[smallestidx];
 	var smallestblock = currentBlocks[smallestidx];
+	var comment = input.match(blockcomments[smallestidx])[0];
 
 	// Generate input without /* @... */, to find end of block.
 
 	var first_input = input.substring(0, smallestpos);
-	var start = smallestpos + smallestblockcomment.length;
+	var start = smallestpos + comment.length;
 	var last_input = input.substring(start, input.length);
 
 	var rest = splitInternal(last_input);
@@ -83,6 +84,7 @@ var splitInternal = function splitInternal(input) {
 		rest[smallestblock].push(unknown);
 	} else {
 		rest[smallestblock] = [unknown];
+		rest["comments"][smallestblock] = comment;
 	}
 
 	rest.unknown.push(first_input);

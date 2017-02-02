@@ -549,6 +549,9 @@ var NodeParse = (function () {
         ).body;
     };
 
+    var createImport = function (lib) {
+        return esprima.parse("var "+lib+" = require('"+lib+"')").body[0];
+    }
     var createServerCloseUp = function () {
         return esprima.parse("");
     }
@@ -588,6 +591,7 @@ var NodeParse = (function () {
     toreturn.createReplicatedObject = createReplicatedObject;
     toreturn.createAnonymousReplicatedObject = createAnonymousReplicatedObject;
     toreturn.setContext         = setContext;
+    toreturn.createImport       = createImport;
 
 
     if (typeof module !== 'undefined' && module.exports != null) {

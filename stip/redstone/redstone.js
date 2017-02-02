@@ -55,14 +55,14 @@ var build_js = function build_js(chunks) {
 	output += chunks.unknown;
 
 
-	output += "/* @server */";
+	output += chunks.comments.server;
 	if (chunks.server.length > 0) {
 		output += chunks.server.join("\n") + "\n";
 	} else {
 		output += "{}";
 	}
 
-	output += "/* @client */";
+	output += chunks.comments.client;
 	if (chunks.client.length > 0) {
 		output += chunks.client.join("\n") + "\n";
 	} else {

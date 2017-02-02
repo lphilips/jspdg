@@ -14,15 +14,6 @@ var CodeGenerator = (function () {
         }
     }
 
-    var addPrimitives = function (option) {
-        switch (option) {
-            case 'normal':
-                // TODO'
-                return [];
-            case 'meteor':
-                return meteorPrimitives();
-        }
-    }
 
     var addCloseUp = function (option, transpiled) {
         switch (option.target) {
@@ -37,11 +28,22 @@ var CodeGenerator = (function () {
     var addSetUp = function (option, transpiled) {
         switch (option.target) {
             case 'node.js':
+                if (option.imports.length > 0) {
+                    option.imports.forEach(function (lib) {
+                        transpiled.setup.push(NodeParse.createImport(lib));
+                    })
+                }
             case 'redstone':
                 if (option.tier === 'client')
                     transpiled.setup = transpiled.setup.concat(NodeParse.createClient());
-                else
+                else {
                     transpiled.setup = transpiled.setup.concat(NodeParse.createServer());
+                    if (option.imports.length > 0) {
+                        option.imports.forEach(function (lib) {
+                            transpiled.setup.push(NodeParse.createImport(lib));
+                        })
+                    }
+                }
 
         }
         if (option.asynccomm === 'callbacks' && option.target === 'node.js') {
@@ -208,7 +210,7 @@ var CodeGenerator = (function () {
             }
 
         }
-        ;
+
 
         addSetUp(option, transpiled);
         addCloseUp(option, transpiled);

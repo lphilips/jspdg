@@ -10,9 +10,8 @@ var pre_analyse = function (ast, toGenerate) {
     var arrayprims  = ["filter", "count", "push", "search", "length", "map", "append", "concat", "forEach", "slice", "find", "sort"];
     var anonfSh     = [];
     var callSh      = [];
-    var assumes     = [];
-    var primdefs    = {};
-    var primtoadd   = {};
+    var imports     = [];
+    var importsAdd  = {};
     var fundefs     = [];
     var sharedblock;
     var generatedIdentifiers = {};
@@ -180,27 +179,14 @@ var pre_analyse = function (ast, toGenerate) {
         }
     }
 
-    /* Gets annotation of form '@assumes [variable, function(x)]' */
-    function extractAssumes (string) {
+    /* Gets annotation of form '@require [library library]' */
+    function extractImports (string) {
         var regexp = /\[.*?\]/,
             assumesS, assumesA;
-        if (string.search(regexp >= 0)) {
+        if (string.search(regexp) >= 0) {
             assumesS = string.match(regexp)[0].slice(1,-1);
-            assumesA = assumesS.split(";");
-            assumesA.map(function (assume) {
-                var type, args, name;
-                regexp = /\:.*/;
-                type = assume.match(regexp)[0].slice(1);
-                regexp = /\(.*?\)/;
-                if (assume.search(regexp) > 0) {
-                    args = assume.match(regexp)[0].slice(1,-1).split(",");
-                    args = args.map(function (arg) { return createIdentifier(arg);});
-                    name = assume.slice(0, assume.indexOf("("));
-                    assumes.push(createFunDecl(name, args, type));
-                } else {
-                    assumes.push(createDeclaration(assume));
-                }
-            });
+            assumesA = assumesS.split(" ");
+            return assumesA;
         }
     };
 
@@ -351,9 +337,9 @@ var pre_analyse = function (ast, toGenerate) {
             getComments(node);
 
 
-            /* @assumes annotation */
-            if (node.leadingComment && Comments.isAssumesAnnotated(node.leadingComment.value)) {
-                extractAssumes(node.leadingComment.value);
+            /* @import annotation */
+            if (node.leadingComment && Comments.isImportAnnotated(node.leadingComment)) {
+                imports = extractImports(node.leadingComment.value);
             }
 
             /* If a block has updateFirst and/or updateLast property,
@@ -404,8 +390,10 @@ var pre_analyse = function (ast, toGenerate) {
                 else {
                     objname = node.object.name;
                 }
+                if (imports[objname]) {
+                    importsAdd[objname] ? importsAdd[objname].push(name) : importsAdd[objname] = [name] ;
 
-                primtoadd[objname] ? primtoadd[objname].push(name) : primtoadd[objname] = [name] ;
+                }
             }
 
 
@@ -414,7 +402,6 @@ var pre_analyse = function (ast, toGenerate) {
                 var name    = Aux.getCalledName(node);
                 var anonf   = function_args(node);
                 var obj     = Aux.isMemberExpression(node.callee) ? node.callee.object.name : false;
-                var primdef = obj ? primdefs[obj] : primdefs[name];
 
                 if (primitives.indexOf(name) >= 0 ) {
                     node.primitive = true;
@@ -545,8 +532,9 @@ var pre_analyse = function (ast, toGenerate) {
 
     return  {
         ast         : ast,
-        assumes     : js_libs.getLibraries().concat(assumes),
+        assumes     : js_libs.getLibraries(),
         shared      : sharedblock,
+        imports     : imports,
         primitives  : primitives,
         asyncs      :  asyncs,
         identifiers : generatedIdentifiers

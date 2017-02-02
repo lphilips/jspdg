@@ -612,6 +612,21 @@ suite('Failure Handling', function () {
     });
 })
 
+suite('Annotations', function () {
+    function tierSplit(src) {
+        return Stip.tierSplit(src, true);
+    }
+
+    test('@require', function () {
+        var res = tierSplit('/* @require [fs moment] @server */ {var foo = 1} /* @client */ {var foo = 2;}')
+        var setup = escodegen.generate(res[1].setup);
+        var contains1 = setup.indexOf("var fs = require('fs')") > -1;
+        var contains2 = setup.indexOf("var moment = require('moment')") > -1;
+        assert.equal(contains1, true);
+        assert.equal(contains2, true);
+
+    })
+})
 
 suite('RedStone', function () {
     function tierSplit(filename) {

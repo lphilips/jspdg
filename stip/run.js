@@ -23,6 +23,7 @@ var Stip = (function () {
         graphs.PDG.distribute(DefaultPlacementStrategy);
         graphs.warnings = warnings.concat(CheckAnnotations.checkAnnotations(graphs.PDG, {analysis: analysis}));
         graphs.assumes = preanalysis.assumes;
+        graphs.imports = preanalysis.imports;
         graphs.genAST = preanalysis.ast;
         graphs.identifiers = preanalysis.identifiers;
         return graphs;
@@ -58,6 +59,7 @@ var Stip = (function () {
                             target: target,
                             tier: option,
                             asynccomm: asyncomm,
+                            imports: graphs.imports,
                             analysis: analysis,
                         }, graphs.AST);
                     return program;
