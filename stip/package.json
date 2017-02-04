@@ -1,0 +1,23 @@
+{
+  "name": "stip",
+  "version": "1.0.0",
+  "description": "Transformation tool for tierless javascript.",
+  "main": "main.js",
+  "directories": {
+    "example": "examples",
+    "test": "test"
+  },
+  "dependencies": {
+    "escodegen": "^1.8.1",
+    "randomstring": "^1.1.5"
+  },
+  "devDependencies": {
+    "mocha": "^2.4.5"
+  },
+  "scripts": {
+    "test": "mocha",
+    "build-js": "browserify main-web.js -o stip-web/bundle.js -d"
+  },
+  "author": "Laure Philips",
+  "license": "ISC"
+}

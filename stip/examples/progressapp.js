@@ -209,7 +209,7 @@
 		courses.forEach(function (course) {
 		    var parsed = later.parse.text(course.time);
             var s = later.schedule(parsed);
-            // only 1 next and 1 previous
+            // only 1 next and 1 previous occurence
             var next = s.next(1);
             var nextDate = new Date(next);
             var nextSec = nextDate.getTime();
@@ -349,7 +349,7 @@ body
 					div[class=col-md-4]
 						a[class=btn btn-default]
 							span[class=glyphicon glyphicon-pencil]
-						div#meeting-form[class=form-horizontal]
+						div#task-form[class=form-horizontal]
 							div[class=form-group]
 								label[for=task-title][class=control-label sr-only] Title
 								div[class=col-sm-10]
@@ -357,7 +357,7 @@ body
 							div[class=form-group]
 								label[for=taskPriority][class=control-label sr-only] Priority
 								div[class=col-sm-10]
-									input[value={{taskPriority}}]
+									input[value={{taskPriority}}][class=form-control][placeholder=Priority (0-...)]
 							div[class=form-group]
 								div[class=col-sm-offset-2 col-sm-10]
 									button[@click=addTask][class=btn btn-success]#send

@@ -14,6 +14,21 @@
 *  - nodes              (list of entry nodes)                   *
 ****************************************************************/
 
+var pdg_edge        = require('./edge.js');
+var EDGES           = pdg_edge.EDGES;
+
+
+var node            = require('./node.js');
+var ObjectEntryNode = node.ObjectEntryNode;
+var CallNode        = node.CallNode;
+var StatementNode   = node.StatementNode;
+var FormalPNode     = node.FormalPNode;
+var ExitNode        = node.ExitNode;
+var FunctionalityNode = node.FunctionalityNode;
+var DNODES          = node.DNODES;
+var DistributedNode = node.DistributedNode;
+var Aux             = require('../aux.js');
+
 
 function PDG () {
   this.entryNode;
@@ -179,16 +194,18 @@ PDG.prototype.addServerStm = function (node) {
 
 PDG.prototype.distribute = function (strategy) {
   var self = this;
-  this.getFunctionalityNodes().map(function (fnode) {
-    var placement = self.placements[fnode.ftype];
-    if (placement) {
-      if (placement == DNODES.CLIENT) {
-        fnode.tier = DNODES.CLIENT;
+  this.getFunctionalityNodes().forEach(function (fnode) {
+      var placement = self.placements[fnode.ftype];
+      if (placement) {
+          if (placement == DNODES.CLIENT) {
+              fnode.tier = DNODES.CLIENT;
+          }
+          else if (placement == DNODES.SERVER) {
+              fnode.tier = DNODES.SERVER;
+          }
       }
-      else if (placement == DNODES.SERVER) {
-        fnode.tier = DNODES.SERVER;
-      }
-    }
+  })
+  this.getFunctionalityNodes().forEach(function (fnode) {
     if (!fnode.tier) {
       strategy.addPlacementTag(fnode, self);
     }
@@ -385,58 +402,5 @@ PDG.prototype.sliceDistributedNode = function (ctype) {
     return slicedset
 }
 
-
-/* Functionality Nodes */
-
-
-
-// Example graph from "Slicing Object-Oriented Software", Larsen and Harrold
-/*var E0 = new EntryNode(0), E11 = new EntryNode(11),
-    S1 = new StatementNode(1), S2 = new StatementNode(2), S3 = new StatementNode(3), S4 = new StatementNode(4), S5 = new StatementNode(5),
-    S6 = new StatementNode(6), S8 = new StatementNode(8), S10 = new StatementNode(10), S12 = new StatementNode(12),
-    C7 = new CallNode(7), C9 = new CallNode(9),
-    A1_in = new ActualPNode(1,1), A2_in = new ActualPNode(2,1), A1_out = new ActualPNode(1,-1), A3_in = new ActualPNode(3,1),
-    F1_in = new FormalPNode(1,1), F2_in = new FormalPNode(2,1), F1_out = new FormalPNode(1,-1);
-
-E0.add_edges_out([[S1,EDGES.CONTROL],[S2,EDGES.CONTROL],[S3,EDGES.CONTROL], [S4,EDGES.CONTROL], [S5,EDGES.CONTROL], [S10,EDGES.CONTROL]]);
-S5.add_edges_out([[S6,EDGES.CONTROL],[S8,EDGES.CONTROL]]);
-S6.add_edges_out([[C7,EDGES.CONTROL], [S6,EDGES.CONTROL]]);
-S8.add_edges_out([[C9,EDGES.CONTROL],[S8,EDGES.CONTROL]]);
-C7.add_edges_out([[A2_in,EDGES.CONTROL]]);
-C9.add_edges_out([[A1_in,EDGES.CONTROL], [A3_in,EDGES.CONTROL], [A1_out,EDGES.CONTROL],[E11,EDGES.CALL]]);
-E11.add_edges_out([[F1_in,EDGES.CONTROL], [F2_in,EDGES.CONTROL], [F1_out,EDGES.CONTROL],[S12,EDGES.CONTROL]]);
-S1.add_edges_out([[S6,EDGES.DATA],[S8,EDGES.DATA]]);
-S2.add_edges_out([[A1_in,EDGES.DATA], [S6,EDGES.DATA], [S8,EDGES.DATA]]);
-S3.add_edges_out([[S6,EDGES.DATA],[S8, EDGES.DATA]]);
-S4.add_edges_out([[S5,EDGES.DATA]]);
-A1_out.add_edges_out([[S10,EDGES.DATA]]);
-A1_in.add_edges_out([[F1_in,EDGES.PARIN],[A1_out,EDGES.SUMMARY]]);
-A3_in.add_edges_out([[F2_in,EDGES.PARIN], [A1_out,EDGES.SUMMARY]]);
-S12.add_edges_out([[F1_out,EDGES.DATA]]);
-F1_in.add_edges_out([[S12,EDGES.DATA]]);
-F2_in.add_edges_out([[S12,EDGES.DATA]]);
-F1_out.add_edges_out([[A1_out,EDGES.PAROUT]]); */
-
-
-if (typeof module !== 'undefined' && module.exports != null) {
-    var pdg_edge        = require('./edge.js');
-    var EDGES           = pdg_edge.EDGES;
-    var PDG_Edge        = pdg_edge.PDG_Edge;
-    var Parameter_Edge  = Parameter_Edge;
-
-    var node            = require('./node.js');
-    var PDG_Node        = node.PDG_Node;
-    var EntryNode       = node.EntryNode;
-    var ObjectEntryNode = node.ObjectEntryNode;
-    var CallNode        = node.CallNode;
-    var StatementNode   = node.StatementNode;
-    var FormalPNode     = node.FormalPNode;
-    var ActualPNode     = node.ActualPNode;
-    var ExitNode        = node.ExitNode;
-    var FunctionalityNode = node.FunctionalityNode;
-    var DNODES          = node.DNODES;
-    var ARITY           = node.ARITY;
-    var DistributedNode = node.DistributedNode;
-    var fTypeEquals     = node.fTypeEquals;
-    exports.PDG = PDG;
-}
+exports.PDG = PDG;
+global.PDG = PDG;

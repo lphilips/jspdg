@@ -1,10 +1,8 @@
 /***********/
 /* Imports */
 /***********/
-
 var util = require('util');
 var fs = require("fs");
-
 
 /***************/
 /* Definitions */
@@ -21,22 +19,24 @@ var fs = require("fs");
  * it will return -1, as it is an invalid index.
  */
 var array_indexOfSmallest = function array_indexOfSmallest(arr, ignores) {
-	var idx = -1;
-	var cmp = null;
-	for (var i = 0; i < arr.length; i++) {
-		var v = arr[i];
-		if (v == ignores) { continue; }
-		if (cmp === null) {
-			cmp = v;
-			idx = i;
-		} else {
-			if (cmp > v) {
-				cmp = v;
-				idx = i;
-			}
-		}
-	}
-	return idx;
+    var idx = -1;
+    var cmp = null;
+    for (var i = 0; i < arr.length; i++) {
+        var v = arr[i];
+        if (v == ignores) {
+            continue;
+        }
+        if (cmp === null) {
+            cmp = v;
+            idx = i;
+        } else {
+            if (cmp > v) {
+                cmp = v;
+                idx = i;
+            }
+        }
+    }
+    return idx;
 };
 
 /**
@@ -44,7 +44,7 @@ var array_indexOfSmallest = function array_indexOfSmallest(arr, ignores) {
  * @param {any} obj The object to dump.
  */
 var dump = function dump(obj) {
-	console.log(util.inspect(obj, {showHidden: false, depth: null}));
+    console.log(util.inspect(obj, {showHidden: false, depth: null}));
 };
 
 /**
@@ -54,7 +54,7 @@ var dump = function dump(obj) {
  * @returns {String} The contents of the file.
  */
 var readFile = function readFile(path) {
-	return fs.readFileSync(path, "utf-8");
+    return fs.readFileSync(path, "utf-8");
 };
 
 var DEBUG = true;
@@ -64,15 +64,17 @@ var DEBUG = true;
  * @param {String} title The title to display
  */
 var head = function head(title) {
-	if (!(DEBUG)) { return; }
+    if (!(DEBUG)) {
+        return;
+    }
 
-	var len = 64;
-	var line = "=".repeat(len);
-	console.log("");
-	console.log(line);
-	console.log(" ".repeat((len-title.length)/2) + title);
-	console.log(line);
-	console.log("");
+    var len = 64;
+    var line = "=".repeat(len);
+    console.log("");
+    console.log(line);
+    console.log(" ".repeat((len - title.length) / 2) + title);
+    console.log(line);
+    console.log("");
 };
 
 /**
@@ -80,15 +82,17 @@ var head = function head(title) {
  * @param {String} title The title to display
  */
 var subhead = function subhead(title) {
-	if (!(DEBUG)) { return; }
+    if (!(DEBUG)) {
+        return;
+    }
 
-	var len = 64;
-	var line = "-".repeat(len);
-	console.log("");
-	console.log(line);
-	console.log(" ".repeat((len-title.length)/2) + title);
-	console.log(line);
-	console.log("");
+    var len = 64;
+    var line = "-".repeat(len);
+    console.log("");
+    console.log(line);
+    console.log(" ".repeat((len - title.length) / 2) + title);
+    console.log(line);
+    console.log("");
 };
 
 /**
@@ -96,17 +100,19 @@ var subhead = function subhead(title) {
  * @param {String} a The text to display
  */
 var debugEcho = function debugEcho(a) {
-	if (!(DEBUG)) { return; }
+    if (!(DEBUG)) {
+        return;
+    }
 
-	console.log(a);
+    console.log(a);
 };
 
 /**
  * Sets the debug flag
- * @param {Boolean} flag The 
+ * @param {Boolean} flag The
  */
 var set_debug = function set_debug(flag) {
-	DEBUG = flag;
+    DEBUG = flag;
 };
 
 /**
@@ -115,8 +121,9 @@ var set_debug = function set_debug(flag) {
  * @param {String} content The contents to write in the file
  */
 var writeFile = function writeFile(path, content) {
-	var callback = function() {};
-	fs.writeFileSync(path, content, 'utf8', callback);
+    var callback = function () {
+    };
+    fs.writeFileSync(path, content, 'utf8', callback);
 };
 
 /**
@@ -129,53 +136,53 @@ var writeFile = function writeFile(path, content) {
  * @returns {Array} Array containing the bits and pieces
  */
 var explode = function explode(delimiter, string, limit) {
-	if (arguments.length < 2 || typeof delimiter === 'undefined' || typeof string === 'undefined') {
-		return null;
-	}
+    if (arguments.length < 2 || typeof delimiter === 'undefined' || typeof string === 'undefined') {
+        return null;
+    }
 
-	if (delimiter === '' || delimiter === false || delimiter === null) {
-		return false;
-	}
+    if (delimiter === '' || delimiter === false || delimiter === null) {
+        return false;
+    }
 
-	if (typeof delimiter === 'function' || typeof delimiter === 'object' || typeof string === 'function' || typeof string === 'object') {
-		return [''];
-	}
+    if (typeof delimiter === 'function' || typeof delimiter === 'object' || typeof string === 'function' || typeof string === 'object') {
+        return [''];
+    }
 
-	if (delimiter === true) {
-		delimiter = '1';
-	}
+    if (delimiter === true) {
+        delimiter = '1';
+    }
 
-	// Here we go...
-	delimiter += '';
-	string += '';
+    // Here we go...
+    delimiter += '';
+    string += '';
 
-	var s = string.split(delimiter);
+    var s = string.split(delimiter);
 
-	if (typeof limit === 'undefined') {
-		return s;
-	}
+    if (typeof limit === 'undefined') {
+        return s;
+    }
 
-	// Support for limit
-	if (limit == 0) {
-		limit = 1;
-	}
+    // Support for limit
+    if (limit == 0) {
+        limit = 1;
+    }
 
-	// Positive limit
-	if (limit > 0) {
-		if (limit >= s.length) {
-			return s;
-		}
+    // Positive limit
+    if (limit > 0) {
+        if (limit >= s.length) {
+            return s;
+        }
 
-		return s.slice(0, limit - 1).concat([s.slice(limit - 1).join(delimiter)]);
-	}
+        return s.slice(0, limit - 1).concat([s.slice(limit - 1).join(delimiter)]);
+    }
 
-	// Negative limit
-	if (-limit >= s.length) {
-		return [];
-	} else {
-		s.splice(s.length + limit);
-		return s;
-	}
+    // Negative limit
+    if (-limit >= s.length) {
+        return [];
+    } else {
+        s.splice(s.length + limit);
+        return s;
+    }
 };
 
 /**
@@ -184,20 +191,22 @@ var explode = function explode(delimiter, string, limit) {
  * @returns {Array} Array without doubles
  */
 var uniq = function uniq(a) {
-	return Array.from(new Set(a));
+    return Array.from(new Set(a));
 };
 
-/***********/
-/* Exports */
-/***********/
 
-exports.array_indexOfSmallest = array_indexOfSmallest;
-exports.dump = dump;
-exports.readFile = readFile;
-exports.head = head;
-exports.subhead = subhead;
-exports.debugEcho = debugEcho;
-exports.set_debug = set_debug;
-exports.writeFile = writeFile;
-exports.explode = explode;
-exports.uniq = uniq;
+var toreturn = {
+    array_indexOfSmallest: array_indexOfSmallest,
+    dump: dump,
+    readFile: readFile,
+    head: head,
+    subhead: subhead,
+    debugEcho: debugEcho,
+    set_debug: set_debug,
+    writeFile: writeFile,
+    explode: explode,
+    uniq: uniq
+}
+
+module.exports = toreturn;
+global.Utils = toreturn;

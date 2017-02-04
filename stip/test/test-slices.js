@@ -6,11 +6,11 @@ var assert = require('assert');
 var fs = require('fs');
 
 /* Libraries */
-var esprima = require('../lib/esprima.js');
-var escodegen = require('../lib/escodegen.js');
+var esprima = require('esprima');
+var escodegen = require('escodegen');
 
 
-var Stip = require('../run.js').Stip;
+var Stip = require('../run.js');
 
 
 suite('Slices - basic', function () {

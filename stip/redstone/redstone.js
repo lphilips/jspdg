@@ -1,18 +1,11 @@
-var splitter = require("./redstone-splitter.js");
-var parser = require("./redstone-parser.js");
-var generator = require("./redstone-generator.js");
-var preparer = require("./redstone-preparer.js");
-var applier = require("./redstone-applier.js");
+var RedstoneSplitter = require("./redstone-splitter.js");
+var RedstoneParser = require("./redstone-parser.js");
+var RedstoneGenerator = require("./redstone-generator.js");
+var RedstonePreparer = require("./redstone-preparer.js");
+var RedstoneApplier = require("./redstone-applier.js");
+var RedstoneTypes = require("./redstone-types");
 
-var escodegen = require("escodegen");
-//var tiersplit = require("./jspdg/stip/tiersplit.js").tiersplit;
 
-var ConverterContext = require("./redstone-types.js").ConverterContext;
-
-var dump = require("./utils.js").dump;
-var head = require("./utils.js").head;
-var subhead = require("./utils.js").subhead;
-var debugEcho = require("./utils.js").debugEcho;
 
 /**
  * Fills in the default values for an settings object. It will create (and
@@ -22,26 +15,26 @@ var debugEcho = require("./utils.js").debugEcho;
  * @returns {Object} Settings object
  */
 var preprocess_settings = function preprocess_settings(options) {
-	if (typeof options !== "object") {
-		options = {};
-	}
-	if (!options.hasOwnProperty("random_length")) {
-		options.random_length = 32;
-	}
-	if (!options.hasOwnProperty("selfclosing_backslash")) {
-		options.selfclosing_backslash = false;
-	}
-	if (!options.hasOwnProperty("server_hostname")) {
-		options.server_hostname = "localhost";
-	}
-	if (!options.hasOwnProperty("server_port")) {
-		options.server_port = 3000;
-	}
-	if(!options.hasOwnProperty("include_source")) {
-		options.include_source = true;
-	}
+    if (typeof options !== "object") {
+        options = {};
+    }
+    if (!options.hasOwnProperty("random_length")) {
+        options.random_length = 32;
+    }
+    if (!options.hasOwnProperty("selfclosing_backslash")) {
+        options.selfclosing_backslash = false;
+    }
+    if (!options.hasOwnProperty("server_hostname")) {
+        options.server_hostname = "localhost";
+    }
+    if (!options.hasOwnProperty("server_port")) {
+        options.server_port = 3000;
+    }
+    if (!options.hasOwnProperty("include_source")) {
+        options.include_source = true;
+    }
 
-	return options;
+    return options;
 };
 
 /**
@@ -50,26 +43,44 @@ var preprocess_settings = function preprocess_settings(options) {
  * @returns {string} The compound Javascript code for Stip.js
  */
 var build_js = function build_js(chunks) {
-	var output = "";
+    var output = "";
+    var slices = [];
 
-	output += chunks.unknown;
+    output += chunks.unknown;
 
+    for (prop in chunks) {
+        if (prop !== "client" && prop !== "server" && prop !== "comments" &&
+            prop !== "ui" && prop !== "css" && prop !== "settings" && prop !== "unknown") {
+            slices.push(prop)
+        }
+    }
 
-	output += chunks.comments.server;
-	if (chunks.server.length > 0) {
-		output += chunks.server.join("\n") + "\n";
-	} else {
-		output += "{}";
-	}
+    if (chunks.slice.length > 0) {
+        for (var i = chunks.slice.length - 1; i >= 0; i--) {
+            var slice = [chunks.slice[i]];
+            var comments = chunks.comments["slice"][i];
+            output += comments;
+            output += slice.join("\n") + "\n";
+        }
+    }
+    else {
+        output += chunks.comments.server;
 
-	output += chunks.comments.client;
-	if (chunks.client.length > 0) {
-		output += chunks.client.join("\n") + "\n";
-	} else {
-		output += "{}";
-	}
-	
-	return output;
+        if (chunks.server.length > 0) {
+            output += chunks.server.join("\n") + "\n";
+        } else {
+            output += "{}";
+        }
+
+        output += chunks.comments.client;
+        if (chunks.client.length > 0) {
+            output += chunks.client.join("\n") + "\n";
+        } else {
+            output += "{}";
+        }
+    }
+
+    return output;
 };
 
 /**
@@ -78,21 +89,21 @@ var build_js = function build_js(chunks) {
  * @returns {Array} Array containing variable names
  */
 var scan_toplevel_variables = function scan_toplevel_variables(expressions) {
-	var result = [];
+    var result = [];
 
-	expressions.forEach(function (expression) {
-		if (expression.type == esprima.Syntax.VariableDeclaration) {
-			var declarations = expression.declarations;
+    expressions.forEach(function (expression) {
+        if (expression.type == esprima.Syntax.VariableDeclaration) {
+            var declarations = expression.declarations;
 
-			declarations.forEach(function (declarator) {
-				if (declarator.id.type == esprima.Syntax.Identifier) {
-					result.push(declarator.id.name);
-				}
-			});
-		}
-	});
+            declarations.forEach(function (declarator) {
+                if (declarator.id.type == esprima.Syntax.Identifier) {
+                    result.push(declarator.id.name);
+                }
+            });
+        }
+    });
 
-	return result;
+    return result;
 };
 
 /**
@@ -101,8 +112,8 @@ var scan_toplevel_variables = function scan_toplevel_variables(expressions) {
  * @returns {Array} Array containing shared variables
  */
 var get_shared_variables = function get_shared_variables(unknown) {
-	var parsed = esprima.parse(unknown);
-	return scan_toplevel_variables(parsed.body);
+    var parsed = esprima.parse(unknown);
+    return scan_toplevel_variables(parsed.body);
 };
 
 /**
@@ -111,13 +122,13 @@ var get_shared_variables = function get_shared_variables(unknown) {
  * @returns {string} The final CSS code
  */
 var build_css = function build_css(chunks) {
-	var output = "";
+    var output = "";
 
-	if (chunks.css.length > 0) {
-		output += chunks.css.join("\n");
-	}
+    if (chunks.css.length > 0) {
+        output += chunks.css.join("\n");
+    }
 
-	return output;
+    return output;
 };
 
 /**
@@ -126,13 +137,13 @@ var build_css = function build_css(chunks) {
  * @returns {string} The final settings object, as a string
  */
 var build_settings = function build_settings(chunks) {
-	if (chunks.settings.length == 1) {
-		return chunks.settings[0];
-	} else if (chunks.settings != 0) {
-		throw "Only one @settings block allowed";
-	} else {
-		return "{}";
-	}
+    if (chunks.settings.length == 1) {
+        return chunks.settings[0];
+    } else if (chunks.settings != 0) {
+        throw "Only one @settings block allowed";
+    } else {
+        return "{}";
+    }
 };
 
 /**
@@ -141,7 +152,7 @@ var build_settings = function build_settings(chunks) {
  * @returns {string} The final User Interface definitions
  */
 var build_ui = function build_ui(chunks) {
-	return chunks.ui.join("\n");
+    return chunks.ui.join("\n");
 };
 
 /**
@@ -152,36 +163,36 @@ var build_ui = function build_ui(chunks) {
  * generated in STiP during pre-analysis.
  */
 var generate_toGenerate = function generate_toGenerate(context) {
-	// Generate list of all identifiers that should be generated
-	var toGenerateCallbacks = [];
-	var toGenerateIdentifiers = [];
-	var toGenerateMethods = context.functionNames;
+    // Generate list of all identifiers that should be generated
+    var toGenerateCallbacks = [];
+    var toGenerateIdentifiers = [];
+    var toGenerateMethods = context.functionNames;
 
-	// Add callbacks from callbacks
-	context.callbacks.forEach(function (callback) {
-		toGenerateCallbacks.push(callback.name);
-	});
+    // Add callbacks from callbacks
+    context.callbacks.forEach(function (callback) {
+        toGenerateCallbacks.push(callback.name);
+    });
 
-	// Add identifiers from crumbs
-	context.crumbs.forEach(function (crumb) {
-		crumb.variableNames.forEach(function (varname) {
-			toGenerateIdentifiers.push(varname);
-		});
-	});
+    // Add identifiers from crumbs
+    context.crumbs.forEach(function (crumb) {
+        crumb.variableNames.forEach(function (varname) {
+            toGenerateIdentifiers.push(varname);
+        });
+    });
 
-	// Aid function, so the list with identifiers are unique
-	var uniq = function uniq(a) {
-		return Array.from(new Set(a));
-	};
+    // Aid function, so the list with identifiers are unique
+    var uniq = function uniq(a) {
+        return Array.from(new Set(a));
+    };
 
-	// Join them in one object
-	var toGenerate = {
-		methodCalls: uniq(toGenerateCallbacks.concat(toGenerateMethods)),
-		identifiers: uniq(toGenerateIdentifiers),
-		shared_variables: context.shared_variables
-	};
+    // Join them in one object
+    var toGenerate = {
+        methodCalls: uniq(toGenerateCallbacks.concat(toGenerateMethods)),
+        identifiers: uniq(toGenerateIdentifiers),
+        shared_variables: context.shared_variables
+    };
 
-	return toGenerate;
+    return toGenerate;
 };
 
 
@@ -192,105 +203,107 @@ var generate_toGenerate = function generate_toGenerate(context) {
  * final context with extra information (key: context).
  */
 var generate = function generate(input) {
-	// Split input into Redstone, and Javascript
-	var chunks = splitter.split(input);
-	var ui       = build_ui(chunks);
-	var js       = build_js(chunks),
-		css      = build_css(chunks),
-		options  = build_settings(chunks);
+    // Split input into Redstone, and Javascript
+    var chunks = RedstoneSplitter.split(input);
+    var ui = build_ui(chunks);
+    var js = build_js(chunks),
+        css = build_css(chunks),
+        options = build_settings(chunks);
 
-	head("Raw chunks");
-	dump(chunks);
+    //Utils.head("Raw chunks");
+    //Utils.dump(chunks);
 
-	head("Parsed input");
-	subhead("UI");
-	debugEcho(ui);
-	subhead("Javascript");
-	debugEcho(js);
-	subhead("CSS");
-	debugEcho(css ? css : "none");
-	subhead("Settings");
-	dump(options);
+    //Utils.head("Parsed input");
+    //Utils.subhead("UI");
+    //Utils.debugEcho(ui);
+    //Utils.subhead("Javascript");
+    //Utils.debugEcho(js);
+    //Utils.subhead("CSS");
+    //Utils.debugEcho(css ? css : "none");
+    //Utils.subhead("Settings");
+    //Utils.dump(options);
 
-	// Pre-process the settings, by supplying the default values
-	options = JSON.parse(options);
-	options = preprocess_settings(options);
-	var context = new ConverterContext(options);
-	context.css = css;
+    // Pre-process the settings, by supplying the default values
+    options = JSON.parse(options);
+    options = preprocess_settings(options);
+    var context = new RedstoneTypes.ConverterContext(options);
+    context.css = css;
 
-	// Store raw_input in context
-	context.raw_source = input;
+    // Store raw_input in context
+    context.raw_source = input;
 
-	// Parse the tree
-	var result_parse = parser.parse(ui);
-	head("Parse result");
-	dump(result_parse);
+    // Parse the tree
+    var result_parse = RedstoneParser.parse(ui);
+    Utils.head("Parse result");
+    //Utils.dump(result_parse);
 
-	// Install callbacks and crumbs for dynamic content
-	preparer.prepare(result_parse, context);
-	head("Pre-process result");
-	subhead("Trees");
-	dump(result_parse);
-	subhead("Context");
-	dump(context);
+    // Install callbacks and crumbs for dynamic content
+    RedstonePreparer.prepare(result_parse, context);
+    // Utils.head("Pre-process result");
+    // Utils.subhead("Trees");
+    // Utils.dump(result_parse);
+    // Utils.subhead("Context");
+    // Utils.dump(context);
 
-	// Calculate shared variables from unknown chunks block
-	var shared_variables = get_shared_variables(chunks.unknown);
-	context.shared_variables = shared_variables;
-	
-	// Disable server creation context if no shared variables, and no server tier defined
-	var has_server = !((shared_variables.length == 0) && (chunks.server.length == 0));
-	context.has_server = has_server;
+    // Calculate shared variables from unknown chunks block
+    var shared_variables = get_shared_variables(chunks.unknown);
+    context.shared_variables = shared_variables;
 
-	// Pass context to Reactify transpiler before starting Stip, so it has access to the crumbs
-	require("../transpiler/Reactify.js").setContext(context);
-	require("../transpiler/Node_parse.js").NodeParse.setContext(context);
-	var storeInContext = function(a) {
-		context.stip = a;
-	};
-	var storeDeclNode = function (name, declNode) {
-		context.varname2declNode[name] = declNode;
-	};
-	var toGenerate = generate_toGenerate(context);
+    // Disable server creation context if no shared variables, and no server tier defined
+    var has_server = !((shared_variables.length == 0) && (chunks.server.length == 0));
+    context.has_server = has_server;
 
-	// Parse Javascript code using Stip.js
-	//head("Running Stip");
-	//var stip_result = tiersplit(js, 'redstone', toGenerate, storeInContext, storeDeclNode); // Passes context for callbacks and reactive information
-	//var clientJS = escodegen.generate(stip_result[0].program);
-	//var serverJS = (has_server ? escodegen.generate(stip_result[1].program) : "none");
+    // Pass context to Reactify transpiler before starting Stip, so it has access to the crumbs
+    require("../transpiler/Reactify.js").setContext(context);
+    require("../transpiler/Node_parse.js").setContext(context);
+    var storeInContext = function (a) {
+        context.stip = a;
+    };
+    var storeDeclNode = function (name, declNode) {
+        context.varname2declNode[name] = declNode;
+    };
+    var toGenerate = generate_toGenerate(context);
 
-	//head("Stip result");
-	//subhead("Client");
-	//debugEcho(clientJS);
-	//subhead("Server");
-	//debugEcho(serverJS);
+    // Parse Javascript code using Stip.js
+    //head("Running Stip");
+    //var stip_result = tiersplit(js, 'redstone', toGenerate, storeInContext, storeDeclNode); // Passes context for callbacks and reactive information
+    //var clientJS = escodegen.generate(stip_result[0].program);
+    //var serverJS = (has_server ? escodegen.generate(stip_result[1].program) : "none");
 
-	// Add client code to <head> in result tree
-	//context.clientJS = clientJS;
+    //head("Stip result");
+    //subhead("Client");
+    //debugEcho(clientJS);
+    //subhead("Server");
+    //debugEcho(serverJS);
 
-	// Apply changes, "cached" in context
-	result_parse = applier.applyContext(result_parse, context);
+    // Add client code to <head> in result tree
+    //context.clientJS = clientJS;
 
-	// Generate the resulting HTML
-	var result_html = generator.generate(result_parse, context);
+    // Apply changes, "cached" in context
+    result_parse = RedstoneApplier.applyContext(result_parse, context);
 
-	// Output result
-	head("Result");
-	subhead("Resulting HTML");
-	debugEcho(result_html);
-	//subhead("Resulting Server code (Node)");
-	//debugEcho(serverJS);
+    // Generate the resulting HTML
+    var result_html = RedstoneGenerator.generate(result_parse, context);
 
-	context.toGenerate = toGenerate;
-	// Return result
-	return {
-		hasUI  		: ui.length > 0,
-	    html    	: result_html,
-		inputJS    	: js,
-	//	server: (has_server ? serverJS : false),
-		context		: context,
-		storeDeclNode : storeDeclNode,
-	};
+    // Output result
+    // Utils.head("Result");
+    // Utils.subhead("Resulting HTML");
+    // Utils.debugEcho(result_html);
+    //subhead("Resulting Server code (Node)");
+    //debugEcho(serverJS);
+
+    context.toGenerate = toGenerate;
+    // Return result
+    return {
+        hasUI: ui.length > 0,
+        html: result_html,
+        inputJS: js,
+        //	server: (has_server ? serverJS : false),
+        context: context,
+        storeDeclNode: storeDeclNode,
+    };
 };
 
-exports.generate = generate;
+
+module.exports = {generate: generate};
+global.Redstone = {generate: generate};

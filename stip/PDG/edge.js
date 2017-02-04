@@ -52,10 +52,5 @@ Parameter_Edge = function Parameter_Edge (from, to, value) {
 Parameter_Edge.prototype = new PDG_Edge();
 
 
-
-if (typeof module !== 'undefined' && module.exports != null) {
-    exports.PDG_Edge = PDG_Edge;
-    exports.EDGES = EDGES;
-    exports.Parameter_Edge = Parameter_Edge;
-}
-
+module.exports = {PDG_Edge: PDG_Edge, EDGES: EDGES, Parameter_Edge: Parameter_Edge};
+global.Edge = {PDG_Edge: PDG_Edge, EDGES: EDGES, Parameter_Edge: Parameter_Edge};

@@ -1,7 +1,6 @@
 /***********/
 /* Imports */
 /***********/
-
 var DynamicExpression = require("./redstone-types.js").DynamicExpression;
 var DynamicIfBlock = require("./redstone-types.js").DynamicIfBlock;
 var DynamicUnlessBlock = require("./redstone-types.js").DynamicUnlessBlock;
@@ -14,7 +13,6 @@ var ExposedValue = require("./redstone-types.js").ExposedValue;
 var randomstring = require("randomstring");
 var esprima = require("esprima");
 var escodegen = require("escodegen");
-
 
 /**********/
 /* Fields */
@@ -62,65 +60,65 @@ var is_in_with = function is_in_with() {
  * @returns {Array} List of variable names in this expression.
  */
 var find_varnames_expression = function find_varnames_expression(expression, with_flag) {
-    var result = [];
-    if (with_flag || !is_in_with())
-        switch (expression.type) {
-            case esprima.Syntax.Literal:
-                break;
+        var result = [];
+        if (with_flag || !is_in_with())
+            switch (expression.type) {
+                case esprima.Syntax.Literal:
+                    break;
 
-            case esprima.Syntax.Identifier:
-                expression.isInCrumb = true; // While evaluating, make sure we know this identifier name should be looked up locally
-                result.push(expression.name);
-                break;
+                case esprima.Syntax.Identifier:
+                    expression.isInCrumb = true; // While evaluating, make sure we know this identifier name should be looked up locally
+                    result.push(expression.name);
+                    break;
 
-            case esprima.Syntax.MemberExpression:
-                // Get the next level
-                if (expression.computed) {
-                    result = result.concat(find_varnames_expression(expression.property));
-                }
+                case esprima.Syntax.MemberExpression:
+                    // Get the next level
+                    if (expression.computed) {
+                        result = result.concat(find_varnames_expression(expression.property));
+                    }
 
-                result = result.concat(find_varnames_expression(expression.object));
-                break;
+                    result = result.concat(find_varnames_expression(expression.object));
+                    break;
 
-            case esprima.Syntax.BinaryExpression:
-                result = result.concat(find_varnames_expression(expression.left));
-                result = result.concat(find_varnames_expression(expression.right));
-                break;
+                case esprima.Syntax.BinaryExpression:
+                    result = result.concat(find_varnames_expression(expression.left));
+                    result = result.concat(find_varnames_expression(expression.right));
+                    break;
 
-            case esprima.Syntax.CallExpression:
-                var calleeExpression = expression.callee;
-                var arguments = expression.arguments;
+                case esprima.Syntax.CallExpression:
+                    var calleeExpression = expression.callee;
+                    var arguments = expression.arguments;
 
-                switch (calleeExpression.type) {
-                    case esprima.Syntax.Identifier:
-                        if (is_in_with())
-                            context.functionsInWith.push(calleeExpression)
-                        context.functionNames.push(calleeExpression.name);
-                        break;
+                    switch (calleeExpression.type) {
+                        case esprima.Syntax.Identifier:
+                            if (is_in_with())
+                                context.functionsInWith.push(calleeExpression)
+                            context.functionNames.push(calleeExpression.name);
+                            break;
 
-                    case esprima.Syntax.MemberExpression:
-                        result = result.concat(find_varnames_expression(calleeExpression));
-                        break;
-                }
+                        case esprima.Syntax.MemberExpression:
+                            result = result.concat(find_varnames_expression(calleeExpression));
+                            break;
+                    }
 
-                arguments.forEach(function (argument) {
-                    result = result.concat(find_varnames_expression(argument));
-                });
-                break;
+                    arguments.forEach(function (argument) {
+                        result = result.concat(find_varnames_expression(argument));
+                    });
+                    break;
 
-            case esprima.Syntax.ConditionalExpression:
-                result = result.concat(find_varnames_expression(expression.test));
-                result = result.concat(find_varnames_expression(expression.consequent));
-                result = result.concat(find_varnames_expression(expression.alternate));
-                break;
+                case esprima.Syntax.ConditionalExpression:
+                    result = result.concat(find_varnames_expression(expression.test));
+                    result = result.concat(find_varnames_expression(expression.consequent));
+                    result = result.concat(find_varnames_expression(expression.alternate));
+                    break;
 
-            default:
-                throw "Unknown ExpressionStatement type '" + expression.type + "'.";
-        }
+                default:
+                    throw "Unknown ExpressionStatement type '" + expression.type + "'.";
+            }
 
-    return result;
-}
-;
+        return result;
+    }
+    ;
 
 /**
  * Parses an AST tree of a dynamic expression, and outputs the type, and information about the arguments (variable
@@ -374,7 +372,7 @@ var is_exposed_value = function is_exposed_value(attributeDef) {
 
     // See if the attribute content exists only from a DynamicExpression
     var attribute = attributeDef[0];
-    return (attribute instanceof DynamicExpression);
+    return (attribute instanceof RedstoneTypes.DynamicExpression);
 };
 
 /**
@@ -489,7 +487,7 @@ var prepare_attribute = function prepare_attribute(tag, name) {
             return;
         }
 
-        if (part instanceof DynamicExpression) {
+        if (part instanceof RedstoneTypes.DynamicExpression) {
             prepare(part);
         }
     });
@@ -531,7 +529,7 @@ var prepare_tag = function prepare_tag(tag) {
  * @returns boolean true when the given object is a dynamic expression, false otherwise
  */
 var is_dynamicExpression = function is_dynamicExpression(obj) {
-    return (obj instanceof DynamicExpression);
+    return (obj instanceof RedstoneTypes.DynamicExpression);
 };
 
 /**
@@ -541,10 +539,10 @@ var is_dynamicExpression = function is_dynamicExpression(obj) {
  * @returns boolean true when the given object is a dynamic block, false otherwise
  */
 var is_dynamicBlock = function is_dynamicBlock(obj) {
-    return ( (obj instanceof DynamicEachBlock) ||
-        (obj instanceof DynamicIfBlock) ||
-        (obj instanceof DynamicUnlessBlock) ||
-        (obj instanceof DynamicWithBlock)
+    return ( (obj instanceof RedstoneTypes.DynamicEachBlock) ||
+        (obj instanceof RedstoneTypes.DynamicIfBlock) ||
+        (obj instanceof RedstoneTypes.DynamicUnlessBlock) ||
+        (obj instanceof RedstoneTypes.DynamicWithBlock)
     );
 };
 
@@ -556,7 +554,7 @@ var is_dynamicBlock = function is_dynamicBlock(obj) {
  */
 
 var is_tag = function is_tag(obj) {
-    return (obj instanceof Tag);
+    return (obj instanceof RedstoneTypes.Tag);
 };
 
 /**
@@ -600,8 +598,5 @@ var prepare_array = function prepare_array(input, newcontext) {
 };
 
 
-/***********/
-/* Exports */
-/***********/
-
-exports.prepare = prepare_array;
+module.exports = {prepare: prepare_array};
+global.RedstonePreparer = {prepare: prepare_array};

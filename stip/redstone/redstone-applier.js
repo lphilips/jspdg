@@ -1,13 +1,10 @@
 /***********/
 /* Imports */
 /***********/
-
 var Tag = require("./redstone-types.js").Tag;
 var escodegen = require("escodegen");
 
 var uniq = require("./utils.js").uniq;
-
-
 /**********/
 /* Fields */
 /**********/
@@ -106,9 +103,9 @@ var generate_update_gui_vars = function generate_update_gui_vars() {
             "sourceType": "script"
         };
     };
-    
+
     var varnames = [];
-    
+
     context.exposedValues.forEach(function (exposedValue) {
         var crumb = exposedValue.crumb;
         if (crumb !== null) {
@@ -161,12 +158,12 @@ var generate_innerjs = function generate_innerjs() {
         exposed_functions.push(name);
     });
 
-    exposed_functions.forEach(function(functionName) {
+    exposed_functions.forEach(function (functionName) {
         result += "\nREDSTONE.registerMethod(\"" + functionName + "\", " + functionName + ");";
     });
 
     // Add remaining Javascript
-    js.forEach(function(block) {
+    js.forEach(function (block) {
         result += "\n" + block;
     });
 
@@ -358,7 +355,7 @@ var crumbs_to_varnamemapping = function crumbs_to_varnamemapping(crumbs) {
  */
 var generate_crumbsjs = function generate_crumbsjs() {
     var result = "";
-    result += "REDSTONE.CRUMBS = " +  JSON.stringify(crumbs_to_mapping(context.crumbs)) + ";\n";
+    result += "REDSTONE.CRUMBS = " + JSON.stringify(crumbs_to_mapping(context.crumbs)) + ";\n";
     result += "REDSTONE.VARTOCRUMBID = " + JSON.stringify(crumbs_to_varnamemapping(context.crumbs)) + ";\n";
     result += "REDSTONE.EXPOSEDVALUES  = " + JSON.stringify(context.exposedValues) + ";\n";
     result += "REDSTONE.EVENTS = " + JSON.stringify(context.callbacks) + ";\n";
@@ -458,11 +455,11 @@ var generate_head_content = function generate_head_content() {
  */
 var applyHead = function applyHead(head) {
     var newTags = generate_head_content();
-    var first = head.content.slice(0,1);
+    var first = head.content.slice(0, 1);
     var rest = head.content.slice(1);
 
-    newTags.forEach(function(t) {
-         first.push(t);
+    newTags.forEach(function (t) {
+        first.push(t);
     });
     head.content = first.concat(rest);
     return head.content;
@@ -529,7 +526,7 @@ var applyContext = function applyContext(input, newContext) {
     var seenBody = false;
 
     // Find specific elements in the tree
-    input.forEach(function(tree) {
+    input.forEach(function (tree) {
         switch (tree.tagname) {
             case "head":
                 if (seenHead) {
@@ -552,7 +549,7 @@ var applyContext = function applyContext(input, newContext) {
     var newHead, newBody;
 
     // If neither head nor body was seen, generate body with contents
-    if ( (!seenBody) && (!seenHead) ) {
+    if ((!seenBody) && (!seenHead)) {
         newBody = new Tag("body");
         newBody.content = input;
         applyBody(newBody);
@@ -583,8 +580,5 @@ var applyContext = function applyContext(input, newContext) {
 };
 
 
-/***********/
-/* Exports */
-/***********/
-
-exports.applyContext = applyContext;
+module.exports = {applyContext: applyContext};
+global.RedstoneApplier = {applyContext: applyContext};

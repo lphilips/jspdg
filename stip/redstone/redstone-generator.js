@@ -2,13 +2,13 @@
 /* Imports */
 /***********/
 
-var DynamicExpression  = require("./redstone-types.js").DynamicExpression;
-var DynamicIfBlock     = require("./redstone-types.js").DynamicIfBlock;
+var DynamicExpression = require("./redstone-types.js").DynamicExpression;
+var DynamicIfBlock = require("./redstone-types.js").DynamicIfBlock;
 var DynamicUnlessBlock = require("./redstone-types.js").DynamicUnlessBlock;
-var DynamicEachBlock   = require("./redstone-types.js").DynamicEachBlock;
-var DynamicWithBlock   = require("./redstone-types.js").DynamicWithBlock;
-var Tag                = require("./redstone-types.js").Tag;
-var ExposedValue       = require("./redstone-types.js").ExposedValue;
+var DynamicEachBlock = require("./redstone-types.js").DynamicEachBlock;
+var DynamicWithBlock = require("./redstone-types.js").DynamicWithBlock;
+var Tag = require("./redstone-types.js").Tag;
+var ExposedValue = require("./redstone-types.js").ExposedValue;
 
 
 /**********/
@@ -53,11 +53,11 @@ var generate_innerHTML = function generate_innerHTML(content, indent) {
     if (content.length > 0) {
         var first = content[0];
         // If only size 1, and type is text: do not use newlines.
-        if ( (content.length == 1) && (typeof first == "string") ) {
+        if ((content.length == 1) && (typeof first == "string")) {
             return first;
         } else {
             var hasTagInside = false;
-            var innerHTML = content.map(function(sub) {
+            var innerHTML = content.map(function (sub) {
                 if (sub instanceof Tag) {
                     hasTagInside = true;
                 }
@@ -173,7 +173,7 @@ var generate_opentag = function generate_opentag(tag, selfclosing) {
     var tagname = tag.tagname;
 
     var resultHTML = "<" + tagname + generate_attributes(tag);
-    if ( (selfclosing === true) && (context.options.selfclosing_backslash) ) {
+    if ((selfclosing === true) && (context.options.selfclosing_backslash)) {
         resultHTML += " /";
     }
     resultHTML += ">";
@@ -463,11 +463,11 @@ var generate_list = function generate_list(input, indentation) {
  */
 var generate_head = function generate_head(input) {
     var resultHTML = "";
-    
+
     input.forEach(function (tag) {
-         if (tag.tagname === "head") {
-             resultHTML = generate_tree(tag, 1);
-         }
+        if (tag.tagname === "head") {
+            resultHTML = generate_tree(tag, 1);
+        }
     });
 
     return resultHTML;
@@ -498,7 +498,7 @@ var generate_body = function generate_body(input) {
  */
 var generate = function generate(input, newContext) {
     set_context(newContext);
-    
+
     var html = "";
     html += "<!DOCTYPE html>\n";
     html += "<html>\n";
@@ -516,8 +516,5 @@ var generate = function generate(input, newContext) {
 };
 
 
-/***********/
-/* Exports */
-/***********/
-
-exports.generate = generate;
+module.exports = {generate: generate};
+global.RedstoneGenerator = {generate: generate};

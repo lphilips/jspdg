@@ -1,0 +1,21 @@
+[
+   {
+    "title": "Structuur van Computerprogramma's 1",
+    "duration": 120,
+    "time": "at 4:00 pm on the 2nd day of the week"
+ },
+   {
+     "title": "Structuur van Computerprogramma's 1",
+     "duration": 120,
+     "time": "at 11:00 am on the 3rd day of the week"
+   },
+  {
+    "title": "Structuur van Computerprogramma's 1",
+    "duration": 120,
+    "time" : "at 2:00 pm on the 4th day of the week"
+  },
+  {
+    "title": "Structuur van Computerprogramma's 1",
+    "duration": 120,
+    "time" : "at 9:00 am on the 5th day of the week"
+  }]

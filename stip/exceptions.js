@@ -1,68 +1,55 @@
-var Exceptions = (function () {
+var toreturn = {};
 
-    var toreturn = {};
+function NotImplementedError(message) {
+    this.name = "NotImplementedError";
+    this.message = (message || "");
+    this.stack = (new Error()).stack;
+}
+NotImplementedError.prototype = Error.prototype;
+toreturn.NotImplementedError = NotImplementedError;
 
-    function NotImplementedError (message) {
-        this.name = "NotImplementedError";
-        this.message = (message || "");
-        this.stack = (new Error()).stack;
-    }
-    NotImplementedError.prototype = Error.prototype;
-    toreturn.NotImplementedError = NotImplementedError;
+function ReplyAnnotationLocation(message) {
+    this.name = "ReplyAnnotationLocation";
+    this.message = (message || "");
+    this.stack = (new Error()).stack;
+}
+ReplyAnnotationLocation.prototype = Error.prototype;
+toreturn.ReplyAnnotationLocation = ReplyAnnotationLocation;
 
-    function ReplyAnnotationLocation (message) {
-        this.name = "ReplyAnnotationLocation";
-        this.message = (message || "");
-        this.stack = (new Error()).stack;
-    }
-    ReplyAnnotationLocation.prototype = Error.prototype;
-    toreturn.ReplyAnnotationLocation = ReplyAnnotationLocation;
+function DeclarationNotFoundError(message) {
+    this.name = "DeclarationNotFoundError";
+    this.message = (message || "");
+    this.stack = (new Error()).stack;
+}
+DeclarationNotFoundError.prototype = Error.prototype;
+toreturn.DeclarationNotFoundError = DeclarationNotFoundError;
 
-    function DeclarationNotFoundError (message) {
-        this.name = "DeclarationNotFoundError";
-        this.message = (message || "");
-        this.stack = (new Error()).stack;
-    }
-    DeclarationNotFoundError.prototype = Error.prototype;
-    toreturn.DeclarationNotFoundError = DeclarationNotFoundError;
-
-    function MultipleFunctionsCalledError (message) {
-        this.name = "MultipleFunctionsCalledError";
-        this.message = (message || "");
-        this.stack = (new Error()).stack;
-    }
-    MultipleFunctionsCalledError.prototype = Error.prototype;
-    toreturn.MultipleFunctionsCalledError = MultipleFunctionsCalledError;
+function MultipleFunctionsCalledError(message) {
+    this.name = "MultipleFunctionsCalledError";
+    this.message = (message || "");
+    this.stack = (new Error()).stack;
+}
+MultipleFunctionsCalledError.prototype = Error.prototype;
+toreturn.MultipleFunctionsCalledError = MultipleFunctionsCalledError;
 
 
-    function LocalUsedByOtherTier (message) {
-        this.name = "LocalUsedByOtherTier";
-        this.message = (message || "");
-        this.stack = (new Error()).stack;
-    }
-    LocalUsedByOtherTier.prototype = Error.prototype;
-    toreturn.LocalUsedByOtherTier = LocalUsedByOtherTier;
+function LocalUsedByOtherTier(message) {
+    this.name = "LocalUsedByOtherTier";
+    this.message = (message || "");
+    this.stack = (new Error()).stack;
+}
+LocalUsedByOtherTier.prototype = Error.prototype;
+toreturn.LocalUsedByOtherTier = LocalUsedByOtherTier;
 
 
-    function ObservableAssignmentOnOtherTier (message) {
-        this.name = "ObservableAssignmentOnOtherTier";
-        this.message = (message || "");
-        this.stack = (new Error()).stack;
-    }
+function ObservableAssignmentOnOtherTier(message) {
+    this.name = "ObservableAssignmentOnOtherTier";
+    this.message = (message || "");
+    this.stack = (new Error()).stack;
+}
 
-    ObservableAssignmentOnOtherTier.prototype = Error.prototype;
+ObservableAssignmentOnOtherTier.prototype = Error.prototype;
+toreturn.ObservableAssignmentOnOtherTier = ObservableAssignmentOnOtherTier;
 
-    if (typeof module !== 'undefined' && module.exports != null) {
-        exports.NotImplementedError = NotImplementedError;
-        exports.ReplyAnnotationLocation = ReplyAnnotationLocation;
-        exports.DeclarationNotFoundError = DeclarationNotFoundError;
-        exports.MultipleFunctionsCalledError = MultipleFunctionsCalledError;
-        exports.LocalUsedByOtherTier = LocalUsedByOtherTier;
-        exports.ObservableAssignmentOnOtherTier = ObservableAssignmentOnOtherTier;
-
-    }
-
-    return toreturn;
-
-
-})()
+module.exports = toreturn;
+global.Exceptions = toreturn;

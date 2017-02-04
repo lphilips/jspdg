@@ -14,7 +14,7 @@ var escodegen = require('../lib/escodegen.js');
 
 /* Stip - constructing pdg */
 
-var Stip = require('../run.js').Stip;
+var Stip = require('../run.js');
 
 
 suite('Tier split - basic', function () {

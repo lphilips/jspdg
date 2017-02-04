@@ -1,14 +1,19 @@
 /****************************************************************
-*   Distributed program dependency graph                        *
-*                                                               *
-*               NODE                                            *
-*                                                               *
-*  - id               (e.g. s1)                                 *
-*  - cnt              (count, e.g. 1)                           *
-*  - incoming edges   [EDGE]                                    *
-*  - outgoing edges   [EDGE]                                    *
-*  - expression       (original expr of an esprima exp. node)   *
-*****************************************************************/
+ *   Distributed program dependency graph                        *
+ *                                                               *
+ *               NODE                                            *
+ *                                                               *
+ *  - id               (e.g. s1)                                 *
+ *  - cnt              (count, e.g. 1)                           *
+ *  - incoming edges   [EDGE]                                    *
+ *  - outgoing edges   [EDGE]                                    *
+ *  - expression       (original expr of an esprima exp. node)   *
+ *****************************************************************/
+
+var Aux = require('../aux.js');
+var pdg_edge = require('./edge.js');
+var EDGES = pdg_edge.EDGES;
+var PDG_Edge = pdg_edge.PDG_Edge;
 
 var counter = (function () {
     var cnt = 0;
@@ -18,10 +23,10 @@ var counter = (function () {
 })();
 
 var PDG_Node = function (id) {
-    this.id         = id;
-    this.cnt        = counter();
-    this.edges_in   = [];
-    this.edges_out  = [];
+    this.id = id;
+    this.cnt = counter();
+    this.edges_in = [];
+    this.edges_out = [];
     this.expression = [];
 }
 
@@ -30,23 +35,23 @@ PDG_Node.prototype.equals = function (node) {
 }
 
 PDG_Node.prototype.addEdgesIn = function (froms) {
-    for (var i = 0; i < froms.length; i++)   
-      this.edges_in.push(new PDG_Edge(froms[i], this));
+    for (var i = 0; i < froms.length; i++)
+        this.edges_in.push(new PDG_Edge(froms[i], this));
 }
 
-PDG_Node.prototype.addEdgesOut= function (tos) {
+PDG_Node.prototype.addEdgesOut = function (tos) {
     for (var i = 0; i < tos.length; i++) {
-      var totype = tos[i],
-          e      = new PDG_Edge(this, totype[0], totype[1]);
-      this.edges_out.push(e);
-      totype[0].edges_in.push(e);
+        var totype = tos[i],
+            e = new PDG_Edge(this, totype[0], totype[1]);
+        this.edges_out.push(e);
+        totype[0].edges_in.push(e);
     }
 }
 
 PDG_Node.prototype.addEdgeOut = function (to, type, label) {
-  var e = new PDG_Edge(this, to, type, label);
-  this.edges_out.push(e);
-  to.edges_in.push(e);
+    var e = new PDG_Edge(this, to, type, label);
+    this.edges_out.push(e);
+    to.edges_in.push(e);
 }
 
 PDG_Node.prototype.removeEdgeOut = function (to, type) {
@@ -84,8 +89,8 @@ PDG_Node.prototype.filterInNodes = function (f) {
 }
 
 PDG_Node.prototype.getInEdges = function (type) {
-    if (type) 
-        return this.edges_in.filter( function (e) {
+    if (type)
+        return this.edges_in.filter(function (e) {
             return e.equalsType(type)
         })
     else
@@ -93,8 +98,8 @@ PDG_Node.prototype.getInEdges = function (type) {
 }
 
 PDG_Node.prototype.getOutEdges = function (type) {
-    if (type) 
-        return this.edges_out.filter( function (e) {
+    if (type)
+        return this.edges_out.filter(function (e) {
             return e.equalsType(type)
         })
     else
@@ -102,16 +107,20 @@ PDG_Node.prototype.getOutEdges = function (type) {
 }
 
 PDG_Node.prototype.getOutNodes = function (edgeType) {
-    return this.getOutEdges(edgeType).map(function (e) { return e.to })
+    return this.getOutEdges(edgeType).map(function (e) {
+        return e.to
+    })
 }
 
 PDG_Node.prototype.getInNodes = function (edgeType) {
-    return this.getInEdges(edgeType).map(function (e) {return e.from })
+    return this.getInEdges(edgeType).map(function (e) {
+        return e.from
+    })
 }
 
 PDG_Node.prototype.toString = function () {
     return this.id;
-    
+
 }
 
 PDG_Node.prototype.getParsenode = function () {
@@ -119,20 +128,19 @@ PDG_Node.prototype.getParsenode = function () {
 }
 
 // Aux function
-var contains = function (els,el) {
+var contains = function (els, el) {
     return els.filter(function (e) {
-        return e.equals(el)         
-    }).length >= 1;
+            return e.equals(el)
+        }).length >= 1;
 }
 
 
-
 PDG_Node.prototype.pathExistsTo = function (to) {
-    var out     = this.getOutEdges().slice(),
+    var out = this.getOutEdges().slice(),
         visited = [],
-        found   = false;
+        found = false;
     while (out.length > 0) {
-        var edge   = out.shift(),
+        var edge = out.shift(),
             target = edge.to;
         if (to.equals(target)) {
             found = true;
@@ -140,8 +148,8 @@ PDG_Node.prototype.pathExistsTo = function (to) {
         }
         else {
             var tout = target.edges_out;
-            tout.map(function(e) {
-                if(!(contains(visited, e))) {
+            tout.map(function (e) {
+                if (!(contains(visited, e))) {
                     visited = visited.concat(e);
                     out = out.concat(e);
                 }
@@ -152,19 +160,19 @@ PDG_Node.prototype.pathExistsTo = function (to) {
 }
 
 PDG_Node.prototype.enclosingObjectEntry = function () {
-    var ins     = this.getInEdges(EDGES.CONTROL).slice(),
+    var ins = this.getInEdges(EDGES.CONTROL).slice(),
         visited = [],
         entry;
-    if (this._objectEntry) 
+    if (this._objectEntry)
         return this._objectEntry;
     while (ins.length > 0) {
-        var edge  = ins.shift(),
-            from  = edge.from;
+        var edge = ins.shift(),
+            from = edge.from;
         if (from._isObjectEntry) {
             entry = from;
             this._objectEntry = from;
             break;
-        } 
+        }
         else if (from.parsenode && from.parsenode._objectentry) {
             this._objectEntry = from.parsenode._objectentry;
             entry = this._objectEntry;
@@ -172,7 +180,7 @@ PDG_Node.prototype.enclosingObjectEntry = function () {
         }
         else {
             var ups = from.getInEdges().map(function (edge) {
-                if (!(contains (visited, edge))) {
+                if (!(contains(visited, edge))) {
                     visited.push(edge);
                     ins.push(edge);
                 }
@@ -183,10 +191,10 @@ PDG_Node.prototype.enclosingObjectEntry = function () {
 }
 
 PDG_Node.prototype.enclosingEntry = function () {
-    var ins     = this.getInEdges(EDGES.CONTROL).slice(),
+    var ins = this.getInEdges(EDGES.CONTROL).slice(),
         visited = [],
         entry;
-    while(ins.length > 0) {
+    while (ins.length > 0) {
         var edge = ins.shift(),
             from = edge.from;
         if (from.isEntryNode) {
@@ -200,17 +208,17 @@ PDG_Node.prototype.enclosingEntry = function () {
                 }
             })
         }
-    }   
+    }
     return entry;
 }
 
 
 PDG_Node.prototype.findCallNodes = function () {
-    var outs  = this.getOutEdges(EDGES.CONTROL),
+    var outs = this.getOutEdges(EDGES.CONTROL),
         calls = [];
     while (outs.length > 0) {
         var edge = outs.shift(),
-            to   = edge.to;
+            to = edge.to;
         if (to.isCallNode && calls.indexOf(to) < 0)
             calls.push(to);
         outs = outs.concat(to.getOutEdges(EDGES.CONTROL))
@@ -218,86 +226,86 @@ PDG_Node.prototype.findCallNodes = function () {
     return calls;
 }
 
-PDG_Node.prototype.dataDependentNodes = function(crossTier, includeActualP) {
+PDG_Node.prototype.dataDependentNodes = function (crossTier, includeActualP) {
     var set = [this],
         data_out = this.edges_out.slice().filter(function (e) {
             if (crossTier)
-                return e.equalsType(EDGES.DATA) || e.equalsType(EDGES.REMOTED)  
-            else    
+                return e.equalsType(EDGES.DATA) || e.equalsType(EDGES.REMOTED)
+            else
                 return e.equalsType(EDGES.DATA)
         })
     while (data_out.length > 0) {
-        var e    = data_out.shift(),
-            to   = e.to,
+        var e = data_out.shift(),
+            to = e.to,
             tout = to.getOutEdges(EDGES.DATA);
-            if (to.isActualPNode) {
-                if (includeActualP) {
-                    set.push(to)
-                } else {
-                    var calledges = to.getInEdges(EDGES.CONTROL),
-                        callnode = calledges[0].from,
-                        isarg    = callnode.getInEdges(EDGES.CONTROL).filter(function (e) {
-                                    return  e.from.isActualPNode
+        if (to.isActualPNode) {
+            if (includeActualP) {
+                set.push(to)
+            } else {
+                var calledges = to.getInEdges(EDGES.CONTROL),
+                    callnode = calledges[0].from,
+                    isarg = callnode.getInEdges(EDGES.CONTROL).filter(function (e) {
+                        return e.from.isActualPNode
+                    });
+                /* If call node is an argument itself, keep going upwards until
+                 the "upper most call node" is found */
+                if (isarg.length > 0) {
+                    var upcall = callnode;
+                    while (isarg.length > 0) {
+                        var uparg = isarg.shift().from,
+                            upcalledges = uparg.getInEdges(EDGES.CONTROL).filter(function (e) {
+                                return e.from.isCallNode
+                            }),
+                            upcall = upcalledges[0].from;
+                        isarg = upcall.getInEdges(EDGES.CONTROL).filter(function (e) {
+                            return e.from.isActualPNode
                         });
-                    /* If call node is an argument itself, keep going upwards until
-                       the "upper most call node" is found */
-                    if(isarg.length > 0) {
-                        var upcall = callnode;
-                        while (isarg.length > 0) {
-                            var uparg       = isarg.shift().from,
-                                upcalledges = uparg.getInEdges(EDGES.CONTROL).filter( function (e) {
-                                    return  e.from.isCallNode
-                                }),
-                                upcall      = upcalledges[0].from;
-                            isarg = upcall.getInEdges(EDGES.CONTROL).filter(function (e) {
-                                return  e.from.isActualPNode
-                            });
-                        }
-                        data_out = data_out.concat(upcall.getOutEdges(EDGES.DATA));
-                        var upedges = callnode.getInEdges(EDGES.CONTROL);
-                        if (upedges.length > 0)
-                            data_out = data_out.concat(upedges)
-                        else if (!(contains(set,callnode)))
-                            set.push(callnode)
-                        }
+                    }
+                    data_out = data_out.concat(upcall.getOutEdges(EDGES.DATA));
+                    var upedges = callnode.getInEdges(EDGES.CONTROL);
+                    if (upedges.length > 0)
+                        data_out = data_out.concat(upedges)
+                    else if (!(contains(set, callnode)))
+                        set.push(callnode)
                 }
             }
-            else if (to.isCallNode) {
-                var upnode    = to.getInEdges(EDGES.CONTROL)[0].from;
-                if (!upnode.isEntryNode && !(contains(set, upnode))) {
-                    set.push(upnode);
-                    data_out = data_out.concat(upnode.getOutEdges(EDGES.DATA)); 
-                }
-                else if (!(contains(set, to)))
-                    set.push(to);
+        }
+        else if (to.isCallNode) {
+            var upnode = to.getInEdges(EDGES.CONTROL)[0].from;
+            if (!upnode.isEntryNode && !(contains(set, upnode))) {
+                set.push(upnode);
+                data_out = data_out.concat(upnode.getOutEdges(EDGES.DATA));
             }
-            else 
-                if(!(contains(set, to)) && !to.isFormalNode) {
-                    set.push(to);
-                    data_out = data_out.concat(tout);
-            }
+            else if (!(contains(set, to)))
+                set.push(to);
+        }
+        else if (!(contains(set, to)) && !to.isFormalNode) {
+            set.push(to);
+            data_out = data_out.concat(tout);
+        }
     }
     set = set.remove(this);
     function uniq(a) {
         var seen = {};
-        return a.filter(function(item) {
+        return a.filter(function (item) {
             return seen.hasOwnProperty(item) ? false : (seen[item] = true);
         });
     }
+
     return uniq(set);
 
 }
 
 /* Entry nodes, denoted by "e+index". (Entry) */
 var EntryNode = function (id, parsenode) {
-  PDG_Node.call(this,'e' + id);
-  this.parsenode     = parsenode;
-  this.isEntryNode   = true;
-  this.isCalled      = false;
-  this.clientCallsNr   = 0;
-  this.serverCallsNr   = 0;
-  this.isConstructor = false;
-  this.excExits      = [];
+    PDG_Node.call(this, 'e' + id);
+    this.parsenode = parsenode;
+    this.isEntryNode = true;
+    this.isCalled = false;
+    this.clientCallsNr = 0;
+    this.serverCallsNr = 0;
+    this.isConstructor = false;
+    this.excExits = [];
 }
 
 EntryNode.prototype = new PDG_Node();
@@ -305,9 +313,9 @@ EntryNode.prototype = new PDG_Node();
 EntryNode.prototype.getFormalIn = function () {
     var edges = this.edges_out.filter(function (e) {
         return e.to.isFormalNode &&
-               e.to.direction === 1
+            e.to.direction === 1
     });
-    return edges.map(function(e) {
+    return edges.map(function (e) {
         return e.to
     })
 }
@@ -315,7 +323,7 @@ EntryNode.prototype.getFormalIn = function () {
 EntryNode.prototype.getFormalOut = function () {
     var form_outs = this.edges_out.filter(function (e) {
         return (e.to.isFormalNode &&
-               e.to.direction === -1) 
+        e.to.direction === -1)
     }).map(function (e) {
         return e.to;
     });
@@ -343,17 +351,19 @@ EntryNode.prototype.hasBody = function () {
 EntryNode.prototype.getBody = function () {
     var outs = this.getOutEdges(EDGES.CONTROL),
         body = [];
-    while (outs.length > 0)  {
-        var out    = outs.shift(),
+    while (outs.length > 0) {
+        var out = outs.shift(),
             target = out.to;
         if (target.isStatementNode ||
-            target.isCallNode      ||
-            target.isObjectEntry   ||
+            target.isCallNode ||
+            target.isObjectEntry ||
             target.isEntryNode) {
             body.push(target);
             outs = outs.concat(target.getOutEdges(EDGES.CONTROL)).concat(target.getOutEdges(EDGES.OBJMEMBER));
-            if ( target.isStatementNode && Aux.isProperty(target.parsenode))
-                outs = outs.concat(target.getOutEdges(EDGES.DATA).filter(function (e) { return e.to.isEntryNode}))
+            if (target.isStatementNode && Aux.isProperty(target.parsenode))
+                outs = outs.concat(target.getOutEdges(EDGES.DATA).filter(function (e) {
+                    return e.to.isEntryNode
+                }))
         }
 
     }
@@ -371,14 +381,18 @@ EntryNode.prototype.addCall = function (callnode) {
 EntryNode.prototype.serverCalls = function () {
     return this.getInNodes(EDGES.CALL)
         .concat(this.getInNodes(EDGES.REMOTEC))
-        .filter(function (call) {return call.isServerNode()})
+        .filter(function (call) {
+            return call.isServerNode()
+        })
         .length;
 }
 
 EntryNode.prototype.clientCalls = function () {
     return this.getInNodes(EDGES.CALL)
         .concat(this.getInNodes(EDGES.REMOTEC))
-        .filter(function (call) {return call.isClientNode()})
+        .filter(function (call) {
+            return call.isClientNode()
+        })
         .length;
 }
 
@@ -386,16 +400,18 @@ EntryNode.prototype.getCalls = function (remote) {
     var edges = this.getInEdges(EDGES.CALL);
     if (remote)
         edges = edges.concat(this.getInEdges(EDGES.REMOTEC));
-    return edges.map(function (e) { return e.from});
+    return edges.map(function (e) {
+        return e.from
+    });
 }
 
 /* Object Entry nodes, denoted by "OE+index" */
 var ObjectEntryNode = function (id, parsenode) {
-    EntryNode.call(this, 'o'+id);
-    this.parsenode     = parsenode;
+    EntryNode.call(this, 'o' + id);
+    this.parsenode = parsenode;
     this.isObjectEntry = true;
-    this.isEntryNode   = false;
-    this.members       = {};
+    this.isEntryNode = false;
+    this.members = {};
     this.constructorNode;
 }
 
@@ -406,7 +422,7 @@ ObjectEntryNode.prototype.getMember = function (id) {
     var chain;
     if (id.name)
         id = id.name
-    found =  this.members[id];
+    found = this.members[id];
     if (!found) {
         chain = this.getOutNodes(EDGES.PROTOTYPE)[0];
         if (chain)
@@ -424,42 +440,44 @@ ObjectEntryNode.prototype.addMember = function (name, member) {
 
 /* Call nodes, denoted by "c+index". (Call) */
 var CallNode = function (id, parsenode) {
-  PDG_Node.call(this, 'c'+id);
-  this.parsenode  = parsenode;
-  this.isCallNode = true;
+    PDG_Node.call(this, 'c' + id);
+    this.parsenode = parsenode;
+    this.isCallNode = true;
 }
 
 CallNode.prototype = new PDG_Node();
 
 CallNode.prototype.getActualIn = function () {
-    var edges = this.edges_out.filter(function(e) {
+    var edges = this.edges_out.filter(function (e) {
         return e.to.isActualPNode &&
-                e.to.direction === 1
+            e.to.direction === 1
     })
-    return edges.map(function(e) {
+    return edges.map(function (e) {
         return e.to
     })
 }
 
 CallNode.prototype.getActualOut = function () {
     var actual_outs = this.edges_out.filter(function (e) {
-            return (e.to.isActualPNode &&
-                   e.to.direction === -1);
-        }).map(function (e) {
-            return e.to;
+        return (e.to.isActualPNode &&
+        e.to.direction === -1);
+    }).map(function (e) {
+        return e.to;
     });
     var exit_outs = this.getOutNodes().filter(function (node) {
-            return node.isExitNode;
-        }).flatMap(function (node) {
-            return node.getOutNodes();
-        });
+        return node.isExitNode;
+    }).flatMap(function (node) {
+        return node.getOutNodes();
+    });
 
     var catch_out = this.edges_out.map(function (e) {
         return e.to;
-    }).filter( function (node) {
+    }).filter(function (node) {
         return node.isStatementNode && Aux.isCatchStm(node.parsenode)
     }).flatMap(function (n) {
-        return n.getOutNodes().filter(function (n) {return n.isActualPNode});
+        return n.getOutNodes().filter(function (n) {
+            return n.isActualPNode
+        });
     });
 
     return actual_outs.concat(exit_outs).concat(catch_out);
@@ -468,8 +486,8 @@ CallNode.prototype.getActualOut = function () {
 CallNode.prototype.getEntryNode = function () {
     var edges = this.edges_out.filter(function (e) {
         return e.to.isEntryNode &&
-               (e.equalsType(EDGES.CALL) ||
-                e.equalsType(EDGES.REMOTEC))
+            (e.equalsType(EDGES.CALL) ||
+            e.equalsType(EDGES.REMOTEC))
     });
     return edges.map(function (e) {
         return e.to;
@@ -477,11 +495,11 @@ CallNode.prototype.getEntryNode = function () {
 }
 
 CallNode.prototype.getStmNode = function () {
-    var upnodes = this.getInEdges(EDGES.CONTROL).filter( function (e) {
-                    return e.from.isActualPNode 
-                  }).flatMap(function (e) {
-                    return e.from.getCall()
-                  }),
+    var upnodes = this.getInEdges(EDGES.CONTROL).filter(function (e) {
+            return e.from.isActualPNode
+        }).flatMap(function (e) {
+            return e.from.getCall()
+        }),
         upnode;
     /* Call is argument itse;f */
     if (upnodes.length > 0) {
@@ -489,11 +507,13 @@ CallNode.prototype.getStmNode = function () {
             return callnode.getStmNode()
         })
     } else {
-        upnode = this.getInEdges(EDGES.CONTROL).filter( function (e) {
+        upnode = this.getInEdges(EDGES.CONTROL).filter(function (e) {
             return e.from.isStatementNode && !Aux.isTryStm(e.from.parsenode)
-        }).map(function (e) {return e.from})
+        }).map(function (e) {
+            return e.from
+        })
         if (upnode.length > 0)
-            return  upnode;
+            return upnode;
         else
             return [this];
 
@@ -502,21 +522,21 @@ CallNode.prototype.getStmNode = function () {
 
 /* Statement nodes, denoted by "s+index". (Statement) */
 var StatementNode = function (id, parsenode) {
-  PDG_Node.call(this, 's'+id);
-  this.parsenode       = parsenode;
-  this.isStatementNode = true;
+    PDG_Node.call(this, 's' + id);
+    this.parsenode = parsenode;
+    this.isStatementNode = true;
 }
 
-StatementNode.prototype = new PDG_Node(); 
+StatementNode.prototype = new PDG_Node();
 
 
 /* Formal parameters (formal in and formal out)
  * id + direction. 1 = formal in, -1 = formal out */
 var FormalPNode = function (id, name, direction) {
-  PDG_Node.call(this, 'f'+id+'_'+ (direction == 1 ? 'in' : 'out'));
-  this.direction    = direction;
-  this.name         = name;
-  this.isFormalNode = true;
+    PDG_Node.call(this, 'f' + id + '_' + (direction == 1 ? 'in' : 'out'));
+    this.direction = direction;
+    this.name = name;
+    this.isFormalNode = true;
 }
 
 FormalPNode.prototype = new PDG_Node();
@@ -524,11 +544,11 @@ FormalPNode.prototype = new PDG_Node();
 // Actual paramaters (actual in and actual out)
 // id + direction. 1 = actual in, -1 = actual out
 ActualPNode = function (id, direction, parsenode, value) {
-  PDG_Node.call(this, 'a'+id+'_'+ (direction == 1 ? 'in' : 'out'));
-  this.direction     = direction;
-  this.isActualPNode = true;
-  this.parsenode     = parsenode;
-  this.value         = value;
+    PDG_Node.call(this, 'a' + id + '_' + (direction == 1 ? 'in' : 'out'));
+    this.direction = direction;
+    this.isActualPNode = true;
+    this.parsenode = parsenode;
+    this.value = value;
 }
 
 ActualPNode.prototype = new PDG_Node();
@@ -544,7 +564,7 @@ ActualPNode.prototype.isActualOut = function () {
 
 ActualPNode.prototype.callArgument = function () {
     return this.getOutEdges(EDGES.CONTROL).filter(function (e) {
-        return e.to.isCallNode 
+        return e.to.isCallNode
     }).map(function (e) {
         return e.to
     })
@@ -552,7 +572,7 @@ ActualPNode.prototype.callArgument = function () {
 
 ActualPNode.prototype.getCall = function () {
     return this.getInEdges(EDGES.CONTROL).filter(function (e) {
-        return e.from.isCallNode 
+        return e.from.isCallNode
     }).map(function (e) {
         return e.from
     })
@@ -561,29 +581,29 @@ ActualPNode.prototype.getCall = function () {
 
 /* Normal / exception exit nodes */
 var ExitNode = function (id, parsenode, exception) {
-  PDG_Node.call(this, 'ex'+id);
-  this.parsenode  = parsenode;
-  this.isExitNode = true;
-  this.exception  = exception
+    PDG_Node.call(this, 'ex' + id);
+    this.parsenode = parsenode;
+    this.isExitNode = true;
+    this.exception = exception
 }
 
-ExitNode.prototype = new PDG_Node(); 
+ExitNode.prototype = new PDG_Node();
 
 //////////////////////////////////////////
 //          Functionality nodes         //
 //////////////////////////////////////////
-function FunctionalityNode (tag, tier) {
-    PDG_Node.call(this, 'C'+tag);
+function FunctionalityNode(tag, tier) {
+    PDG_Node.call(this, 'C' + tag);
     this.ftype = tag;
-    this.tier  = tier ? tier : false;
+    this.tier = tier ? tier : false;
     this.isSliceNode = true;
 }
 
 FunctionalityNode.prototype = new PDG_Node();
 
 /* Used for counting outbound remote data references and remote calls 
-   Only follows control flow edges.
-   Default is outbound references, but can be changed with the direction parameter */
+ Only follows control flow edges.
+ Default is outbound references, but can be changed with the direction parameter */
 FunctionalityNode.prototype.countEdgeType = function (type, direction) {
     var controls = this.getOutEdges(EDGES.CONTROL);
     var visited = this.getOutNodes(EDGES.CONTROL);
@@ -618,9 +638,13 @@ FunctionalityNode.prototype.countEdgeTypeTo = function (edgeType, fType, directi
         var node = edge.to;
         var edgestype;
         if (direction) {
-            edgestype = node.getInNodes(edgeType).filter(function (n) {return fTypeEquals(fType, n.getFType())});
+            edgestype = node.getInNodes(edgeType).filter(function (n) {
+                return fTypeEquals(fType, n.getFType())
+            });
         } else {
-            edgestype = node.getOutNodes(edgeType).filter(function (n) {return fTypeEquals(fType, n.getFType())});
+            edgestype = node.getOutNodes(edgeType).filter(function (n) {
+                return fTypeEquals(fType, n.getFType())
+            });
         }
         visited.push(node);
         count += edgestype.length;
@@ -642,9 +666,13 @@ FunctionalityNode.prototype.countEdgeTypeFilter = function (edgeType, filter, di
         var node = edge.to;
         var edgestype;
         if (direction) {
-            edgestype = node.getInNodes(edgeType).filter(function (n) {return filter(n.getFunctionality())});
+            edgestype = node.getInNodes(edgeType).filter(function (n) {
+                return filter(n.getFunctionality())
+            });
         } else {
-            edgestype = node.getOutNodes(edgeType).filter(function (n) {return filter(n.getFunctionality())});
+            edgestype = node.getOutNodes(edgeType).filter(function (n) {
+                return filter(n.getFunctionality())
+            });
         }
         visited.push(node);
         count += edgestype.length;
@@ -690,53 +718,53 @@ PDG_Node.prototype.getFunctionality = function () {
     /* Aux function that filters incoming edges */
     var filterIncoming = function (e) {
         // Ignore cycles
-        if (e.to.equals(e.from)) 
-          return false;
+        if (e.to.equals(e.from))
+            return false;
         // Follow function declarations in form var x  = function () { }
         else if (e.to.parsenode && Aux.isFunExp(e.to.parsenode) &&
-                 e.from.parsenode && (Aux.isVarDeclarator(e.from.parsenode) ||
-                 Aux.isVarDecl(e.from.parsenode) || Aux.isProperty(e.from.parsenode) ||
-                 (Aux.isExpStm(e.from.parsenode) && Aux.isAssignmentExp(e.from.parsenode.expression)))) 
+            e.from.parsenode && (Aux.isVarDeclarator(e.from.parsenode) ||
+            Aux.isVarDecl(e.from.parsenode) || Aux.isProperty(e.from.parsenode) ||
+            (Aux.isExpStm(e.from.parsenode) && Aux.isAssignmentExp(e.from.parsenode.expression))))
             return true;
         // Follow var x = new or var x = {} object expressions 
         else if (e.to.parsenode &&
-                ( Aux.isObjExp(e.to.parsenode) || 
-                  Aux.isNewExp(e.to.parsenode) ) &&
-                e.from.parsenode &&
-                (Aux.isVarDeclarator(e.from.parsenode) ||
-                (Aux.isExpStm(e.from.parsenode) && Aux.isAssignmentExp(e.from.parsenode.expression))))
+            ( Aux.isObjExp(e.to.parsenode) ||
+            Aux.isNewExp(e.to.parsenode) ) &&
+            e.from.parsenode &&
+            (Aux.isVarDeclarator(e.from.parsenode) ||
+            (Aux.isExpStm(e.from.parsenode) && Aux.isAssignmentExp(e.from.parsenode.expression))))
             if (e.from.parsenode.init &&
                 e.from.parsenode.init.equals(e.to.parsenode))
                 return true;
             else if (e.from.parsenode.expression &&
                 e.from.parsenode.expression.right.equals(e.to.parsenode))
                 return true;
-            else 
+            else
                 return false;
 
-        else if (e.to.parsenode && 
-                 ( Aux.isObjExp(e.to.parsenode) || 
-                   Aux.isNewExp(e.to.parsenode) ) &&
-                 e.from.parsenode && 
-                 ( Aux.isVarDeclarator(e.from.parsenode) ||
-                   Aux.isVarDecl(e.from.parsenode) || 
-                   Aux.isProperty(e.from.parsenode)))
+        else if (e.to.parsenode &&
+            ( Aux.isObjExp(e.to.parsenode) ||
+            Aux.isNewExp(e.to.parsenode) ) &&
+            e.from.parsenode &&
+            ( Aux.isVarDeclarator(e.from.parsenode) ||
+            Aux.isVarDecl(e.from.parsenode) ||
+            Aux.isProperty(e.from.parsenode)))
             return true;
 
-        else if (e.to.isObjectEntry && e.from.parsenode 
-                 && Aux.isVarDeclarator(e.from.parsenode) &&
-                 e.from.parsenode.init === e.to.parsenode)
+        else if (e.to.isObjectEntry && e.from.parsenode
+            && Aux.isVarDeclarator(e.from.parsenode) &&
+            e.from.parsenode.init === e.to.parsenode)
             return true;
         // Follow edge from argument to its call node
-        else if (e.from.isActualPNode && e.to.isCallNode) 
+        else if (e.from.isActualPNode && e.to.isCallNode)
             return e.from.direction !== -1
         // Follow edge from call node that is an argument itself
-        else if (e.to.isActualPNode && e.from.isCallNode) 
+        else if (e.to.isActualPNode && e.from.isCallNode)
             return e.from.direction !== -1
-        else 
-            // Else only follow control type edges + object member edges
+        else
+        // Else only follow control type edges + object member edges
             return e.equalsType(EDGES.CONTROL) ||
-                   e.equalsType(EDGES.OBJMEMBER)
+                e.equalsType(EDGES.OBJMEMBER)
     };
 
 
@@ -749,7 +777,7 @@ PDG_Node.prototype.getFunctionality = function () {
         var incoming = this.edges_in.filter(filterIncoming);
         var visited = [];
         var node;
-        while(incoming.length > 0) {
+        while (incoming.length > 0) {
             var edge = incoming.shift();
             node = edge.from;
             visited.push(node);
@@ -764,7 +792,7 @@ PDG_Node.prototype.getFunctionality = function () {
             incoming = incoming.concat(proceed);
         }
 
-        if (node) 
+        if (node)
             if (node.isSliceNode) {
                 return node;
             }
@@ -781,58 +809,58 @@ PDG_Node.prototype.getFType = function (recheck) {
     /* Aux function that filter incoming edges */
     var filterIncoming = function (e) {
         // Ignore cycles
-        if (e.to.equals(e.from)) 
-          return false;
+        if (e.to.equals(e.from))
+            return false;
         // Follow function declarations in form var x  = function () { }
         else if (e.to.parsenode && Aux.isFunExp(e.to.parsenode) &&
-                 e.from.parsenode && (Aux.isVarDeclarator(e.from.parsenode) ||
-                 Aux.isVarDecl(e.from.parsenode) || Aux.isProperty(e.from.parsenode) ||
-                 (Aux.isExpStm(e.from.parsenode) && Aux.isAssignmentExp(e.from.parsenode.expression)))) 
+            e.from.parsenode && (Aux.isVarDeclarator(e.from.parsenode) ||
+            Aux.isVarDecl(e.from.parsenode) || Aux.isProperty(e.from.parsenode) ||
+            (Aux.isExpStm(e.from.parsenode) && Aux.isAssignmentExp(e.from.parsenode.expression))))
             return true;
         // Follow var x = new or var x = {} object expressions 
         else if (e.to.parsenode &&
-                ( Aux.isObjExp(e.to.parsenode) || 
-                  Aux.isNewExp(e.to.parsenode) ) &&
-                e.from.parsenode &&
-                (Aux.isVarDeclarator(e.from.parsenode) ||
-                (Aux.isExpStm(e.from.parsenode) && Aux.isAssignmentExp(e.from.parsenode.expression))))
+            ( Aux.isObjExp(e.to.parsenode) ||
+            Aux.isNewExp(e.to.parsenode) ) &&
+            e.from.parsenode &&
+            (Aux.isVarDeclarator(e.from.parsenode) ||
+            (Aux.isExpStm(e.from.parsenode) && Aux.isAssignmentExp(e.from.parsenode.expression))))
             if (e.from.parsenode.init &&
                 e.from.parsenode.init.equals(e.to.parsenode))
                 return true;
             else if (e.from.parsenode.expression &&
                 e.from.parsenode.expression.right.equals(e.to.parsenode))
                 return true;
-            else 
+            else
                 return false;
 
-        else if (e.to.parsenode && 
-                 ( Aux.isObjExp(e.to.parsenode) || 
-                   Aux.isNewExp(e.to.parsenode) ) &&
-                 e.from.parsenode && 
-                 ( Aux.isVarDeclarator(e.from.parsenode) ||
-                   Aux.isVarDecl(e.from.parsenode) || 
-                   Aux.isProperty(e.from.parsenode)))
+        else if (e.to.parsenode &&
+            ( Aux.isObjExp(e.to.parsenode) ||
+            Aux.isNewExp(e.to.parsenode) ) &&
+            e.from.parsenode &&
+            ( Aux.isVarDeclarator(e.from.parsenode) ||
+            Aux.isVarDecl(e.from.parsenode) ||
+            Aux.isProperty(e.from.parsenode)))
             return true;
 
-        else if (e.to.isObjectEntry && e.from.parsenode 
-                 && Aux.isVarDeclarator(e.from.parsenode) &&
-                 e.from.parsenode.init === e.to.parsenode)
+        else if (e.to.isObjectEntry && e.from.parsenode
+            && Aux.isVarDeclarator(e.from.parsenode) &&
+            e.from.parsenode.init === e.to.parsenode)
             return true;
         // Follow edge from argument to its call node
-        else if (e.from.isActualPNode && e.to.isCallNode) 
+        else if (e.from.isActualPNode && e.to.isCallNode)
             return e.from.direction !== -1
         // Follow edge from call node that is an argument itself
-        else if (e.to.isActualPNode && e.from.isCallNode) 
+        else if (e.to.isActualPNode && e.from.isCallNode)
             return e.from.direction !== -1
-        else 
-            // Else only follow control type edges + object member edges
+        else
+        // Else only follow control type edges + object member edges
             return e.equalsType(EDGES.CONTROL) ||
-                   e.equalsType(EDGES.OBJMEMBER)
+                e.equalsType(EDGES.OBJMEMBER)
     };
 
     /* If distributed type is already calculated, return it */
-    if (!recheck && this.ftype) 
-      return this.ftype;
+    if (!recheck && this.ftype)
+        return this.ftype;
     else if (this.isSliceNode) {
         return this.ftype;
     }
@@ -842,7 +870,7 @@ PDG_Node.prototype.getFType = function (recheck) {
         var incoming = this.edges_in.filter(filterIncoming);
         var visited = [];
         var node;
-        while(incoming.length > 0) {
+        while (incoming.length > 0) {
             var edge = incoming.shift();
             node = edge.from;
             visited.push(node);
@@ -857,7 +885,7 @@ PDG_Node.prototype.getFType = function (recheck) {
             incoming = incoming.concat(proceed);
         }
 
-        if (node) 
+        if (node)
             if (node.ftype) {
                 this.ftype = node.ftype;
                 return node.ftype;
@@ -881,7 +909,7 @@ PDG_Node.prototype.equalsTier = function (node) {
     var comp1 = node.getFunctionality();
     var comp2 = this.getFunctionality();
     return comp1.tier && comp2.tier &&
-            comp1.tier === comp2.tier;
+        comp1.tier === comp2.tier;
 }
 
 
@@ -895,14 +923,14 @@ PDG_Node.prototype.getTier = function () {
 //////////////////////////////////////////
 
 var DNODES = {
-    CLIENT : "client",
-    SERVER : "server",
-    SHARED : "shared"
+    CLIENT: "client",
+    SERVER: "server",
+    SHARED: "shared"
 }
 
 var ARITY = {
-    ONE   : {value: 0, name: "one"},
-    ALL   : {value: 1, name: "all"}
+    ONE: {value: 0, name: "one"},
+    ALL: {value: 1, name: "all"}
 }
 
 var fTypeEquals = function (type1, type2) {
@@ -940,30 +968,22 @@ PDG_Node.prototype.isSharedNode = function () {
 DistributedNode.prototype = new FunctionalityNode();
 
 
-if (typeof module !== 'undefined' && module.exports != null) {
-    var Aux = Aux;
-    (function () {
-        Aux = require('../aux.js').Aux;
-    })();
-    var pdg_edge        = require('./edge.js');
-    var EDGES           = pdg_edge.EDGES;
-    var PDG_Edge        = pdg_edge.PDG_Edge;
-    var Parameter_Edge  = Parameter_Edge;
-
-
-    exports.PDG_Node            = PDG_Node;
-    exports.EntryNode           = EntryNode;
-    exports.ObjectEntryNode     = ObjectEntryNode;
-    exports.CallNode            = CallNode;
-    exports.StatementNode       = StatementNode;
-    exports.FormalPNode         = FormalPNode;
-    exports.ActualPNode         = ActualPNode;
-    exports.ExitNode            = ExitNode;
-    exports.DNODES              = DNODES;
-    exports.ARITY               = ARITY;
-    exports.DistributedNode     = DistributedNode;
-    exports.FunctionalityNode   = FunctionalityNode;
-    exports.arityEquals         = arityEquals;
-    exports.fTypeEquals         = fTypeEquals;
-
+var interface = {
+    PDG_Node: PDG_Node,
+    EntryNode: EntryNode,
+    ObjectEntryNode: ObjectEntryNode,
+    CallNode: CallNode,
+    StatementNode: StatementNode,
+    FormalPNode: FormalPNode,
+    ActualPNode: ActualPNode,
+    ExitNode: ExitNode,
+    DNODES: DNODES,
+    ARITY: ARITY,
+    DistributedNode: DistributedNode,
+    FunctionalityNode: FunctionalityNode,
+    arityEquals: arityEquals,
+    fTypeEquals: fTypeEquals
 }
+
+global.Node = interface;
+module.exports = interface;

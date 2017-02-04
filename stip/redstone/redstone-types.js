@@ -14,12 +14,12 @@
  * @private
  */
 var Tag = function Tag(tagname, id, classes, attributes, content) {
-	this.tagname = tagname;
-	this.attributes = (attributes === undefined ? {} : attributes);
-	this.id = (id === undefined ? false : id);
-	this.classes = (classes === undefined ? [] : classes);
-	this.content = (content === undefined ? [] : content);
-	this.events = [];
+    this.tagname = tagname;
+    this.attributes = (attributes === undefined ? {} : attributes);
+    this.id = (id === undefined ? false : id);
+    this.classes = (classes === undefined ? [] : classes);
+    this.content = (content === undefined ? [] : content);
+    this.events = [];
 };
 
 /**
@@ -28,10 +28,10 @@ var Tag = function Tag(tagname, id, classes, attributes, content) {
  * @param {String} expression The raw, unparsed, expression
  */
 var DynamicExpression = function DynamicExpression(expression) {
-	this.expression = expression;
-	this.crumb = null;
-	this.isComment = false;
-	this.isHiddenComment = false;
+    this.expression = expression;
+    this.crumb = null;
+    this.isComment = false;
+    this.isHiddenComment = false;
 };
 
 /**
@@ -40,11 +40,11 @@ var DynamicExpression = function DynamicExpression(expression) {
  * @param {String} predicateExpression The raw, unparsed, expression for the predicate
  */
 var DynamicIfBlock = function DynamicIfBlock(predicateExpression) {
-	this.type = "if";
-	this.crumb = null;
-	this.predicateExpression = predicateExpression;
-	this.true_branch = [];
-	this.false_branch = [];
+    this.type = "if";
+    this.crumb = null;
+    this.predicateExpression = predicateExpression;
+    this.true_branch = [];
+    this.false_branch = [];
 };
 
 /**
@@ -53,10 +53,10 @@ var DynamicIfBlock = function DynamicIfBlock(predicateExpression) {
  * @param {String} predicateExpression The raw, unparsed, expression for the predicate
  */
 var DynamicUnlessBlock = function DynamicUnlessBlock(predicateExpression) {
-	this.type = "unless";
-	this.crumb = null;
-	this.predicateExpression = predicateExpression;
-	this.true_branch = [];
+    this.type = "unless";
+    this.crumb = null;
+    this.predicateExpression = predicateExpression;
+    this.true_branch = [];
 };
 
 /**
@@ -66,10 +66,10 @@ var DynamicUnlessBlock = function DynamicUnlessBlock(predicateExpression) {
  */
 
 var DynamicEachBlock = function DynamicEachBlock(objectExpression) {
-	this.type = "each";
-	this.crumb = null;
-	this.objectExpression = objectExpression;
-	this.body = [];
+    this.type = "each";
+    this.crumb = null;
+    this.objectExpression = objectExpression;
+    this.body = [];
 };
 
 /**
@@ -79,10 +79,10 @@ var DynamicEachBlock = function DynamicEachBlock(objectExpression) {
  */
 
 var DynamicWithBlock = function DynamicWithBlock(objectExpression) {
-	this.type = "with";
-	this.crumb = null;
-	this.objectExpression = objectExpression;
-	this.body = [];
+    this.type = "with";
+    this.crumb = null;
+    this.objectExpression = objectExpression;
+    this.body = [];
 };
 
 /**
@@ -92,20 +92,20 @@ var DynamicWithBlock = function DynamicWithBlock(objectExpression) {
  * values and default values, see redstone-parser.js.
  */
 var ConverterContext = function ConverterContext(options) {
-	this.js = []; // List of generated Javascript
-	this.callbacks = []; // List of callback names (as strings)
-	this.crumbs = []; // List containing crumbs
-	this.options = options; // Object containing options
-	this.css = false; // Generated + supplied css
-	this.idNames = []; // List of generated idNames, to make sure there are no duplicates
-	this.varname2declNode = {}; // Mapping from variable names (as strings) to their declaration nodes
-	this.stip = {}; // Information about Stip tool is temporary saved here
-	this.functionNames = []; // Array containing function names that are being used in crumbs
-	this.functionsInWith = [];
-	this.exposedValues = [];
-	this.clientJS = "";
-	this.raw_source = "";
-	this.has_server = true;
+    this.js = []; // List of generated Javascript
+    this.callbacks = []; // List of callback names (as strings)
+    this.crumbs = []; // List containing crumbs
+    this.options = options; // Object containing options
+    this.css = false; // Generated + supplied css
+    this.idNames = []; // List of generated idNames, to make sure there are no duplicates
+    this.varname2declNode = {}; // Mapping from variable names (as strings) to their declaration nodes
+    this.stip = {}; // Information about Stip tool is temporary saved here
+    this.functionNames = []; // Array containing function names that are being used in crumbs
+    this.functionsInWith = [];
+    this.exposedValues = [];
+    this.clientJS = "";
+    this.raw_source = "";
+    this.has_server = true;
 };
 
 /**
@@ -117,10 +117,10 @@ var ConverterContext = function ConverterContext(options) {
  * @param {String|undefined} (defaultValue) The default value, before running client code
  */
 var Crumb = function Crumb(idName, variableNames, parsedExpression, defaultValue) {
-	this.idName = idName; // The randomly generated name of this crumb
-	this.variableNames = (variableNames ? variableNames : []); // Array containing all the top-level variable names (for static analysis)
-	this.parsedExpression = (parsedExpression ? parsedExpression : null); // Used while evaluating crumbs
-	this.defaultValue = defaultValue; // Can be undefined
+    this.idName = idName; // The randomly generated name of this crumb
+    this.variableNames = (variableNames ? variableNames : []); // Array containing all the top-level variable names (for static analysis)
+    this.parsedExpression = (parsedExpression ? parsedExpression : null); // Used while evaluating crumbs
+    this.defaultValue = defaultValue; // Can be undefined
 };
 
 /**
@@ -129,21 +129,39 @@ var Crumb = function Crumb(idName, variableNames, parsedExpression, defaultValue
  * @constructor
  */
 var ExposedValue = function ExposedValues(expression) {
-	this.expression = expression;
-	this.crumb = null;
-	this.onChangeEvent = false;
+    this.expression = expression;
+    this.crumb = null;
+    this.onChangeEvent = false;
 };
 
 /***********/
 /* Exports */
 /***********/
 
-exports.Tag                = Tag;
-exports.DynamicExpression  = DynamicExpression;
-exports.ConverterContext   = ConverterContext;
-exports.DynamicIfBlock     = DynamicIfBlock;
-exports.DynamicUnlessBlock = DynamicUnlessBlock;
-exports.DynamicEachBlock   = DynamicEachBlock;
-exports.DynamicWithBlock   = DynamicWithBlock;
-exports.Crumb              = Crumb;
-exports.ExposedValue       = ExposedValue;
+if (typeof module !== 'undefined' && module.exports != null) {
+    exports.Tag = Tag;
+    exports.DynamicExpression = DynamicExpression;
+    exports.ConverterContext = ConverterContext;
+    exports.DynamicIfBlock = DynamicIfBlock;
+    exports.DynamicUnlessBlock = DynamicUnlessBlock;
+    exports.DynamicEachBlock = DynamicEachBlock;
+    exports.DynamicWithBlock = DynamicWithBlock;
+    exports.Crumb = Crumb;
+    exports.ExposedValue = ExposedValue;
+}
+
+
+var toreturn = {
+    Tag: Tag,
+    DynamicExpression: DynamicExpression,
+    ConverterContext: ConverterContext,
+    DynamicIfBlock: DynamicIfBlock,
+    DynamicUnlessBlock: DynamicUnlessBlock,
+    DynamicEachBlock: DynamicEachBlock,
+    DynamicWithBlock: DynamicWithBlock,
+    Crumb: Crumb,
+    ExposedValue: ExposedValue
+};
+
+module.exports = toreturn;
+global.RedstoneTypes = toreturn;

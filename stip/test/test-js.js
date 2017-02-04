@@ -12,7 +12,7 @@ var estraverse      = require('../lib/estraverse.js');
 
 /* Stip - constructing pdg */
 
-var Stip  = require('../run.js').Stip;
+var Stip  = require('../run.js');
 
 
 

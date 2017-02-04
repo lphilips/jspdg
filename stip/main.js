@@ -2,7 +2,7 @@
 /* Command line version of Stip     */
 /************************************/
 
-var stip     = require("./run.js").Stip;
+var stip     = require("./run.js");
 var fs       = require("fs");
 var path     = require("path");
 var utils    = require("./redstone/utils.js");

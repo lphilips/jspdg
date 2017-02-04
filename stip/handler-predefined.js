@@ -1,16 +1,15 @@
-var handlerPreDefined = (function() {
-    var toreturn= {};
+var toreturn = {};
 
 
-    var predefined = function() {
-        var logHandler, 
-            bufferHandler, 
-            retryHandler, 
-            noOpHandler, 
-            abortHandler;
+var predefined = function (handler) {
+    var logHandler,
+        bufferHandler,
+        retryHandler,
+        noOpHandler,
+        abortHandler;
 
-        /* Handler for logging exceptions. */
-        logHandler = esprima.parse("var log = {\
+    /* Handler for logging exceptions. */
+    logHandler = esprima.parse("var log = {\
                 propagate: true,\
                 msg: '',\
                 logger: UniqueLogger.getInstance(),\
@@ -24,10 +23,10 @@ var handlerPreDefined = (function() {
                         if(this.propagate) call.proceed();\
                     }\
             }").body[0].declarations[0];
-        
 
-        /* Handler for buffering RPCs on relevant exceptions. */
-        bufferHandler = esprima.parse("var buffer = {\
+
+    /* Handler for buffering RPCs on relevant exceptions. */
+    bufferHandler = esprima.parse("var buffer = {\
                     due: Infinity,\
                     buffer: UniqueBuffer.getInstance(),\
                     onNetworkException: function (call) {\
@@ -38,8 +37,8 @@ var handlerPreDefined = (function() {
                 }").body[0].declarations[0];
 
 
-        /* Handler for not retrying RPC on relevant exceptions. */
-        retryHandler = esprima.parse("var retry = {\
+    /* Handler for not retrying RPC on relevant exceptions. */
+    retryHandler = esprima.parse("var retry = {\
                     times: 1,\
                     delay: 0,\
                     onNetworkException: function (call) {\
@@ -57,35 +56,30 @@ var handlerPreDefined = (function() {
                 }").body[0].declarations[0];
 
 
-        /* Handler that does not do a thing. */
-        noOpHandler = esprima.parse("var _noOpHandler = {\
+    /* Handler that does not do a thing. */
+    noOpHandler = esprima.parse("var _noOpHandler = {\
                     onException: function (call) {\
                         call.proceed();\
                     }\
                 }").body[0].declarations[0];
 
 
-        /* Handler that halts the computation. */
-        abortHandler = esprima.parse("var abort = {\
+    /* Handler that halts the computation. */
+    abortHandler = esprima.parse("var abort = {\
                     onException: function (call) {\
                     }\
                 }").body[0].declarations[0];
-        
 
 
-        Handler.Transform.handlerDefinition(logHandler);
-        Handler.Transform.handlerDefinition(bufferHandler);
-        Handler.Transform.handlerDefinition(retryHandler);
-        Handler.Transform.handlerDefinition(noOpHandler);
-        Handler.Transform.handlerDefinition(abortHandler);
+    handler.Transform.handlerDefinition(logHandler, handler);
+    handler.Transform.handlerDefinition(bufferHandler, handler);
+    handler.Transform.handlerDefinition(retryHandler, handler);
+    handler.Transform.handlerDefinition(noOpHandler, handler);
+    handler.Transform.handlerDefinition(abortHandler, handler);
 
-    };
+};
 
-    toreturn.generate = predefined;
+toreturn.generate = predefined;
 
-    if (typeof module !== 'undefined' && module.exports !== null) {
-        exports.handlerPreDefined = toreturn;
-    }
-
-    return toreturn;
-})();
+global.handlerPreDefined = toreturn;
+module.exports = toreturn;

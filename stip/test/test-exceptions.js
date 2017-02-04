@@ -13,7 +13,7 @@ var escodegen = require('../lib/escodegen.js');
 
 
 var Exceptions = require('../exceptions.js');
-var Stip = require('../run.js').Stip;
+var Stip = require('../run.js');
 
 
 function tiersplit(src, analysis) {

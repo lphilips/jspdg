@@ -2,7 +2,19 @@
    that are used as callback functions on the client side.
    Calls for these functions are automatically added in the client side block.
 */
-var pre_analyse = function (ast, toGenerate) { 
+var pre_analyse = function (ast, toGenerate) {
+
+    var Ast = require('../jipda-pdg/ast.js').Ast;
+    var Aux = require('./aux.js');
+    var node  = require('./pdg/node.js');
+    var Comments = require('./annotations.js');
+    var estraverse = require('./lib/estraverse.js');
+    var Handler = require('./handler.js').Handler;
+
+    var js_libs = require('./jslibs.js');
+    var DNODES  = node.DNODES;
+
+
     var anonf_ct    = 0;
     var anonf_name  = 'anonf';
     var primitives  = ["$", "console", "window", "Math"];
@@ -15,6 +27,7 @@ var pre_analyse = function (ast, toGenerate) {
     var fundefs     = [];
     var sharedblock;
     var generatedIdentifiers = {};
+    var callbacksadded = false;
 
 
     function function_args (callnode) {
@@ -364,20 +377,21 @@ var pre_analyse = function (ast, toGenerate) {
                 if (comment && Comments.isClientAnnotated(comment)) {
                     node.body = node.body.concat(generateCallbackCalls());
                     node.body = node.body.concat(generateIdentifiers());
+                    callbacksadded = true;
                 }
             }
 
             /* If a node is tagged as primitive, add it to the primitive definitions.
                This causes later accesses to the primitive (such as element.jquerymethod())
                to be added to e.g. the jquery primitive */
-            if (node.primitive) {
+           /* if (node.primitive) {
                 if (Aux.isVarDeclarator(node)) {
                   primdefs[node.id.name] = node;
                 }
                 else if (Aux.isAssignmentExp(node)) {
                   primdefs[node.left.name] = node;
                 }
-            }
+            }*/
 
             if (Aux.isMemberExpression(node) && !node.primitive &&
               !Aux.isThisExpression(node.object)) {
@@ -478,7 +492,7 @@ var pre_analyse = function (ast, toGenerate) {
                                     pre: function (node) {
                                         var parent = Ast.parent(node, ast);
                                         if (Aux.isCallExp(node) && Aux.isMemberExpression(node.callee) &&
-                                            Aux.isIdentifier(node.callee.object) && param.name == node.callee.object.name) {
+                                            Aux.isIdentifier(node.callee.object) && arg.name == node.callee.object.name) {
                                             objectarg.addProperty(node.callee.property, createFunExp([], false));
                                         }
                                         else if (Aux.isMemberExpression(node) && Aux.isIdentifier(node.property) &&
@@ -530,6 +544,16 @@ var pre_analyse = function (ast, toGenerate) {
 
     ast.body = js_libs.getLibraries().concat(anonfSh).concat(callSh).concat(ast.body);
 
+    if (toGenerate.methodCalls.length > 0 && !callbacksadded) {
+        var slice = {type: "BlockStatement", body: []};
+        slice.body = slice.body.concat(generateCallbackCalls());
+        slice.body = slice.body.concat(generateIdentifiers());
+        slice.leadingComment = {type: "Block", value:"@slice generated"};
+        Ast.augmentAst(slice);
+        ast.body.push(slice);
+    }
+
+
     return  {
         ast         : ast,
         assumes     : js_libs.getLibraries(),
@@ -542,17 +566,7 @@ var pre_analyse = function (ast, toGenerate) {
 };
 
 
-if (typeof module !== 'undefined' && module.exports !== null) {
-    Ast = require('../jipda-pdg/ast.js').Ast;
-    Aux = require('./aux.js').Aux;
-    node  = require('./pdg/node.js');
-    Comments = require('./annotations.js').Comments;
-    estraverse = require('./lib/estraverse.js');
-    Handler = require('./handler.js').Handler;
-
-    js_libs = require('./jslibs.js').js_libs;
-    DNODES  = node.DNODES;
-
-    exports.pre_analyse = pre_analyse;
-    exports.asyncs      = ["https", "dns", "fs", "proxy"];
-}
+exports.pre_analyse = pre_analyse;
+exports.asyncs      = ["https", "dns", "fs", "proxy"];
+global.pre_analyse = pre_analyse;
+global.asyncs = ["https", "dns", "fs", "proxy"];
