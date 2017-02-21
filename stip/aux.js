@@ -41,6 +41,10 @@ var esp_isBinExp = function (node) {
     return node.type === 'BinaryExpression'
 }
 
+var esp_isUnaryExp = function (node) {
+    return node.type === 'UnaryExpression'
+}
+
 var esp_isLiteral = function (node) {
     return node.type === 'Literal'
 }
@@ -335,6 +339,7 @@ toreturn.isVarDeclarator = esp_isVarDeclarator;
 toreturn.isIdentifier = esp_isIdentifier;
 toreturn.isRetStm = esp_isRetStm;
 toreturn.isBinExp = esp_isBinExp;
+toreturn.isUnaryExp = esp_isUnaryExp;
 toreturn.isLiteral = esp_isLiteral;
 toreturn.isCallExp = esp_isCallExp;
 toreturn.isExpStm = esp_isExpStm;

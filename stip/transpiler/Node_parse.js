@@ -518,7 +518,7 @@ var createClient = function () {
     var port = 3000;
     var has_server = true;
     var objectcb = "function (name, object) {if (typeof ractive !== 'undefined') ractive.update()}";
-    var updatecb = "function (id,prop,value) {if (typeof ractive !== 'undefined') ractive.update()}"
+    var updatecb = "function (id,prop,value) {if (typeof ractive !== 'undefined') ractive.update()}";
 
     if (context !== undefined) {
         host = context.options.server_hostname;
@@ -549,10 +549,10 @@ var createClient = function () {
 
 var createImport = function (lib) {
     return esprima.parse("var " + lib + " = require('" + lib + "')").body[0];
-}
+};
 var createServerCloseUp = function () {
     return esprima.parse("");
-}
+};
 
 var methodsServer = function () {
     return esprima.parse("server.expose({})").body[0];

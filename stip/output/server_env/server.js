@@ -41,6 +41,8 @@ var coursesJSON;
 tasks.push(new Task(false, 'Learn uni-corn!'));
 function anonf1(json) {
     var course;
+    if (!isValidTimeDescr(json.time))
+        throw new Error('Wrong time description in course');
     course = new Course('course', json.title, json.duration, json.time);
     courses.push(course);
 }
@@ -49,149 +51,52 @@ fs.readFile('data.json', function (err1, res1) {
     coursesJSON = JSON.parse(dataCourses);
     coursesJSON.forEach(anonf1);
 });
-var activityToday;
-var latestUpdate;
-function processMeetingMonths() {
-    var currYear;
-    var months;
-    function anonf2(meeting) {
-        var date;
-        var month;
-        var year;
-        date = new Date(meeting.start);
-        month = date.getMonth();
-        year = date.getFullYear();
-        if (year == currYear)
-            months[month] = months[month] + 1;
-    }
-    currYear = new Date().getFullYear();
-    months = [
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0
-    ];
-    meetings.forEach(anonf2);
-    return months;
+function isValidTimeDescr(descr) {
+    var sched;
+    sched = later.parse.text(descr);
+    return sched.error === -1;
 }
-function processTasksStatus() {
-    var todo;
-    var finished;
-    var inprogress;
-    todo = 0;
-    function anonf3(task) {
-        if (task.status < 0) {
-            todo++;
-        } else if (task.status > 0) {
-            finished++;
-        } else {
-            inprogress++;
-        }
-    }
-    finished = 0;
-    inprogress = 0;
-    tasks.forEach(anonf3);
-    return [
-        todo,
-        finished,
-        inprogress
-    ];
+function happenedInPast(date) {
+    var now;
+    now = new Date().getTime();
+    return date < now;
 }
-activityToday = 0;
-latestUpdate = false;
-function createTaskChart() {
-    var stats;
-    var todo;
-    var finished;
-    var inprogress;
-    var chart;
-    stats = processTasksStatus();
-    todo = {
-        name: 'to start',
-        y: stats[0]
-    };
-    finished = {
-        name: 'finished',
-        y: stats[1]
-    };
-    inprogress = {
-        name: 'in progress',
-        y: stats[2]
-    };
-    chart = {
-        chart: {
-            type: 'pie',
-            options3d: {
-                enabled: true,
-                alpha: 45
-            }
-        },
-        title: { text: 'Tasks' },
-        plotOptions: {
-            pie: {
-                innerSize: 100,
-                depth: 45
-            }
-        },
-        colors: [
-            '#249AA7',
-            '#ABD25E',
-            '#F1594A',
-            '#F8C830'
-        ],
-        series: [{
-                name: 'Tasks',
-                data: [
-                    finished,
-                    todo,
-                    inprogress
-                ]
-            }]
-    };
-    $('#chartscontainer').highcharts(chart);
+function addMinutes(date, minutes) {
+    var ms;
+    ms = date.getTime();
+    return ms + minutes * 60000;
 }
-function createMeetingChart() {
-    var options;
-    var months;
-    var chart;
-    options = Highcharts.getOptions();
-    months = processMeetingMonths();
-    chart = {
-        chart: {
-            type: 'column',
-            options3d: {
-                enabled: true,
-                alpha: 10,
-                beta: 25,
-                depth: 70
-            }
-        },
-        title: { text: 'Meetings this year' },
-        colors: [
-            '#249AA7',
-            '#ABD25E',
-            '#F1594A',
-            '#F8C830'
-        ],
-        plotOptions: { column: { depth: 25 } },
-        xAxis: { categories: options.lang.shortMonths },
-        yAxis: { title: { text: null } },
-        series: [{
-                name: 'Meetings',
-                data: months
-            }]
-    };
-    $('#chartmeetingcontainer').highcharts(chart);
+function calculateNext(timeDescription) {
+    var parsed;
+    var s;
+    var next;
+    parsed = later.parse.text(timeDescription);
+    s = later.schedule(parsed);
+    next = s.next(1);
+    return new Date(next);
 }
-function createCharts() {
-    createTaskChart();
-    createMeetingChart();
+function calculatePrevious(timeDescription) {
+    var parsed;
+    var s;
+    var next;
+    parsed = later.parse.text(timeDescription);
+    s = later.schedule(parsed);
+    next = s.prev(1);
+    return new Date(next);
 }
+function happenedToday(date1, date2) {
+    var year1;
+    var year2;
+    var month2;
+    var month1;
+    var day1;
+    var day2;
+    year1 = date1.getFullYear();
+    year2 = date2.getFullYear();
+    month2 = date2.getMonth();
+    month1 = date1.getMonth();
+    day1 = date1.getDay();
+    day2 = date2.getDay();
+    return year1 == year2 && month1 == month2 && day1 == day2;
+}
+later.date.localTime();

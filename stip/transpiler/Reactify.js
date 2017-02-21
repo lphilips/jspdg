@@ -20,6 +20,7 @@ var Nodeify = require('./Nodeify');
 transformer.transformVariableDecl = Nodeify.transformVariableDecl;
 transformer.transformAssignmentExp = Nodeify.transformAssignmentExp;
 transformer.transformBinaryExp = Nodeify.transformBinaryExp;
+transformer.transformUnaryExp = Nodeify.transformUnaryExp;
 transformer.transformFunctionExp = Nodeify.transformFunctionExp;
 transformer.transformFunctionDecl = Nodeify.transformFunctionDecl;
 transformer.transformCallExp = Nodeify.transformCallExp;

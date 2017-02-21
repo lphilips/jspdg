@@ -657,7 +657,7 @@ FunctionalityNode.prototype.countEdgeTypeTo = function (edgeType, fType, directi
     return count;
 }
 
-FunctionalityNode.prototype.countEdgeTypeFilter = function (edgeType, filter, direction) {
+FunctionalityNode.prototype.countEdgeTypeFilterFunc = function (edgeType, filter, direction) {
     var controls = this.getOutEdges(EDGES.CONTROL);
     var visited = this.getOutNodes(EDGES.CONTROL);
     var count = 0;
@@ -672,6 +672,34 @@ FunctionalityNode.prototype.countEdgeTypeFilter = function (edgeType, filter, di
         } else {
             edgestype = node.getOutNodes(edgeType).filter(function (n) {
                 return filter(n.getFunctionality())
+            });
+        }
+        visited.push(node);
+        count += edgestype.length;
+        node.getOutEdges(EDGES.CONTROL).map(function (e) {
+            if (visited.indexOf(e.to) < 0) {
+                controls.push(e);
+            }
+        });
+    }
+    return count;
+}
+
+FunctionalityNode.prototype.countEdgeTypeFilterNode = function (edgeType, filter, direction) {
+    var controls = this.getOutEdges(EDGES.CONTROL);
+    var visited = this.getOutNodes(EDGES.CONTROL);
+    var count = 0;
+    while (controls.length > 0) {
+        var edge = controls.shift();
+        var node = edge.to;
+        var edgestype;
+        if (direction) {
+            edgestype = node.getInNodes(edgeType).filter(function (n) {
+                return filter(n)
+            });
+        } else {
+            edgestype = node.getOutNodes(edgeType).filter(function (n) {
+                return filter(n)
             });
         }
         visited.push(node);

@@ -210,19 +210,6 @@ var generate = function generate(input) {
         css = build_css(chunks),
         options = build_settings(chunks);
 
-    //Utils.head("Raw chunks");
-    //Utils.dump(chunks);
-
-    //Utils.head("Parsed input");
-    //Utils.subhead("UI");
-    //Utils.debugEcho(ui);
-    //Utils.subhead("Javascript");
-    //Utils.debugEcho(js);
-    //Utils.subhead("CSS");
-    //Utils.debugEcho(css ? css : "none");
-    //Utils.subhead("Settings");
-    //Utils.dump(options);
-
     // Pre-process the settings, by supplying the default values
     options = JSON.parse(options);
     options = preprocess_settings(options);
@@ -234,23 +221,16 @@ var generate = function generate(input) {
 
     // Parse the tree
     var result_parse = RedstoneParser.parse(ui);
-    Utils.head("Parse result");
-    //Utils.dump(result_parse);
 
     // Install callbacks and crumbs for dynamic content
     RedstonePreparer.prepare(result_parse, context);
-    // Utils.head("Pre-process result");
-    // Utils.subhead("Trees");
-    // Utils.dump(result_parse);
-    // Utils.subhead("Context");
-    // Utils.dump(context);
 
     // Calculate shared variables from unknown chunks block
     var shared_variables = get_shared_variables(chunks.unknown);
     context.shared_variables = shared_variables;
 
     // Disable server creation context if no shared variables, and no server tier defined
-    var has_server = !((shared_variables.length == 0) && (chunks.server.length == 0));
+    var has_server = !((shared_variables.length == 0) && (chunks.server.length == 0)) || !(chunks.comments && chunks.comments.slices && Annotations.configHasServer(chunsks.comments.slices));
     context.has_server = has_server;
 
     // Pass context to Reactify transpiler before starting Stip, so it has access to the crumbs
@@ -264,33 +244,11 @@ var generate = function generate(input) {
     };
     var toGenerate = generate_toGenerate(context);
 
-    // Parse Javascript code using Stip.js
-    //head("Running Stip");
-    //var stip_result = tiersplit(js, 'redstone', toGenerate, storeInContext, storeDeclNode); // Passes context for callbacks and reactive information
-    //var clientJS = escodegen.generate(stip_result[0].program);
-    //var serverJS = (has_server ? escodegen.generate(stip_result[1].program) : "none");
-
-    //head("Stip result");
-    //subhead("Client");
-    //debugEcho(clientJS);
-    //subhead("Server");
-    //debugEcho(serverJS);
-
-    // Add client code to <head> in result tree
-    //context.clientJS = clientJS;
-
     // Apply changes, "cached" in context
     result_parse = RedstoneApplier.applyContext(result_parse, context);
 
     // Generate the resulting HTML
     var result_html = RedstoneGenerator.generate(result_parse, context);
-
-    // Output result
-    // Utils.head("Result");
-    // Utils.subhead("Resulting HTML");
-    // Utils.debugEcho(result_html);
-    //subhead("Resulting Server code (Node)");
-    //debugEcho(serverJS);
 
     context.toGenerate = toGenerate;
     // Return result

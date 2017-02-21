@@ -124,16 +124,16 @@ function createOfflineReport(graphs) {
 
 
     function createFunctionality(funcNode) {
-        var dataCntC = funcNode.countEdgeTypeFilter(EDGES.REMOTED, function (f) {
+        var dataCntC = funcNode.countEdgeTypeFilterFunc(EDGES.REMOTED, function (f) {
             return f.tier == DNODES.CLIENT
         }, -1);
-        var dataCntS = funcNode.countEdgeTypeFilter(EDGES.REMOTED, function (f) {
+        var dataCntS = funcNode.countEdgeTypeFilterFunc(EDGES.REMOTED, function (f) {
             return f.tier == DNODES.SERVER
         }, -1);
-        var callCntC = funcNode.countEdgeTypeFilter(EDGES.REMOTEC, function (f) {
+        var callCntC = funcNode.countEdgeTypeFilterFunc(EDGES.REMOTEC, function (f) {
             return f.tier == DNODES.CLIENT
         });
-        var callCntS = funcNode.countEdgeTypeFilter(EDGES.REMOTEC, function (f) {
+        var callCntS = funcNode.countEdgeTypeFilterFunc(EDGES.REMOTEC, function (f) {
             return f.tier == DNODES.SERVER
         });
         var item = $("<a class='row' style='text-align:center;margin:0;'></a>").addClass("list-group-item");
@@ -148,18 +148,24 @@ function createOfflineReport(graphs) {
         divCall.append('<p> > Client: ' + callCntC + ', > Server: ' + callCntS + '</p>');
 
         divText.append(divData).append(divCall);
-        if (funcNode.tier == DNODES.CLIENT)
-            createGauge((dataCntC / (dataCntS + dataCntC)) * 100, 'Data', divGraphD);
-        else
-            createGauge(0, 'Data', divGraphD);
+        var gaugeNr = 0;
+        if (funcNode.tier == DNODES.CLIENT) {
+            if (dataCntS + dataCntC > 0)
+                gaugeNr = dataCntC / (dataCntC + dataCntS);
+            else if (dataCntS === 0 && dataCntC === 0)
+                gaugeNr = 1;
 
-        if (funcNode.tier == DNODES.CLIENT)
-            createGauge((callCntC / (callCntS + callCntC)) * 100, 'Call', divGraphC);
-        else {
-            createGauge(0, 'Call', divGraphC);
+            createGauge(gaugeNr * 100, 'Data', divGraphD);
+            gaugeNr = 0;
+            if (callCntS + callCntC > 0) {
+                gaugeNr = callCntC / (callCntS + callCntC);
+            }
+            else if (callCntS === 0 && callCntC === 0)
+                gaugeNr = 1;
+            createGauge(gaugeNr * 100, 'Call', divGraphC);
+            item.append(divText).append(divGraphD).append(divGraphC);
         }
 
-        item.append(divText).append(divGraphD).append(divGraphC);
         $("#functionalities").append(item);
         $(window).trigger('resize');
         window.dispatchEvent(new Event('resize'));

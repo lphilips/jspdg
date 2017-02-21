@@ -480,7 +480,7 @@ var pre_analyse = function (ast, toGenerate) {
 
                             Ast.augmentAst(func);
                             bodyFirst.push(func);
-                            if (arrayprims.indexOf(Aux.getCalledName(node)) < 0)
+                           // if (arrayprims.indexOf(Aux.getCalledName(node)) < 0)
                                 bodyLast.push(call);
                             return createIdentifier(name);
                         }
@@ -535,12 +535,10 @@ var pre_analyse = function (ast, toGenerate) {
                     }
                     enclBlock.updateFirst = enclBlock.updateFirst.concat(bodyFirst);
                     enclBlock.updateLast = enclBlock.updateLast.concat(bodyLast);
-
                 }
             }
-
         }
-    });
+    })
 
     ast.body = js_libs.getLibraries().concat(anonfSh).concat(callSh).concat(ast.body);
 

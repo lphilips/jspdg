@@ -137,6 +137,8 @@ function transpile(transpiler) {
                 return transformer.transformBlockStm(transpiler);
             case 'CallExpression':
                 return transformer.transformCallExp(transpiler);
+            case 'UnaryExpression':
+                return transformer.transformUnaryExp(transpiler);
             case 'BinaryExpression':
                 return transformer.transformBinaryExp(transpiler);
             case 'IfStatement':

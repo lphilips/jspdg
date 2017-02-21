@@ -147,7 +147,8 @@ PDG.prototype.getFunctionalityNodes = function () {
   var fnodes = [];
   var self = this;
   Object.keys(this.fnodes).forEach(function(key,index) {
-      fnodes.push(self.fnodes[key]);
+      if (key !== "generated")
+        fnodes.push(self.fnodes[key]);
   });
   return fnodes;
 }
@@ -204,12 +205,8 @@ PDG.prototype.distribute = function (strategy) {
               fnode.tier = DNODES.SERVER;
           }
       }
-  })
-  this.getFunctionalityNodes().forEach(function (fnode) {
-    if (!fnode.tier) {
-      strategy.addPlacementTag(fnode, self);
-    }
   });
+  strategy.addPlacementTags(self);
 }
 
 
@@ -342,7 +339,7 @@ PDG.prototype.slice = function (criterion, tiersplitting) {
 PDG.prototype.sliceTier = function (tier) {
   var self = this;
   return this.getFunctionalityNodes()
-          .filter(function (comp) {return comp.tier == tier})
+          .filter(function (comp) {return comp.tier == tier || comp.tier == DNODES.SHARED})
           .flatMap(function (comp) {return self.sliceDistributedNode(comp.getFType())});
 }
 

@@ -45,26 +45,25 @@ var datacopy_annotation = "@copy";
 // Client annotations is @client in comment
 var isClientAnnotated = function (comment) {
     return comment.value.indexOf(client_annotation) != -1;
-}
+};
 
 // Server annotations is @server in comment
 var isServerAnnotated = function (comment) {
     return comment.value.indexOf(server_annotation) != -1;
-}
+};
 
 var isClientorServerAnnotated = function (node) {
     return node.leadingComment &&
         Aux.isBlockStm(node) &&
         (isClientAnnotated(node.leadingComment) ||
         isServerAnnotated(node.leadingComment));
-}
-
+};
 
 var isUiAnnotated = function (node) {
     return node.leadingComment &&
         Aux.isBlockStm(node) &&
         node.leadingComment.value.indexOf(css_annotation) != -1;
-}
+};
 
 var isCssAnnotated = function (node) {
     return node.leadingComment &&
@@ -84,31 +83,31 @@ var isRemoteFunctionAnnotated = function (node) {
 var isRemoteCallAnnotated = function (node) {
     return node.leadingComment &&
         node.leadingComment.value.indexOf(remotecall_annotation) != -1;
-}
+};
 
 var isRemoteDataAnnotated = function (node) {
     return node.leadingComment &&
         node.leadingComment.value.indexOf(remotedata_annotation) != -1;
-}
+};
 
 var isLocalFunctionAnnotated = function (node) {
     return node.leadingComment &&
         node.leadingComment.value.indexOf(localfunction_annotation) != -1;
-}
+};
 
 var isLocalCallAnnotated = function (node) {
     return node.leadingComment &&
         node.leadingComment.value.indexOf(localcall_annotation) != -1;
-}
+};
 
 var isLocalDataAnnotated = function (node) {
     return node.leadingComment &&
         node.leadingComment.value.indexOf(localdata_annotation) != -1;
-}
+};
 
 var isAssumesAnnotated = function (string) {
     return string.indexOf(assumes_annotation) != -1;
-}
+};
 
 var isUseHandlerAnnotated = function (comment) {
     return comment.value.indexOf(use_handler_annotation) != -1;
@@ -118,51 +117,47 @@ var isDefineHandlerAnnotated = function (node) {
     return node.leadingComment && node.leadingComment.value.indexOf(define_handler_annotation) != -1;
 };
 
-var isReplyAnnotated = function (comment) {
-    return comment.value.indexOf(reply_annotation) != -1;
-}
-
 var isBroadcastAnnotated = function (comment) {
     return comment.value.indexOf(broadcast_annotation) != -1;
-}
+};
 
 var isBlockingAnnotated = function (comment) {
     return comment.value.indexOf(blocking_annotation) != -1;
-}
+};
 
 var isReplyAnnotated = function (comment) {
     return comment.value.indexOf(reply_annotation) != -1;
-}
+};
 
 var isSharedAnnotated = function (comment) {
     return comment.value.indexOf(shared_annotation) != -1;
-}
+};
 
 var isGeneratedAnnotated = function (comment) {
     return comment && comment.value.indexOf(generated_annotation) != -1;
-}
+};
 
 var isTierAnnotated = function (node) {
     return node.leadingComment &&
         Aux.isBlockStm(node) &&
         node.leadingComment.value.indexOf(placement_annotation) != -1;
-}
+};
 
 var isObservableAnnotated = function (comment) {
     return comment.value.indexOf(dataobservable_annotation) != -1;
-}
+};
 
 var isReplicatedAnnotated = function (comment) {
     return comment.value.indexOf(datarepl_annotation) != -1;
-}
+};
 
 var isTierOnlyAnnotated = function (comment) {
     return comment.value.indexOf(dataread_annotation) != -1;
-}
+};
 
 var isCopyAnnotated = function (comment) {
     return comment.value.indexOf(datacopy_annotation) != -1;
-}
+};
 
 var getTierName = function (comment) {
     var annotation = placement_annotation + " ";
@@ -171,13 +166,13 @@ var getTierName = function (comment) {
     var tier = comment.value.slice(idx + placement_annotation.length);
     tier = tier.replace(/\s+/g, '');
     return tier;
-}
+};
 
 var isFunctionalityAnnotated = function (node) {
     return node.leadingComment &&
         Aux.isBlockStm(node) &&
         node.leadingComment.value.indexOf(component_annotation) != -1;
-}
+};
 
 var getFunctionalityName = function (comment) {
     var idxC = comment.value.indexOf(component_annotation);
@@ -191,32 +186,68 @@ var getFunctionalityName = function (comment) {
     }
     tag = tag.replace(/\s+/g, '');
     return tag;
-}
+};
 
 var isConfigAnnotated = function (comment) {
     return comment.value.indexOf(config_annotation) != -1;
-}
+};
+
+var getConfigPlacements = function (comment) {
+    var index = comment.value.indexOf(config_annotation);
+    var sliced = comment.value.slice(index + config_annotation.length).trim();
+    var placements = sliced.slice(0, sliced.indexOf("@")).split(/,/);
+    var config = {};
+    placements.forEach(function (placement) {
+        var nametier = placement.split(/:/).map(function (s) {
+            return s.trim()
+        });
+        config[nametier[0]] = nametier[1];
+    });
+    return config;
+};
+
+var configHasServer = function (comment) {
+    var placements;
+    var configs;
+    if (isConfigAnnotated(comment)) {
+        configs = getConfigPlacements(comments);
+        placements = Object.keys(function (k){return configs[k]});
+        return placements.indexOf("server") > -1;
+    }
+    return false;
+};
+
+var configHasClient = function (comment) {
+    var placements;
+    var configs;
+    if (isConfigAnnotated(comment)) {
+        configs = getConfigPlacements(comments);
+        placements = Object.keys(function (k){return configs[k]});
+        return placements.indexOf("client") > -1;
+    }
+    return false;
+};
 
 var registerBeforeHandler = function (handler) {
     beforeHandlers.push(handler)
-}
+};
 
 var registerAfterHandler = function (handler) {
     afterHandlers.push(handler)
-}
+};
 
 /*  Before handlers are called right before the parsenode is turned into a pdg node */
 var handleBeforeComment = function (comment, parsenode, upnode) {
     beforeHandlers.map(function (handler) {
         handler(comment, parsenode, upnode)
     })
-}
+};
 
 var handleAfterComment = function (comment, pdgNode, upnode) {
     afterHandlers.map(function (handler) {
         handler(comment, pdgNode, upnode)
     })
-}
+};
 
 var handleBlockComment = function (comment, pdgNodes) {
     pdgNodes.map(function (pdgNode) {
@@ -352,14 +383,9 @@ function handleProgramNode(pdgNode, pdg) {
     if (comments.length > 0) {
         firstComment = comments[0];
         if (isConfigAnnotated(firstComment)) {
-            index = firstComment.value.indexOf(config_annotation);
-            var sliced = firstComment.value.slice(index + config_annotation.length).trim();
-            placements = sliced.slice(0, sliced.indexOf("@")).split(/,/);
-            placements.forEach(function (placement) {
-                var nametier = placement.split(/:/).map(function (s) {
-                    return s.trim()
-                });
-                pdg.placements[nametier[0]] = nametier[1];
+            placements = getConfigPlacements(firstComment);
+            Object.keys(placements).forEach(function (value) {
+                pdg.placements[value] = placements[value];
             });
         }
     }
@@ -414,6 +440,8 @@ toreturn.isCopyAnnotated = isCopyAnnotated;
 toreturn.isReplicatedAnnotated = isReplicatedAnnotated;
 toreturn.isTierOnlyAnnotated = isTierOnlyAnnotated;
 toreturn.isImportAnnotated = isImportAnnotated;
+toreturn.configHasClient = configHasClient;
+toreturn.configHasServer = configHasServer;
 
 
 global.Annotations = toreturn;

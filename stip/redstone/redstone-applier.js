@@ -422,16 +422,6 @@ var generate_head_content = function generate_head_content() {
     result.push(crumbs);
 
 
-    // Add generated Javascript
-    var clientTag = new Tag("script");
-    clientTag.attributes.src = "js/client.js";
-    result.push(clientTag);
-    var scripttag = new Tag("script");
-    var innerJs = generate_innerjs();
-    scripttag.content.push(innerJs + "\n");
-    result.push(scripttag);
-
-
     // Add CSS style (if supplied)
     if (context.css) {
         var css = new Tag("style");
@@ -446,6 +436,16 @@ var generate_head_content = function generate_head_content() {
     loadingCSS.attributes.href = "css/loading.css";
     result.push(loadingCSS);
 
+
+    var scripttag = new Tag("script");
+    var innerJs = generate_innerjs();
+    scripttag.content.push(innerJs + "\n");
+    result.push(scripttag);
+    // Add generated Javascript
+    var clientTag = new Tag("script");
+    clientTag.attributes.src = "js/client.js";
+    result.push(clientTag);
+
     return result;
 };
 
@@ -457,11 +457,12 @@ var applyHead = function applyHead(head) {
     var newTags = generate_head_content();
     var first = head.content.slice(0, 1);
     var rest = head.content.slice(1);
-
-    newTags.forEach(function (t) {
+    var last = newTags.slice(-1);
+    newTags.slice(0,-1).forEach(function (t) {
         first.push(t);
     });
     head.content = first.concat(rest);
+    head.content = head.content.concat(last);
     return head.content;
 };
 

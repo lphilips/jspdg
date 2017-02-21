@@ -6,7 +6,7 @@
 	var meetings = [];
 	/* @replicated */
 	var tasks = [];
-	/* @replicated */
+	/* @observable */
 	var courses = [];
 
 	/* @replicated */
@@ -24,7 +24,7 @@
 		this.priority = priority;
 	}
 
-	/* @replicated */
+	/* @observable */
 	function Course(title, duration, time) {
 		this.title = title;
 		this.duration = duration;

@@ -182,6 +182,28 @@ function transformBinaryExp(transpiler) {
 
 transformer.transformBinaryExp = transformBinaryExp;
 
+function transformUnaryExp(transpiler) {
+    var node = transpiler.node,
+        call = node.getOutNodes(EDGES.CONTROL)
+            .filter(function (n) {
+                return n.isCallNode;
+            }),
+        transpiled;
+    if (call.length > 0) {
+        makeTransformer(transpiler);
+        transpiled = transpiler.transformCPS.transformExp(transpiler);
+        transpiler.nodes = transpiled[0];
+        transpiler.transpiledNode = transpiled[1].parsenode;
+
+        return transpiler;
+    }
+    transpiler.transpiledNode = node.parsenode;
+
+    return transpiler;
+}
+
+transformer.transformUnaryExp = transformUnaryExp;
+
 function transformVariableDeclData(transpiler) {
     var transpiled = nodeifyVarDecl(transpiler),
         node = transpiled.node,

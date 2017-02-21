@@ -10,7 +10,7 @@ var dns = "var dns = {lookup: function (path) {}}";
 var proxy = "var proxy = {getUser : function () {return;}, getPosts : function (user) {return;}, getComments: function (user) {return}}";
 var date = "function Date (value) { this.getDate = function () {return 1}; this.getDay = function () {return 0;}; this.getMonth = function () {return 0;}; this.getTime = function () {return 0;}; this.getFullYear = function () {return 0}}";
 var Highcharts = "var Highcharts =  {chart : function (id,ch) {}, getOptions : function () {return {lang : {shortMonths : []}}}}";
-var later = "var later = {date: {localTime: function () {}}, parse: {text: function (text) {return {}}}, schedule: function (sch) {return {isValid: function () {return true}, next: function (i) {return []}, prev: function (i) {return []}}}}";
+var later = "var later = {date: {localTime: function () {}}, parse: {text: function (text) {return {error: 0}}}, schedule: function (sch) {return {isValid: function () {return true}, next: function (i) {return []}, prev: function (i) {return []}}}}";
 
 var libs = [https, console, math, windowo, json, fs, dns, proxy, date, jQuery, Highcharts, later];
 

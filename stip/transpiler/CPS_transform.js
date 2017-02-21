@@ -888,7 +888,7 @@ var CPSgetExpStm = function (parsenode) {
         if (Aux.isAssignmentExp(exp))
             return exp.right;
 
-        else if (Aux.isBinExp)
+        else if (Aux.isBinExp || Aux.isUnaryExp)
             return exp;
     }
 
@@ -910,6 +910,8 @@ var CPSsetExpStm = function (parsenode, newexp, call) {
         if (Aux.isAssignmentExp(exp))
             exp.right = newexp;
         else if (Aux.isBinExp)
+            parsenode.expression = newexp;
+        else if (Aux.isUnaryExp)
             parsenode.expression = newexp;
     }
     else if (Aux.isRetStm(parsenode)) {

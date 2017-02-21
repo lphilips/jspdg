@@ -19,7 +19,8 @@ function AST_isLocalFunction(node) {
 function PDG_isLocalFunction(node) {
     return (node.isClientNode() && node.clientCalls() > 0) ||
         (node.isServerNode() && node.serverCalls() > 0) ||
-        (node.clientCalls() == 0 && node.serverCalls() == 0)
+        (node.clientCalls() == 0 && node.serverCalls() == 0) ||
+        node.isSharedNode()
 }
 
 function isRemoteFunction(options, node) {

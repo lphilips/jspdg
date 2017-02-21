@@ -33,7 +33,7 @@ function generateGraphs(source, analysis, toGenerate) {
     preanalysis = pre_analyse(ast, (toGenerate ? toGenerate : {methodCalls: [], identifiers: []}));
     asyncs = preanalysis.asyncs;
     shared = preanalysis.shared;
-
+    console.log(escodegen.generate(preanalysis.ast));
     graphs = new FlowGraph.Graphs(preanalysis.ast, source, preanalysis.primitives);
     FlowGraph.start(graphs, analysis);
     graphs.PDG.distribute(DefaultPlacementStrategy);
