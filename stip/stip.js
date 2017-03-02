@@ -459,8 +459,7 @@ var handleNewExp = function (graphs, node, upnode, toadd) {
         objectentry.addEdgeOut(protoentry, EDGES.PROTOTYPE);
         objectentry.constructorNode = entry;
 
-        callnode = handleCallExpression(graphs, node, upnode);
-
+        handleCallExpression(graphs, node, upnode)
     }
 
     if (calledf) {
@@ -1067,8 +1066,6 @@ var handleCallExpression = function (graphs, node, upnode) {
         }
         return [callnode];
     }
-
-
 }
 
 /* ACTUAL PARAMETERS of a function call.

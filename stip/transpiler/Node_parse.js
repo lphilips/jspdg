@@ -203,7 +203,7 @@ var RPC = function (call, fname, args) {
                     },
                     "property": {
                         "type": "Identifier",
-                        "name": "rpcCall"
+                        "name": "rpc"
                     }
                 },
                 arguments: [

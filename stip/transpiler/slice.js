@@ -117,14 +117,6 @@ var transformBody = function (option, transpiled, body, methods) {
                 methodsDecl = NodeParse.methodsClient();
                 methodsProp = methodsDecl.expression.arguments[0].properties
                 methodsDecl.expression.arguments[0].properties = methodsProp.concat(methods);
-                /* Add cloud types declarations */
-                for (var name in  transpiled.cloudtypes) {
-                    if (transpiled.cloudtypes.hasOwnProperty(name)) {
-                        var cloudtype = transpiled.cloudtypes[name];
-                        body = [cloudtype.declarationC].concat(body);
-                    }
-                }
-
                 return body.concat(methodsDecl);
 
             }
@@ -133,15 +125,23 @@ var transformBody = function (option, transpiled, body, methods) {
                 methodsDecl = NodeParse.methodsServer();
                 methodsProp = methodsDecl.expression.arguments[0].properties;
                 methodsDecl.expression.arguments[0].properties = methodsProp.concat(methods);
+                 return body.concat(methodsDecl);
+            }
+        case 'redstone':
+            var methodsDecl;
+            var methodsProp;
+            if (option.tier === 'client') {
+                methodsDecl = NodeParse.methodsClient();
+                methodsProp = methodsDecl.expression.arguments[0].properties
+                methodsDecl.expression.arguments[0].properties = methodsProp.concat(methods);
+                return body.concat(methodsDecl);
 
-                /* Declare cloud types + add their declarations as well (for use on server side as well) */
-                for (var name in transpiled.cloudtypes) {
-                    if (transpiled.cloudtypes.hasOwnProperty(name)) {
-                        var cloudtype = transpiled.cloudtypes[name];
-                        body = [cloudtype.declarationS].concat(cloudtype.declarationC).concat(body);
-                    }
-                }
-
+            }
+            else {
+                /* server rpcs + cloudtypes are added */
+                methodsDecl = NodeParse.methodsServer();
+                methodsProp = methodsDecl.expression.arguments[0].properties;
+                methodsDecl.expression.arguments[0].properties = methodsProp.concat(methods);
                 return body.concat(methodsDecl);
             }
         case 'meteor':

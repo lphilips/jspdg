@@ -10,12 +10,12 @@
 	var courses = [];
 
 	/* @replicated */
-	function Meeting(title, notes, time) {
-		this.title = title;
-		this.notes = notes;
-		this.start = new Date(time).getTime();
-		this.end = new Date(this.start + (2 * 60 * 60 * 1000));
-	}
+    function Meeting(title, notes, time) {
+        this.title = title;
+        this.notes = notes;
+        this.start = new Date(time).getTime();
+        this.end = addMinutes(new Date(time), 120);
+    }
 
 	/* @replicated */
 	function Task(title, priority) {
@@ -31,11 +31,27 @@
 		this.time = time;
 	}
 
+
+    later.date.localTime();
+
+    function isValidTimeDescr (descr) {
+        var sched = later.parse.text(descr);
+        // no error => -1
+        return sched.error === -1;
+    }
+
+    function addMinutes(date, minutes) {
+        var ms = date.getTime();
+        return new Date(ms + minutes * 60000);
+    }
+
 	tasks.push(new Task("Learn uni-corn!"));
 
 	var dataCourses = fs.readFile('data.json');
 	var coursesJSON = JSON.parse(dataCourses);
 	coursesJSON.forEach(function (json) {
+        if (!isValidTimeDescr(json.time))
+            throw new Error('Wrong time description in course');
 		var course = new Course(json.title, json.duration, json.time);
 		courses.push(course);
 	})
@@ -53,6 +69,7 @@
 	var latestUpdate = false;
 
 	function updateActivity () {
+
 		function happenedToday(date1, date2) {
 			var year1 = date1.getFullYear();
 			var year2 = date2.getFullYear();
@@ -82,7 +99,7 @@
 	function addMeeting() {
 		if (currentlyEditingM) {
 			currentlyEditingM.title = meetingTitle;
-			currentlyEditingM.start = meetingDate;
+			currentlyEditingM.start = new Date(meetingDate).getTime();
 			currentlyEditingM.notes = meetingNotes;
 			currentlyEditingM = false;
 		} else {
@@ -138,21 +155,43 @@
 		updateActivity();
 	}
 
+    function processMeetingMonths () {
+        var currYear = new Date().getFullYear();
+        var months = [0,0,0,0,0,0,0,0,0,0,0,0];
+        meetings.forEach(function (meeting) {
+            var date = new Date(meeting.start);
+            var month = date.getMonth();
+            var year = date.getFullYear();
+            if (year == currYear)
+                months[month] = months[month] + 1;
+        });
+        return months;
+    }
+
+
+    function processTasksStatus () {
+        var todo = 0;
+        var finished = 0;
+        var inprogress = 0;
+        tasks.forEach(function (task) {
+            if (task.status < 0) {
+                todo++;
+            }
+            else if (task.status > 0) {
+                finished++;
+            }
+            else {
+                inprogress++;
+            }
+        });
+        return [todo, finished, inprogress]
+    }
+
 	function createTaskChart () {
-		var finished = {name: 'finished', y: 0};
-		var todo = {name: 'to start', y: 0};
-		var inprogress = {name: 'in progress', y: 0};
-		tasks.forEach(function (task) {
-			if (task.status < 0) {
-				todo.y = todo.y + 1;
-			}
-			else if (task.status > 0) {
-				finished.y = finished.y + 1;
-			}
-			else {
-				inprogress.y = inprogress.y + 1;
-			}
-		})
+		var stats = processTasksStatus();
+		var finished = {name: 'finished', y: stats[1]};
+		var todo = {name: 'to start', y: stats[0]};
+		var inprogress = {name: 'in progress', y: stats[2]};
 		var chart = {
 			chart: {type: 'pie', options3d: {
 				enabled: true,
@@ -171,14 +210,7 @@
 	function createMeetingChart() {
 		var currYear = new Date().getFullYear();
 		var options = Highcharts.getOptions();
-		var months = [0,0,0,0,0,0,0,0,0,0,0,0];
-		meetings.forEach(function (meeting) {
-			var date = new Date(meeting.start);
-			var month = date.getMonth();
-			var year = date.getFullYear();
-			if (year == currYear)
-				months[month] = months[month] + 1;
-		});
+		var months = processMeetingMonths();
 		var chart =  {
 			chart: {type:'column', options3d: {enabled:true, alpha:10, beta:25, depth:70} },
 			title: {text: 'Meetings this year'},
@@ -199,6 +231,22 @@
 		createMeetingChart();
 	}
 
+    function calculateNext(timeDescription) {
+        var parsed = later.parse.text(timeDescription);
+        var s = later.schedule(parsed);
+        var next = s.next(1);
+        return new Date(next);
+    }
+
+    function calculatePrevious(timeDescription) {
+        var parsed = later.parse.text(timeDescription);
+        var s = later.schedule(parsed);
+        var next = s.prev(1);
+        return new Date(next);
+    }
+
+
+
 	function displaySchedule() {
 		var schedule = [];
 		later.date.localTime();
@@ -207,21 +255,14 @@
 			schedule.push(appointment);
 		});
 		courses.forEach(function (course) {
-		    var parsed = later.parse.text(course.time);
-            var s = later.schedule(parsed);
-            // only 1 next and 1 previous occurence
-            var next = s.next(1);
-            var nextDate = new Date(next);
-            var nextSec = nextDate.getTime();
-            var end = nextSec+course.duration * 60000;
-            var prev = s.prev(1);
-            var prevDate = new Date(prev);
-            var prevSec = prevDate.getTime();
-            var prevend = prevSec+course.duration*60000;
-            var c = {title: course.title, start: nextSec, end: end, class: "event-info"};
-            var c1 = {title: course.title, start: prevSec, end: prevend, class: "event-info"};
-            schedule.push(c);
-            schedule.push(c1);
+            var nextDate = calculateNext(course.time);
+            var prevDate = calculatePrevious(course.time);
+            var endNextDate = addMinutes(nextDate, course.duration);
+            var endPrevDate = addMinutes(prevDate, course.duration);
+            var next = {title: course.title, start: nextDate.getTime(), end: endNextDate.getTime(), class: "event-info"};
+            var prev = {title: course.title, start: prevDate.getTime(), end: endPrevDate.getTime(), class: "event-info"};
+            schedule.push(next);
+            schedule.push(prev);
         })
 		var calendar = $("#calendar").calendar({
 			tmpl_path : "tmpls/",
@@ -388,7 +429,7 @@ body
 										div[class=timeline-heading]
 											h4[class=timeline-title] {{title}}
 											p
-												small[class=text-muted] {{start.toLocaleString()}}
+												small[class=text-muted] {{start}}
 										div[class=timeline-body]
 											p {{notes}}
 											button[@click=editMeeting][class=btn btn-info btn-sm]

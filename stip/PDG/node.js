@@ -123,10 +123,6 @@ PDG_Node.prototype.toString = function () {
 
 }
 
-PDG_Node.prototype.getParsenode = function () {
-    return JSON.parse(JSON.stringify(this.parsenode));
-}
-
 // Aux function
 var contains = function (els, el) {
     return els.filter(function (e) {
@@ -601,6 +597,30 @@ function FunctionalityNode(tag, tier) {
 
 FunctionalityNode.prototype = new PDG_Node();
 
+
+FunctionalityNode.prototype.getNodes = function (filter) {
+    var controls = this.getOutEdges(EDGES.CONTROL);
+    var visited = this.getOutNodes(EDGES.CONTROL);
+    var filtered = [];
+    while (controls.length > 0) {
+        var edge = controls.shift();
+        var node = edge.to;
+        if (filter && filter(node)) {
+            filtered.push(node);
+        }
+        else if (!filter) {
+            filtered.push(node);
+        }
+        visited.push(node);
+        node.getOutEdges(EDGES.CONTROL).map(function (e) {
+            if (visited.indexOf(e.to) < 0) {
+                controls.push(e);
+            }
+        });
+    }
+    return filtered;
+}
+
 /* Used for counting outbound remote data references and remote calls 
  Only follows control flow edges.
  Default is outbound references, but can be changed with the direction parameter */
@@ -765,7 +785,7 @@ PDG_Node.prototype.getFunctionality = function () {
                 e.from.parsenode.init.equals(e.to.parsenode))
                 return true;
             else if (e.from.parsenode.expression &&
-                e.from.parsenode.expression.right.equals(e.to.parsenode))
+                e.from.parsenode.expression.right.tag == e.to.parsenode.tag)
                 return true;
             else
                 return false;
@@ -936,6 +956,8 @@ PDG_Node.prototype.equalsFunctionality = function (node) {
 PDG_Node.prototype.equalsTier = function (node) {
     var comp1 = node.getFunctionality();
     var comp2 = this.getFunctionality();
+    this.tier = comp2.tier;
+    node.tier = comp1.tier;
     return comp1.tier && comp2.tier &&
         comp1.tier === comp2.tier;
 }
@@ -943,7 +965,8 @@ PDG_Node.prototype.equalsTier = function (node) {
 
 PDG_Node.prototype.getTier = function () {
     var func = this.getFunctionality();
-    return func.tier;
+    this.tier = func.tier;
+    return this.tier;
 }
 
 //////////////////////////////////////////
@@ -989,7 +1012,9 @@ PDG_Node.prototype.isServerNode = function () {
 PDG_Node.prototype.isSharedNode = function () {
     if (!this.tier)
         this.tier = this.getTier();
-    return !this.tier || fTypeEquals(this.tier, DNODES.SHARED);
+    if (!this.ftype)
+        this.ftype = this.getFType();
+    return !this.tier || !this.ftype || fTypeEquals(this.tier, DNODES.SHARED);
 }
 
 
