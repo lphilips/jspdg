@@ -422,6 +422,11 @@ var generate_head_content = function generate_head_content() {
     result.push(crumbs);
 
 
+    // Add async
+    var async = new Tag("script");
+    async.attributes.src="js/async.min.js";
+    result.push(async);
+
     // Add CSS style (if supplied)
     if (context.css) {
         var css = new Tag("style");

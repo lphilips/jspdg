@@ -84,7 +84,7 @@ function cpstransform(src, editor) {
     try {
         var program;
         editor.setValue("");
-        program = Stip.cpsTransform(src);
+        program = Stip.cpsTransform(src, true);
         editor.setValue(escodegen.generate(program.program));
     } catch (err) {
         console.log(err.stack);

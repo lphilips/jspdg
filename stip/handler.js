@@ -32,7 +32,17 @@ var Handler = {
     init : function () {
         this.handlerCtr = 0;
         this.defined = {};
-        this.Predefined.generate(this);
+        this.reservedKeywords = ['id'];
+            this.handlerMethods =
+        ['onException', 'onNativeException', 'onLibraryException', 'onApplicationException', 'onNetworkException'];
+            this.callInterface =
+        ['callName', 'callArgs', 'callError', 'callResult', 'callRetry', 'retry', 'alternativeCall', 'fail', 'succeed', 'continue', 'proceed', 'hasFailureContinuation', 'isCallErrorType'];
+            this.handlerContext = 'ctxt',
+            this.prioritySign = '+',
+            this.handlerUseRegExp = /[\,\s]+([+]?[a-zA-Z_$]{1}[a-zA-Z0-9_$]*)([\[]{1}[a-zA-Z0-9_$,:\'\"]*[\]]{1})*/g;
+            this.handlerOverrideRegExp = /[\[]*[,\s]*([a-zA-Z-0-9_]+)[:\s]{1}([0-9a-zA-Z\'\"_\s]+)[\]]*/g;
+
+            this.Predefined.generate(this);
     }
 
 }

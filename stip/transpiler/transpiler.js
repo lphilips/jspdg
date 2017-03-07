@@ -72,7 +72,6 @@ function copySetups(transpilerFrom, transpilerTo) {
 
 function transpile(transpiler) {
 
-
     var transformer = transpiler.transform;
     var node = transpiler.node;
     var expression;

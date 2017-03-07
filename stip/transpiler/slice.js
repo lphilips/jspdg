@@ -199,7 +199,8 @@ var constructProgram = function (nodes, option, ast) {
             transpiled = toCode(option, nodes, n, ast);
             if (transpiled.transpiledNode) {
                 if (transpiled.transpiledNode.leadingComment &&
-                    Comments.isBlockingAnnotated(transpiled.transpiledNode.leadingComment)) {
+                        Aux.isBlockStm(transpiled.transpiledNode) &&
+                        Comments.isBlockingAnnotated(transpiled.transpiledNode.leadingComment)) {
                     program.body = program.body
                         .concat(transpiled.setupNode)
                         .concat(transpiled.transpiledNode.body)

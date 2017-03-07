@@ -41,7 +41,7 @@ suite('Slices - basic', function () {
         console.log(escodegen.generate(ast1))
         compareAst(escodegen.generate(ast1), 'server.expose({"foo" : function (x, callback) {var self = this; return callback(null, x)}})');
         compareAst(escodegen.generate(ast0),
-            'var a; client.rpcCall("foo", 42, function (_v1_, _v2_) {a = _v2_;}); client.expose({});',
+            'var a; client.rpc("foo", 42, function (_v1_, _v2_) {a = _v2_;}); client.expose({});',
             {varPattern: /_v\d_/});
     });
 
@@ -54,7 +54,7 @@ suite('Slices - basic', function () {
         assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast1), 'server.expose({"foo" : function (x, callback) {var self = this; return callback(null, x)}})');
         compareAst(escodegen.generate(ast0),
-            'client.rpcCall("foo", 42, function (_v1_, _v2_) {client.rpcCall("foo", _v2_, function (_v3_, _v4_) {})}); client.expose({});',
+            'client.rpc("foo", 42, function (_v1_, _v2_) {client.rpc("foo", _v2_, function (_v3_, _v4_) {})}); client.expose({});',
             {varPattern: /_v\d_/});
     });
 
@@ -79,10 +79,10 @@ suite('Slices - basic', function () {
         /* no warnings */
         assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
-            'client.rpcCall("foo", function (_v1_, _v2_) {}); client.expose({"bar" : function (y,callback) {return callback(null,42+y);}})',
+            'client.rpc("foo", function (_v1_, _v2_) {}); client.expose({"bar" : function (y,callback) {return callback(null,42+y);}})',
             {varPattern: /_v\d_/});
         compareAst(escodegen.generate(ast1),
-            'server.expose({"foo" : function (callback) {var self = this; self.rpcCall("bar", 3);}})');
+            'server.expose({"foo" : function (callback) {var self = this; self.rpc("bar", 3);}})');
     });
 
     test('function client called by both', function () {
@@ -93,10 +93,10 @@ suite('Slices - basic', function () {
         /* no warnings */
         assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
-            'function bar(y) {return 42+y;} client.rpcCall("foo", function (_v1_, _v2_) {}); bar(2); client.expose({"bar" : function (y,callback) {return callback(null,42+y);}})',
+            'function bar(y) {return 42+y;} client.rpc("foo", function (_v1_, _v2_) {}); bar(2); client.expose({"bar" : function (y,callback) {return callback(null,42+y);}})',
             {varPattern: /_v\d_/});
         compareAst(escodegen.generate(ast1),
-            'server.expose({"foo" : function (callback) {var self = this; self.rpcCall("bar", 3);}})');
+            'server.expose({"foo" : function (callback) {var self = this; self.rpc("bar", 3);}})');
     });
 
     test('function client called by both with rpc', function () {
@@ -107,10 +107,10 @@ suite('Slices - basic', function () {
         /* no warnings */
         assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
-            'function bar(y) {client.rpcCall("foo", function (_v1_, _v2_){}); return 42+y;}  bar(2); client.expose({"bar" : function (y,callback) {client.rpcCall("foo", function (_v1_, _v2_){}); return callback(null,42+y);}})',
+            'function bar(y) {client.rpc("foo", function (_v1_, _v2_){}); return 42+y;}  bar(2); client.expose({"bar" : function (y,callback) {client.rpc("foo", function (_v1_, _v2_){}); return callback(null,42+y);}})',
             {varPattern: /_v\d_/});
         compareAst(escodegen.generate(ast1),
-            'server.expose({"foo" : function (callback) {var self = this; self.rpcCall("bar", 3);}})');
+            'server.expose({"foo" : function (callback) {var self = this; self.rpc("bar", 3);}})');
     });
 
     test('remote call in return statement client', function () {
@@ -123,7 +123,7 @@ suite('Slices - basic', function () {
         /* no warnings */
         assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
-            'client.expose({"foo" : function (y,callback) {return client.rpcCall("bar", function (_v1_, _v2_){ return callback(_v1_,_v2_)})}})',
+            'client.expose({"foo" : function (y,callback) {return client.rpc("bar", function (_v1_, _v2_){ return callback(_v1_,_v2_)})}})',
             {varPattern: /_v\d_/});
         compareAst(escodegen.generate(ast1),
             'server.rpc("foo", [3]); server.expose({"bar" : function (callback) {var self = this; return callback(null, 42)}});',
@@ -138,10 +138,10 @@ suite('Slices - basic', function () {
         /* no warnings */
         assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
-            'client.rpcCall("foo", 3, function (_v1_, _v2_) {}); client.expose({"bar" : function (callback) {return callback(null, 42)}})',
+            'client.rpc("foo", 3, function (_v1_, _v2_) {}); client.expose({"bar" : function (callback) {return callback(null, 42)}})',
             {varPattern: /_v\d_/});
         compareAst(escodegen.generate(ast1),
-            'server.expose({"foo" : function (y, callback) {var self = this; return self.rpcCall("bar", function (_v1_, _v2_) {return callback(_v1_,_v2_)})}});',
+            'server.expose({"foo" : function (y, callback) {var self = this; return self.rpc("bar", function (_v1_, _v2_) {return callback(_v1_,_v2_)})}});',
             {varPattern: /_v\d_/});
     });
 
@@ -153,10 +153,10 @@ suite('Slices - basic', function () {
         /* no warnings */
         assert.equal(0, res[3].length);
         compareAst(escodegen.generate(ast0),
-            'client.rpcCall("foo", 3, function (_v1_, _v2_) {}); client.expose({"bar" : function (callback) {return callback(null, 42)}})',
+            'client.rpc("foo", 3, function (_v1_, _v2_) {}); client.expose({"bar" : function (callback) {return callback(null, 42)}})',
             {varPattern: /_v\d_/});
         compareAst(escodegen.generate(ast1),
-            'server.expose({"foo" : function (y, callback) {var self = this; return self.rpcCall("bar", function (_v1_, _v2_) {self.rpcCall("bar", function (_v3_, _v4_) {return callback(_v1_,_v4_+_v2_)})})}});',
+            'server.expose({"foo" : function (y, callback) {var self = this; return self.rpc("bar", function (_v1_, _v2_) {self.rpc("bar", function (_v3_, _v4_) {return callback(_v1_,_v4_+_v2_)})})}});',
             {varPattern: /_v\d_/});
     });
 
@@ -333,7 +333,7 @@ suite('Multiple slices - fixed location', function () {
         console.log();
         /* no warnings */
         assert.equal(0, res[3].length);
-        compareAst(escodegen.generate(ast0), 'function foo() {return 42;} client.rpcCall("bar", function (_v1_, _v2_) {foo()+res2});client.expose({});',
+        compareAst(escodegen.generate(ast0), 'function foo() {return 42;} client.rpc("bar", function (_v1_, _v2_) {foo()+res2});client.expose({});',
             {varPattern: /_v\d_/});
         compareAst(escodegen.generate(ast1), 'server.expose({"bar" : function (x, callback) {var self = this; return callback(null, x)}});',
             {varPattern: /_v\d_/});

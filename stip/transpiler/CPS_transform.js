@@ -37,7 +37,8 @@ function transformCall(transpiler, upnode, esp_exp) {
         datadeps = [],
         entry = getEntryNode(callnode),
         calledEntry = callnode.getEntryNode()[0],
-        calldeps, vardecls, objects, transpiledNode, transformargs, transpiled, nextcont;
+        blockingConstruct =  inBlockingConstruct(callnode),
+    transpiledNode, transformargs, transpiled;
 
 
     if (parsenode.handlersAsync && parsenode.handlersAsync.length != 0) {
@@ -84,24 +85,23 @@ function transformCall(transpiler, upnode, esp_exp) {
         }
     });
 
-
-    /* Upnode is given + of type var decl, assignment, etc */
-    if (upnode && upnode.dataDependentNodes) {
-        /* Put it in callback, together with all statements dependent on the variable */
-        datadeps = upnode.dataDependentNodes(false, true);
-    }
-
-
     /* If the call is annotated with @blocking OR the function has side-effects,
      we take the remainder of the program (or current scope) as its continuation */
     if (isBlockingCall(callnode, transpiler.ast) || !transpiler.options.analysis ||
         ( calledEntry &&
-        InterferenceAnalysis.doesInterfere(calledEntry.parsenode, parsenode.arguments, transpiler.ast))) {
+            InterferenceAnalysis.doesInterfere(calledEntry.parsenode, parsenode.arguments, transpiler.ast))) {
         getRemainderStms(callnode).map(function (stm) {
             if (nodesContains(nodes, stm))
-                datadeps.push(stm);
+                datadep.push(stm);
         });
     }
+    if (blockingConstruct) {
+        getRemainderStms(blockingConstruct).map(function (stm) {
+            if (nodesContains(nodes, stm, callnode))
+                datadep.push(stm);
+        });
+    }
+
 
 
     /* Upnode is given + of type var decl, assignment, etc */
@@ -117,191 +117,155 @@ function transformCall(transpiler, upnode, esp_exp) {
         if (transpiler.parseUtils.shouldTransform(callnode))
             esp_exp = transformVar(esp_exp, callnode, cps_count);
         callback.addBodyStm(upnode.parsenode);
-        nodes = nodes.remove(upnode);
+        nodes = nodes.remove(upnode)
+    }
+
+    function addDependency (node) {
+        var nodeEntry = getEntryNode(node);
+        if (datadep.indexOf(node) < 0 && nodeEntry.equals(entry)) {
+            datadep.push(node);
+            return true
+        }
+        else
+            return false
     }
 
     /* Data dependent nodes */
-    datadeps.map(function (node) {
-        var incont = insideContinuation(callnode, node, transpiler),
-            dataentry = getEntryNode(node),
-            datanodes;
-
-        if (incont && !nextcont &&
-            nodesContains(nodes, incont)) {
-            nextcont = incont;
-            datadep.push(nextcont);
-        }
-
-        else if (node.isCallNode) {
-            node.getActualIn().map(function (a_in) {
-                a_in.getInNodes(EDGES.DATA).map(function (n) {
-                    datadep.push(n);
-                });
+    function traverseUp (node) {
+        var upCONTROL = node.getInNodes(EDGES.CONTROL).filter(function (n) {
+            return !(n.isStatementNode && Aux.isCatchStm(n.parsenode))});
+        var upOBJMEMBER = node.getInNodes(EDGES.OBJMEMBER)
+            .filter(function (n) {
+                return n.isObjectEntry
+            });
+        var upDATA = node.getInNodes(EDGES.DATA)
+            .filter(function (n) {
+                return n.parsenode &&
+                    ( Aux.isVarDecl(n.parsenode) ||
+                    Aux.isVarDeclarator(n.parsenode) ||
+                    (Aux.isExpStm(n.parsenode) && Aux.isAssignmentExp(n.parsenode.expression)) ||
+                    Aux.isProperty(n.parsenode) ||
+                    Aux.isAssignmentExp(n.parsenode))
             });
 
-            if (!nodesContains(datadep, node)) {
-                datadep.push(node);
-                if (node.dataDependentNodes) {
-                    datanodes = node.dataDependentNodes();
-                    datanodes.map(function (n) {
-                        if (!nodesContains(datadep, n) && !n.isActualPNode)
-                            datadep.push(n);
-                    })
-                }
-
-            }
-        }
-
-        else if (!node.isActualPNode) {
-            /* Has the node other outgoing dependencies on call nodes/ var decls?
-             If so, transform the dependence and add it to callback body */
-            calldeps = node.getInNodes(EDGES.DATA)
-                .filter(function (n) {
-                    n.isCallNode &&
-                    n.cnt !== upnode.cnt
-                });
-            vardecls = node.getInNodes(EDGES.DATA)
-                .filter(function (n) {
-                    return n.parsenode &&
-                        (upnode ? n.cnt !== upnode.cnt : true) &&
-                        ( Aux.isVarDecl(n.parsenode) ||
-                        Aux.isVarDeclarator(n.parsenode) ||
-                        Aux.isAssignmentExp(n.parsenode))
-                });
-            objects = node.getInNodes(EDGES.OBJMEMBER)
-                .filter(function (n) {
-                    return n.isObjectEntry &&
-                        n.cnt !== upnode.cnt
-                });
-
-            /* Objects inside other statement? (decl, ass, return, ...) */
-            objects.map(function (n) {
-                n.getInNodes(EDGES.DATA)
-                    .map(function (up) {
-                        if (up.parsenode &&
-                            (Aux.isVarDecl(up.parsenode) ||
-                            Aux.isVarDeclarator(up.parsenode) ||
-                            Aux.isAssignmentExp(up.parsenode) ||
-                            (Aux.isExpStm(up.parsenode) && Aux.isAssignmentExp(up.parsenode.expression))))
-                            vardecls.push(up);
-                    });
-                n.getInNodes(EDGES.CONTROL)
-                    .filter(function (n) {
-                        return n.isStatementNode && Aux.isRetStm(n.parsenode);
-                    })
-                    .map(function (n) {
-                        vardecls.push(n);
-                    });
-
-                n.getOutNodes(EDGES.OBJMEMBER)
-                    .filter(function (prop) {
-                        return !prop.equals(node);
-                    })
-                    .map(function (prop) {
-                        prop.getInNodes(EDGES.DATA)
-                            .map(function (up) {
-                                if (up.parsenode &&
-                                    (Aux.isVarDecl(up.parsenode) ||
-                                    Aux.isVarDeclarator(up.parsenode) ||
-                                    Aux.isAssignmentExp(up.parsenode) ||
-                                    Aux.isRetStm(up.parsenode) ||
-                                    (Aux.isExpStm(up.parsenode) && Aux.isAssignmentExp(up.parsenode.expression))))
-                                    vardecls.push(up);
-                            })
-                    })
-            })
-
-            calldeps.concat(vardecls).concat(objects).map(function (node) {
-                var nodeEntry = getEntryNode(node),
-                    datas;
-                if (!nodeEntry.equals(entry)) {
-                    /* TODO datadep nodeEntry ook meenemen */
-                    if (!nodesContains(datadep, nodeEntry)) {
-                        datadep.push(nodeEntry);
-                        datadep = datadep.concat(nodeEntry.getCalls());
-                    }
-                } else if (!nodesContains(datadep, node)) {
-                    datadep.push(node);
-                    if (node.dataDependentNodes) {
-                        datas = node.dataDependentNodes();
-                        datas.map(function (n) {
-                            if (!nodesContains(datadep, n) && !n.isActualPNode)
-                                datadep.push(n);
-                        })
-                    }
-
-                }
+        function rightLevel(n) {
+            var found = n.getInNodes(EDGES.CONTROL).filter(function (n) {
+                return n.equals(entry) && !(n.isStatementNode && Aux.isCatchStm(n.parsenode));
             });
+            return found.length > 0 || n.equals(entry)
+        }
+        if (rightLevel(node)) {
+            return node
+        }
+        if (upCONTROL.length > 0) {
+            return traverseUp(upCONTROL[0])
+        }
+        if (upOBJMEMBER.length > 0) {
+            return traverseUp(upOBJMEMBER[0])
+        }
+        if (upDATA.length > 0) {
+            return traverseUp(upDATA[0])
+        }
+    }
 
-            if (!dataentry.equals(entry) && (calledEntry ? !calledEntry.equals(dataentry) : true) && !hasAsReturnValue(dataentry, node)) {
-                if (!nodesContains(datadep, dataentry)) {
-                    datadep.push(dataentry);
-                    if (dataentry.getCalls)
-                        datadep = datadep.concat(dataentry.getCalls());
+
+   if (upnode)
+     slice(upnode);
+
+   function slice (node) {
+       var nodes = graphs.PDG.forwardslice(node);
+       nodes.forEach(function (n) {
+           var calldeps = n.getInNodes(EDGES.DATA)
+               .filter( function (n) { n.isCallNode && (upnode ? !n.equals(upnode) : true )});
+           var vardecls  = n.getInNodes(EDGES.DATA)
+               .filter( function (n) {
+                   var nodeEntry = getEntryNode(n);
+                   return entry.equals(nodeEntry) && n.parsenode &&
+                       (upnode ? !n.equals(upnode) : true) &&
+                       ( Aux.isVarDecl(n.parsenode) ||
+                       Aux.isVarDeclarator(n.parsenode) ||
+                       Aux.isAssignmentExp(n.parsenode))
+               });
+           if (n.isStatementNode && Aux.isCatchStm(n.parsenode)) {
+               return
+           }
+           if (n.isActualPNode) {
+               var ups = n.getInNodes(EDGES.DATA).filter(function (data) {
+                   return data.isEntryNode &&
+                       n.parsenode.name == data.parsenode.id.name
+               });
+               if (ups.length > 0)
+                    ups.forEach(function (n) {
+                       if (addDependency(n)) {
+                           slice(n)
+                       }
+                   });
+               else {
+                   var up = traverseUp(n);
+                   if (up && addDependency(up)) {
+                       slice(up)
+                   }
+               }
+           }
+           else {
+               var up = traverseUp(n);
+               if (up && addDependency(up)) {
+                   slice(up);
+               }
+           }
+
+           if (calldeps.length > 0) {
+               calldeps.forEach(function (c) {
+                   var up = traverseUp(c);
+                   if (addDependency(up)) {
+                       slice(up)
+                   }
+               })
+           }
+           else if (vardecls.length > 0) {
+               vardecls.forEach(function (d) {
+                   if (addDependency(d))
+                       slice(d)
+               })
+           }
+       })
+   }
+
+
+    datadep
+        .filter(function (n) {
+            return !n.equals(upnode) && !n.equals(callnode)
+        })
+        .sort(function (n1, n2) {
+            return n1.cnt - n2.cnt
+        })
+        .map(function (n) {
+            var transpilerDataDep = Transpiler.copyTranspileObject(transpiler, n, nodes);
+            var e_in;
+            if (nodesContains(nodes, n, callnode) &&
+                transpiler.parseUtils.shouldTransform(callnode)) {
+                if (n.isEntryNode && n.parsenode.__transpiledNode)
+                    callbackstms = callbackstms.concat(n.parsenode.__transpiledNode);
+                else if (!n.isEntryNode) {
+                    transpiled = Transpiler.transpile(transpilerDataDep);
+                    e_in = transpiled.node.getInNodes(EDGES.CONTROL).filter(function (n) {
+                        return Aux.isTryStm(n.parsenode)
+                    });
+                    transpiled.transpiledNode.inTryBlock = (e_in.length != 0);
+
+                    if (n.isEntryNode)
+                        n.parsenode.__transpiledNode = transpiled;
+                    nodes = transpiled.nodes;
+                    transpiled.transpiledNode.cnt = transpiled.node.cnt;
+                    callbackstms = callbackstms.concat(transpiled)
                 }
             }
-            /* Do not add in continuation if node was already in datadep or
-             as the node is an object entry that is the result of a function call  */
-            else if (!nodesContains(datadep, node) && !(node.isObjectEntry && hasAsReturnValue(dataentry, node)))
-                datadep.push(node);
-        }
-
-        else {
-            var nodecall = node.getCall()[0],
-                stms = nodecall.getStmNode();
-            if (stms.length > 0) {
-                stms.forEach(function (stm) {
-                    datadep = datadep.concat(stm);
-                    if (stm.dataDependentNodes) {
-                        datas = stm.dataDependentNodes();
-                        datas.map(function (n) {
-                            if (!nodesContains(datadep, n) && !n.isActualPNode)
-                                datadep.push(n);
-                        })
-                    }
-                })
-            }
-
-            else
-                datadep = datadep.concat(nodecall);
-        }
-
-
-    });
-
-    /* Sort on original order */
-    datadep.sort(function (n1, n2) {
-        return n1.cnt - n2.cnt;
-    })
-
-    datadep.map(function (n) {
-        var transpilerDataDep = Transpiler.copyTranspileObject(transpiler, n, nodes);
-        if (nodesContains(nodes, n) &&
-            transpiler.parseUtils.shouldTransform(callnode)) {
-            if (n.isEntryNode && n.parsenode.__transpiledNode) {
-                callbackstms = callbackstms.concat(n.parsenode.__transpiledNode);
-            } else {
-                transpiled = Transpiler.transpile(transpilerDataDep);
-
-                var e_in = transpiled.node.getInNodes(EDGES.CONTROL).filter(function (n) {
-                    return Aux.isTryStm(n.parsenode)
-                });
-                transpiled.transpiledNode.inTryBlock = (e_in.length != 0);
-
-                if (n.isEntryNode) {
-                    n.parsenode.__transpiledNode = transpiled;
-                }
-                nodes = transpiled.nodes;
-                transpiled.transpiledNode.cnt = transpiled.node.cnt;
-                callbackstms = callbackstms.concat(transpiled);
-            }
-        }
-    });
+        });
 
     /* Add the callback as last argument to the async call. */
     asyncCall.addArg(callback.parsenode);
-
     asyncCall.setCallback(callback);
+    asyncCall.parsenode._callnode = callnode;
 
     (function (callback) {
         asyncCall.parsenode.cont = function (node) {
@@ -314,10 +278,13 @@ function transformCall(transpiler, upnode, esp_exp) {
                 callback.setBody([node.parsenode]);
             } else {
                 transf = transformVar(node.parsenode, arg, respar);
-                if (Aux.isExpStm(node.parsenode))
-                    node.parsenode.expression = transf;
-                else
-                    node.parsenode = transf;
+                /* did it transform? */
+                if (escodegen.generate(transf) !== escodegen.generate(node.parsenode)) {
+                    if (Aux.isExpStm(node.parsenode))
+                        node.parsenode.expression = transf;
+                    else
+                        node.parsenode = transf;
+                }
                 callback.setBody(callback.getBody()
                     .concat(node.parsenode));
             }
@@ -327,7 +294,7 @@ function transformCall(transpiler, upnode, esp_exp) {
     transpiledNode = asyncCall;
     callargs.forEach(function (callarg) {
         callarg.parsenode.leadingComment = callnode.parsenode.leadingComment;
-    })
+    });
     transformargs = transformArguments(callargs, transpiledNode, nodes, transpiler, upnode, esp_exp, callnode);
     transpiledNode = transformargs[1];
     nodes = transformargs[0];
@@ -342,12 +309,14 @@ function transformCall(transpiler, upnode, esp_exp) {
             callbackstms.map(function (transpiled) {
                 /* Prevent data dependencies to be included double in nested callbacks.
                  Does not apply for transformed call statements */
-                if (nodesContains(nodes, transpiled.node) || transpiled.transpiledNode.cont ||
+                if (nodesContains(nodes, transpiled.node, callnode) || transpiled.transpiledNode.cont ||
                     transpiled.node.edges_out.filter(function (e) {
                         return e.to.isCallNode
                     }).length > 0) {
                     transpiled.transpiledNode.__upnode = getEnclosingFunction(transpiler.node.parsenode, transpiler.ast);
                     asyncCall.getCallback().addBodyStms(transpiled.getTransformed());
+                    if (transpiled.transpiledNode.cont)
+                        asyncCall.parsenode.cont = transpiled.transpiledNode.cont;
                     nodes = nodes.remove(transpiled.node);
                 }
             })
@@ -379,7 +348,7 @@ function transformCall(transpiler, upnode, esp_exp) {
             callbackstms.map(function (transpiled) {
                 /* Prevent data dependencies to be included double in nested callbacks.
                  Does not apply for transformed call statements */
-                if (nodesContains(nodes, transpiled.node) ||
+                if (nodesContains(nodes, transpiled.node, callnode) ||
                     transpiled.node.getOutNodes().filter(function (n) {
                         return n.isCallNode
                     }).length > 0) {
@@ -400,7 +369,7 @@ function transformCall(transpiler, upnode, esp_exp) {
             callbackstms.map(function (transpiled) {
                 /* Prevent data dependencies to be included double in nested callbacks.
                  Does not apply for transformed call statements */
-                if (nodesContains(nodes, transpiled.node) || transpiled.transpiledNode.cont ||
+                if (nodesContains(nodes, transpiled.node, callnode) || transpiled.transpiledNode.cont ||
                     transpiled.node.getOutNodes().filter(function (n) {
                         return n.isCallNode
                     }).length > 0) {
@@ -421,7 +390,7 @@ function transformCall(transpiler, upnode, esp_exp) {
             callbackstms.map(function (transpiled) {
                 /* Prevent data dependencies to be included double in nested callbacks.
                  Does not apply for transformed call statements */
-                if (nodesContains(nodes, transpiled.node) ||
+                if (nodesContains(nodes, transpiled.node, callnode) ||
                     (!transpiled.node.isEntryNode &&
                     transpiled.node.getOutNodes().filter(function (n) {
                         return n.isCallNode
@@ -687,6 +656,38 @@ function isBlockingCall(callnode, ast) {
         Comments.isBlockingAnnotated(callnode.parsenode.leadingComment))
 }
 
+function inBlockingConstruct(node) {
+    var ins = node.getInEdges(EDGES.CONTROL)
+            .concat(node.getInEdges(EDGES.OBJMEMBER))
+            .slice(),
+        visited = [],
+        found = false,
+        criterium = function (node) {
+            return node.isStatementNode && Aux.isIfStm(node.parsenode) &&
+                    node.parsenode.leadingComment &&
+                    Comments.isBlockingAnnotated(node.parsenode.leadingComment)
+        };
+    if (criterium(node))
+        return node;
+    while (ins.length > 0) {
+        var edge = ins.shift(),
+            from = edge.from;
+        if (criterium(from)) {
+            found = from;
+            break;
+        } else {
+            from.getInEdges(EDGES.CONTROL)
+                .concat(from.getInEdges(EDGES.OBJMEMBER))
+                .map(function (edge) {
+                    if (!(Aux.contains(visited, edge))) {
+                        visited.push(edge);
+                        ins.push(edge);
+                    }
+                });
+        }
+    }
+    return found;
+}
 
 var getEntryNode = function (node) {
     var ins = node.getInEdges(EDGES.CONTROL)
@@ -769,6 +770,83 @@ var transformReplyCall = function (callnode, nodes, transpiler) {
         }
     }
     return [nodes, callnode]
+}
+
+
+var transformPrimitive = function (transpiler) {
+    var node = transpiler.node,
+        parsenode = node.parsenode,
+        cb = transpiler.parseUtils.createCallback(cps_count),
+        name = node.name,
+        transpiledNode;
+    if (name == "forEach") {
+        getRemainderStms(node).forEach(function (n) {
+            cb.addBodyStm(n.parsenode);
+            transpiler.nodes = transpiler.nodes.remove(n);
+        });
+        transpiledNode = transpiler.parseUtils.createAsyncForEach();
+        transpiledNode.addCollection(parsenode.expression.callee.object);
+        transpiledNode.addLoopFunction(parsenode.expression.arguments[0]);
+        transpiledNode.addFinishFunction(cb.parsenode);
+        transpiledNode.parsenode.__transformed = true;
+        transpiler.transpiledNode = transpiledNode.parsenode;
+        return transpiler;
+    }
+}
+
+var transformGeneratedFunction = function (transpiler) {
+    var func = transpiler.node.parsenode;
+    var cbCalled = false;
+    func.params.push({type: "Identifier",name: "callback"});
+    Aux.walkAst(func, {
+        post: function (node) {
+            if (Aux.isRetStm(node) && !node.__returnTransformed) {
+                /* callnode property is added if return statement is already transformed to a cps call
+                 No need to wrap it in a callback call again */
+                if (node.argument && !node._callnode) {
+                    node.argument = transpiler.parseUtils.createCbCall('callback', errorArg);
+                }
+                /* callnode property is added if return statement is already transformed to a cps call
+                 No need to wrap it in a callback call again */
+                else if (!node._callnode) {
+                    node.argument = transpiler.parseUtils.createCbCall('callback', {
+                        type: 'Literal',
+                        value: null
+                    });
+                }
+                cbCalled = true;
+            }
+            if (Aux.isThrowStm(node)) {
+                node.type = "ReturnStatement";
+                node.argument = transpiler.parseUtils.createCbCall('callback', node.argument);
+                cbCalled = true;
+            }
+        }
+    })
+    if (!cbCalled) {
+        var lastStm = func.body.body[func.body.body.length -1];
+        /* Transformed call? */
+        if (lastStm && lastStm.cont) {
+            lastStm.cont({parsenode : {
+                    type: "ExpressionStatement",
+                    expression: transpiler.parseUtils.createCbCall('callback', {
+                        type: 'Literal',
+                        value: null
+                    })
+                }
+            })
+        } else {
+            func.body.body.push({
+                type: "ExpressionStatement",
+                expression: transpiler.parseUtils.createCbCall('callback', {
+                    type: 'Literal',
+                    value: null
+                })
+            });
+        }
+    }
+    transpiler.transpiledNode = func;
+    return transpiler;
 }
 
 /* Used for expression with calls :
@@ -867,8 +945,10 @@ var transformExp = function (transpiler) {
                 replaceCall(parsenode, calls[i], resp[i]);
         }
     }
-    if (outercps)
+    if (outercps) {
+        outercps.parsenode.__transformed = true;
         return [nodes, outercps];
+    }
     else
 
         return [nodes, node];
@@ -960,8 +1040,11 @@ var hasAsReturnValue = function (entrynode, returnvalue) {
         }).length > 0;
 }
 
-var nodesContains = function (nodes, node) {
-    return nodes.filter(function (n) {
+var nodesContains = function (nodes, node, callnode) {
+    if (callnode && inBlockingConstruct(callnode))
+        return true;
+    else
+        return nodes.filter(function (n) {
             return n.id === node.id;
         }).length > 0
 }
@@ -973,6 +1056,8 @@ toreturn.transformFunction = transformFunction;
 toreturn.transformExp = transformExp;
 toreturn.setExpStm = CPSsetExpStm;
 toreturn.transformReplyCall = transformReplyCall;
+toreturn.transformPrimitive = transformPrimitive;
+toreturn.transformGeneratedFunction = transformGeneratedFunction;
 
 module.exports = toreturn;
 global.CPSTransform = toreturn;

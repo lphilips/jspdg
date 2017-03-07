@@ -472,6 +472,11 @@ function transformReturnStm(transpiler) {
         transpiler.nodes = transpiled[0];
         transpiler.transpiledNode = transpiled[1].parsenode;
         transpiler.transpiledNode.__upnode = parsenode.__upnode;
+        if (object.length > 0) {
+            object.map(function (oe) {
+                transpiler.nodes = transpiler.nodes.remove(oe)
+            })
+        }
         return transpiler;
     }
     if (object.length > 0) {
@@ -483,7 +488,7 @@ function transformReturnStm(transpiler) {
             transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, oe));
             parsenode.argument = transpiled.transpiledNode;
             transpiler.nodes = transpiled.nodes.remove(oe);
-            transpiler.nodes = transpiler.nodes.remove(formout);
+            transpiler.nodes = transpiler.nodes.remove(formout)
         })
     }
     if (excexits.length > 0) {

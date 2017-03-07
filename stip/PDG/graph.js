@@ -220,7 +220,7 @@ var union = function (array) {
   var a = array.concat();
   for (var i = 0; i < a.length; ++i) {
       for(var j = i + 1; j < a.length; ++j) {
-          if(a[i] === a[j])
+          if(a[i].equals(a[j]))
               a.splice(j--, 1);
       }
   }
@@ -333,6 +333,117 @@ PDG.prototype.slice = function (criterion, tiersplitting) {
       second_pass   = traverse_backward(first_pass,[],[EDGES.PARIN, EDGES.REMOTEPARIN, EDGES.REMOTEPAROUT, EDGES.CALL, EDGES.REMOTED, EDGES.PROTOTYPE]);
   
   return union(first_pass.concat(second_pass)); 
+};
+
+
+
+PDG.prototype.forwardslice = function (criterion, tiersplitting) {
+
+    function contains (equal, set) {
+        for (var i = 0; i < set.length; i++) {
+            if(equal(set[i]))
+                return true;
+        }
+        return false;
+    }
+
+    function enclosingFunction (node) {
+        if (node.isRootNode)
+            return node;
+        else if (node.isEntryNode && !node.parsenode)
+            return node;
+        else if (node.isEntryNode && (Aux.isFunExp(node.parsenode) || Aux.isFunDecl(node.parsenode)))
+            return node;
+        else if (node.isObjectEntry)
+            return enclosingFunction(node.getInNodes(EDGES.DATA)[0]);
+        else
+            return enclosingFunction(node.getInNodes(EDGES.CONTROL)[0]);
+    }
+
+    function includeSharedFunction (node) {
+        var entryN = enclosingFunction(node),
+            entryC = enclosingFunction(criterion);
+        if (entryC.isClientNode()) {
+            return entryN.clientCalls && entryN.clientCalls > 0;
+        }
+        else if (entryC.isServerNode()) {
+            return entryN.serverCalls && entryN.serverCalls > 0;
+        }
+        else
+            return true;
+    }
+
+    /* get assignments on variable declaration left in AST from original slicing criterion */
+    function getAssignments (statementNode) {
+        var assignments = [];
+        if (statementNode.isStatementNode && Aux.isVarDeclarator(statementNode.parsenode)) {
+            assignments = statementNode.getOutNodes(EDGES.DATA)
+                .filter(function (n) {
+                    if (tiersplitting && n.cnt < criterion.cnt) {
+                        if (criterion.equalsFunctionality(n))
+                            return  n.isCallNode || n.isStatementNode &&
+                                (Aux.isExpStm(n.parsenode) &&
+                                Aux.isAssignmentExp(n.parsenode.expression) ||
+                                Aux.isAssignmentExp(n.parsenode));
+                        else
+                            return criterion.isActualPNode && n.isSharedNode() &&
+                                includeSharedFunction(n) &&
+                                (n.isCallNode || n.isStatementNode &&
+                                (Aux.isExpStm(n.parsenode) &&
+                                Aux.isAssignmentExp(n.parsenode.expression) ||
+                                Aux.isAssignmentExp(n.parsenode)));
+                    } else
+                        return n.cnt < criterion.cnt &&
+                            (n.isCallNode || n.isStatementNode &&
+                            (Aux.isExpStm(n.parsenode) &&
+                            Aux.isAssignmentExp(n.parsenode.expression)) ||
+                            Aux.isAssignmentExp(n.parsenode));
+                });
+        }
+
+        return assignments;
+    }
+
+    var traverse_forward= function (nodes, set, ignore) {
+        nodes.map(function (node) {
+            var fCType    = node.getFType(true),
+                equal     = function (id) {return function (n) {return n.id === id}};
+
+            if(!(contains(equal(node.id), set))) {
+                set.push(node);
+                getAssignments(node, tiersplitting).map(function (n) {
+                    traverse_forward([n], set, ignore);
+                });
+                node.getOutEdges()
+                    .map(function (edge) {
+                    var to    = edge.to,
+                        tCType   = to.getFType(true),
+                        type_eq  = function (t) {return edge.type.value === t.value};
+
+                    /* While traversing forward, don't follow edges from a formal parameter
+                     to a node contained in another distributed component
+                     Also don't follow a remote call edge from the current call node*/
+                    if (!(contains(equal(to.id), set)) &&
+                        !(contains(type_eq, ignore)) &&
+                        //!(node.isFormalNode) &&
+                        (fCType && tCType &&
+                        (fCType === DNODES.SHARED||
+                        tCType === DNODES.SHARED||
+                        fCType === tCType)) &&
+                        !(to.isActualPNode && edge.from.isActualPNode) &&
+                        !(to.isCallNode && edge.equalsType(EDGES.REMOTEC))) {
+                            traverse_forward([to], set, ignore);
+                    }
+                })
+            }
+        })
+        return set;
+    }
+
+    /* two passes of the algorithm */
+    var first_pass    = traverse_forward([criterion],[], [EDGES.PAROUT,EDGES.PROTOTYPE, EDGES.PARIN,  EDGES.REMOTEPAROUT, EDGES.REMOTEPARIN,  EDGES.CALL, EDGES.SUMMARY, EDGES.REMOTED]),
+        second_pass   = traverse_forward(first_pass,[],[EDGES.PARIN, EDGES.PROTOTYPE, EDGES.PAROUT, EDGES.REMOTEPARIN, EDGES.REMOTEPAROUT, EDGES.CALL, EDGES.SUMMARY, EDGES.REMOTED]);
+    return union(first_pass.concat(second_pass));
 };
 
 

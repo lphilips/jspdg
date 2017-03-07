@@ -53,10 +53,10 @@ suite('Tier split - exceptions', function () {
         var ast1 = res[1].nosetup;
         var warnings = res[3];
         compareAst(escodegen.generate(ast0),
-            'client.rpcCall("foo", function (_v0_, _v1_) {}); client.expose({"bar": function (callback) {}})',
+            'client.rpc("foo", function (_v0_, _v1_) {}); client.expose({"bar": function (callback) {}})',
             {varPattern: /_v\d_/});
         compareAst(escodegen.generate(ast1),
-            'function foo() {server.rpc("bar", [])} foo(); server.expose({"foo": function (callback) {var self=this;self.rpcCall("bar")}})',
+            'function foo() {server.rpc("bar", [])} foo(); server.expose({"foo": function (callback) {var self=this;self.rpc("bar")}})',
             {varPattern: /_v\d_/});
         assert.equal(warnings.length, 1);
         assert.equal(warnings[0].name, Exceptions.ReplyAnnotationLocation.name);
@@ -123,10 +123,10 @@ suite('Tier split - exceptions without analysis', function () {
         var ast1 = res[1].nosetup;
         var warnings = res[3];
         compareAst(escodegen.generate(ast0),
-            'client.rpcCall("foo", function (_v0_, _v1_) {}); client.expose({"bar": function (callback) {}})',
+            'client.rpc("foo", function (_v0_, _v1_) {}); client.expose({"bar": function (callback) {}})',
             {varPattern: /_v\d_/});
         compareAst(escodegen.generate(ast1),
-            'function foo() {server.rpc("bar", [])} foo(); server.expose({"foo": function (callback) {var self=this;self.rpcCall("bar")}})',
+            'function foo() {server.rpc("bar", [])} foo(); server.expose({"foo": function (callback) {var self=this;self.rpc("bar")}})',
             {varPattern: /_v\d_/});
         assert.equal(warnings.length, 1);
         assert.equal(warnings[0].name, Exceptions.ReplyAnnotationLocation.name);

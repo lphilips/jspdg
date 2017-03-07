@@ -284,7 +284,7 @@
             var prev = {title: course.title, start: prevDate.getTime(), end: endPrevDate.getTime(), class: "event-info"};
             schedule.push(next);
             schedule.push(prev);
-        });9
+        });
         var calendar = $("#calendar").calendar({
             tmpl_path : "tmpls/",
             view : "week",

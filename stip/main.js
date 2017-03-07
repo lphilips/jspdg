@@ -108,6 +108,31 @@ else {
     chart += "\t" + chalk.bgMagenta(" ") + " = client\n";
     chart += "\t" + chalk.bgGreen(" ") + " = server\n";
     console.log(chart);
+
+    PDG.getFunctionalityNodes().forEach(function (n) {
+        var advice = Advice.advice(n, PDG);
+        if (!advice.placement) {
+            if (advice.calls.length > 0) {
+                console.log("\t"+n.ftype + " has " + advice.callRemote + " remote calls, versus " + advice.callLocal + " local calls.");
+                console.log("\tConsider moving following functions:")
+            }
+            advice.calls.forEach(function (c) {
+                if (Aux.isFunDecl(c.parsenode))
+                    console.log("\t  - "+ escodegen.generate(c.parsenode.id));
+            })
+            if (advice.constructorsInRemote.length > 0)
+                console.log("\tConsider making following constructors replicated or observable");
+            advice.constructorsInRemote.forEach(function (constructor) {
+                console.log("\t - " + escodegen.generate(constructor.parsenode.id));
+            })
+            if (advice.dataInRemote.length > 0)
+                console.log("\tConsider making following declaration replicated or observable");
+            advice.dataInRemote.forEach(function (decl) {
+                console.log("\t - " + escodegen.generate(decl.parsenode));
+            })
+        }
+
+    })
 }
 
 // Exit

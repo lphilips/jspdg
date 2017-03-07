@@ -34,11 +34,10 @@ function makeTransformer(transpiler) {
                 shouldTransform: shouldTransform(transpiler.options),
                 shouldTransformFunc: shouldTransformFunc(transpiler.options),
                 createAsyncFunction: NodeParse.asyncFun,
+                createAsyncForEach : NodeParse.createAsyncForEach,
                 createCbCall: NodeParse.createCallCb,
                 createRPCReturn: NodeParse.RPCReturn,
-                createAsyncReplyCall: NodeParse.asyncReplyC,
-                createDataGetter: NodeParse.createDataGetter,
-                createDataSetter: NodeParse.createDataSetter
+                createAsyncReplyCall: NodeParse.asyncReplyC
             };
             transpiler.transformCPS = CPSTransform;
     }
@@ -67,6 +66,22 @@ var shouldTransform = function (options) {
             call.arity && arityEquals(call.arity, ARITY.ONE)))
         }
     }
+}
+
+var shouldTransformPrimitive = function (parsenode, pdgnode) {
+    var pdgnodes = graphs.ATP.getNode(parsenode);
+    var res = false;
+    if (pdgnode) {
+        return pdgnode.parsenode.leadingComment &&
+            Comments.isBlockingAnnotated(pdgnode.parsenode.leadingComment)
+    }
+    pdgnodes.forEach(function (pdgnode) {
+        if (!res)
+           res = pdgnode.parsenode.leadingComment &&
+                Comments.isBlockingAnnotated(pdgnode.parsenode.leadingComment)
+    })
+    return res;
+
 }
 
 /* Variable Declaration */
@@ -130,7 +145,7 @@ function nodeifyVarDecl(transpiler) {
                 node.parsenode = Aux.clone(node.parsenode);
                 node.parsenode.right = transpiled.transpiledNode;
             }
-
+            transpiled.nodes = transpiled.nodes.remove(object);
             transpiler.nodes = transpiled.nodes;
         });
         if (call.length > 0) {
@@ -151,7 +166,6 @@ function nodeifyVarDecl(transpiler) {
         transpiled = transpiler.transformCPS.transformExp(transpiler);
         transpiler.nodes = transpiled[0];
         transpiler.transpiledNode = transpiled[1].parsenode;
-
         return transpiler;
     }
 
@@ -302,7 +316,6 @@ function nodeifyFunExp(transpiler) {
             node.clientCallsGen = 1;
     }
 
-
     /* Formal in parameters */
     if (form_ins.length > 0) {
         /* Remove parameters that are not in nodes */
@@ -334,31 +347,37 @@ function nodeifyFunExp(transpiler) {
             return n1.cnt - n2.cnt;
         });
 
-    /* nodeify every body node */
-    bodynodes.map(function (n) {
-        transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, n));
-        if (nodesContains(transpiler.nodes, n)) {
-            remotebody = remotebody.concat(transpiled.getTransformed());
-            /* Separate localbody from exposed method body */
-            if (transpiled.localTranspiledNode)
-                localbody.push(transpiled.localTranspiledNode);
-            else if (!transpiled.transpiledNode.__transformed)
-                localbody.push(Aux.clone(n.parsenode));
-            else if (Aux.isRetStm(n.parsenode) && !transpiled.transpiledNode.__transformed)
-                localbody.push(Aux.clone(n.parsenode));
-            else
-                localbody = localbody.concat(transpiled.getTransformed());
-        }
-        transpiler.nodes = transpiled.nodes.remove(n);
-        transpiled.closeupNode = transpiled.setupNode = [];
-        Transpiler.copySetups(transpiled, transpiler);
-    });
+        /* nodeify every body node */
+        bodynodes.map(function (n) {
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, n));
+            if (nodesContains(transpiler.nodes, n)) {
+                remotebody = remotebody.concat(transpiled.getTransformed());
+                /* Separate localbody from exposed method body */
+                if (transpiled.localTranspiledNode)
+                    localbody.push(transpiled.localTranspiledNode);
+                else if (!transpiled.transpiledNode.__transformed)
+                    localbody.push(Aux.clone(n.parsenode));
+                else if (Aux.isRetStm(n.parsenode) && !transpiled.transpiledNode.__transformed)
+                    localbody.push(Aux.clone(n.parsenode));
+                else
+                    localbody = localbody.concat(transpiled.getTransformed());
+            }
+            transpiler.nodes = transpiled.nodes.remove(n);
+            transpiled.closeupNode = transpiled.setupNode = [];
+            Transpiler.copySetups(transpiled, transpiler)
+        });
+
+
+    if (node.parsenode.generated && shouldTransformPrimitive(node.parsenode._generatedFor)) {
+        transpiler.nodes = transpiler.nodes.remove(node);
+        parsenode.body.body = remotebody;
+        return transpiler.transformCPS.transformGeneratedFunction(transpiler)
+    }
 
     transpiler.nodes = transpiler.nodes.remove(node);
     localparsenode.body.body = localbody;
     parsenode.body.body = remotebody;
     transpiledNode = localparsenode;
-
 
     /* CASE 2 : Server function that is called by client side +
      * CASE 5  : Client function that is called by server side */
@@ -514,9 +533,15 @@ function nodeifyCallExp(transpiler) {
 
 
     if (node.primitive) {
-        transpiler.transpiledNode = Aux.isExpStm(node.parsenode) ? node.parsenode : parent;
-        transpiler.transpiledNode.arguments = arguments;
-        return transpiler;
+        if (node.parsenode.leadingComment && Comments.isBlockingAnnotated(node.parsenode.leadingComment)) {
+            return transpiler.transformCPS.transformPrimitive(transpiler);
+        }
+         else {
+            transpiler.transpiledNode = Aux.isExpStm(node.parsenode) ? node.parsenode : parent;
+            transpiler.transpiledNode.arguments = arguments;
+            return transpiler;
+        }
+
     }
 
     /* No entryNode found : can happen with library functions.
@@ -547,7 +572,7 @@ function nodeifyCallExp(transpiler) {
         if (node.isClientNode()) {
             transpiler.nodes = transpiled[0];
             transpiler.transpiledNode = transpiled[1].parsenode;
-
+            transpiler.transpiledNode.__transformed = true;
             return transpiler;
         }
         if (node.isServerNode()) {
@@ -559,7 +584,7 @@ function nodeifyCallExp(transpiler) {
                 transpiled.setName('"' + node.name + '"');
                 transpiled.addArgs(Pdg.getCallExpression(node.parsenode).arguments)
                 transpiler.localTranspiledNode = transpiled.parsenode;
-
+                transpiler.transpiledNode.__transformed = true;
                 return transpiler;
             }
             else {

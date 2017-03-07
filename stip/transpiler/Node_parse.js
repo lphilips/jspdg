@@ -340,6 +340,39 @@ var asyncFun = function () {
     };
 };
 
+var asyncForEach = function () {
+    return {
+        parsenode: {
+            type: "ExpressionStatement",
+            expression: {
+                type: "CallExpression",
+                    callee: {
+                    type: "MemberExpression",
+                        object: {
+                        type: "Identifier",
+                            name: "async"
+                    },
+                    property: {
+                        type: "Identifier",
+                            name: "each"
+                    }
+                },
+                arguments: []
+            }
+        },
+        addCollection : function (coll) {
+            this.parsenode.expression.arguments.push(coll);
+        },
+        addLoopFunction : function (fn) {
+            this.parsenode.expression.arguments.push(fn);
+        },
+        addFinishFunction : function (fn) {
+            this.parsenode.expression.arguments.push(fn);
+        }
+    }
+}
+
+
 var asyncReplyC = function () {
     return {
         parsenode: {
@@ -354,7 +387,7 @@ var asyncReplyC = function () {
                     },
                     property: {
                         type: "Identifier",
-                        name: "rpcCall"
+                        name: "rpc"
                     }
                 },
                 arguments: [
@@ -579,6 +612,7 @@ toreturn.createServer = createServer;
 toreturn.createClient = createClient;
 toreturn.createBroadcast = broadcast;
 toreturn.asyncReplyC = asyncReplyC;
+toreturn.createAsyncForEach = asyncForEach;
 toreturn.createReturnStm = createReturnStm;
 toreturn.createCallCb = createCallCb;
 toreturn.createServerCloseUp = createServerCloseUp;

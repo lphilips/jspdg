@@ -440,6 +440,7 @@ var pre_analyse = function (ast, toGenerate) {
                             var call = createCall(name);
 
                             func.generated = true;
+                            func._generatedFor = node;
 
                             call.leadingComment = {type: "Block", value:"@generated", range: [0,16]};
                             if (comment && Comments.isClientAnnotated(comment)) {
