@@ -40,6 +40,7 @@ function makeTransformer(transpiler) {
         createCallback: JSParse.callback,
         shouldTransform: makeShouldTransform(transpiler.options.cps),
         createAsyncFunction: JSParse.asyncFun,
+        createAsyncForEach : NodeParse.createAsyncForEach,
         createCbCall: JSParse.createCallCb,
         createRPCReturn: JSParse.createReturnStm,
     };
@@ -58,6 +59,22 @@ function makeTransformer(transpiler) {
         shouldTransform: makeShouldTransform(transpiler.options.cps),
         option: transpiler.options.cps,
     };
+}
+
+var shouldTransformPrimitive = function (parsenode, pdgnode) {
+    var pdgnodes = graphs.ATP.getNode(parsenode);
+    var res = false;
+    if (pdgnode) {
+        return pdgnode.parsenode.leadingComment &&
+            Comments.isBlockingAnnotated(pdgnode.parsenode.leadingComment)
+    }
+    pdgnodes.forEach(function (pdgnode) {
+        if (!res)
+            res = pdgnode.parsenode.leadingComment &&
+                Comments.isBlockingAnnotated(pdgnode.parsenode.leadingComment)
+    })
+    return res;
+
 }
 
 var transformer = {};
@@ -259,6 +276,12 @@ function transformFunctionExp(transpiler) {
         /* Overwrite body of parsenode */
         parsenode.body.body = body;
 
+        if (node.parsenode.generated && shouldTransformPrimitive(node.parsenode._generatedFor)) {
+            transformer = makeTransformer(transpiler);
+            transpiler.nodes = transpiler.nodes.remove(node);
+            return transpiler.transformCPS.transformGeneratedFunction(transpiler)
+        }
+
         if (transpiler.options.cps && !(parsenode.id && parsenode.id.name.startsWith('anonf'))) {
             transformer = makeTransformer(transpiler);
             transpiled = CPSTransform.transformFunction(transpiler);
@@ -392,6 +415,17 @@ function transformCallExp(transpiler) {
         transformed = CPSTransform.transformCall(transpiler, false, (Aux.isExpStm(parsenode) && Aux.isCallExp(parsenode.expression)) ? parsenode : parent);
         transpiler.nodes = transformed[0];
 
+        if (node.primitive) {
+            if (node.parsenode.leadingComment && Comments.isBlockingAnnotated(node.parsenode.leadingComment)) {
+                return transpiler.transformCPS.transformPrimitive(transpiler);
+            }
+            else {
+                transpiler.transpiledNode = Aux.isExpStm(node.parsenode) ? node.parsenode : parent;
+                transpiler.transpiledNode.arguments = arguments;
+                return transpiler;
+            }
+
+        }
 
         if (Aux.isMemberExpression(Pdg.getCallExpression(parsenode).callee) &&
             callargs < 1 && !transpiler.parseUtils.shouldTransform(transpiler.node) &&

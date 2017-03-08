@@ -720,5 +720,18 @@ suite('CPS transform', function () {
             'function foo(x, _v1_) {return _v1_(null, x)} function bar(_v2_){return foo(42, function (_v3_, _v4_) {return _v2_(_v3_, _v4_)})} bar(function (_v5_, _v6_) {})',
             {varPattern: /_v\d_/})
     });
+    test('blocking if', function () {
+        var ast = cpsTransform('function foo(x) {return x} /*@blocking*/if(true) {foo(0)} else {foo(1)} console.log("done")', true);
+        console.log(escodegen.generate(ast.nosetup));
+        compareAst(escodegen.generate(ast.nosetup),
+            'function foo(x, _v1_) {return _v1_(null, x)} if(true) {foo(0, function (_v2_, _v3_) {console.log("done")})} else {foo(1, function (_v4_, _v5_) {console.log("done")})}',
+            {varPattern: /_v\d_/})
+    });
+    test('blocking for each', function () {
+        var ast = cpsTransform('var c = [1,2,3]; function f(x) {return x} /*@blocking*/c.forEach(function (x) {f(x)}); console.log("done");', true);
+        compareAst(escodegen.generate(ast.nosetup),
+            'var c; function anonf1(x, _v1_) {f(x, function (_v2_, _v3_) {_v1_(null);})} function f(x, _v4_){return _v4_(null, x)} c = [1,2,3]; async.each(c, anonf1, function (_v5_, _v6_) {console.log("done")});',
+            {varPattern: /_v\d_/})
+    });
 
 });

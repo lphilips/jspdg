@@ -781,8 +781,10 @@ var transformPrimitive = function (transpiler) {
         transpiledNode;
     if (name == "forEach") {
         getRemainderStms(node).forEach(function (n) {
-            cb.addBodyStm(n.parsenode);
-            transpiler.nodes = transpiler.nodes.remove(n);
+            var transpilerRemainder = Transpiler.copyTranspileObject(transpiler, n, transpiler.nodes);
+            var transpiled = Transpiler.transpile(transpilerRemainder);
+            cb.addBodyStm(transpiled.transpiledNode);
+            transpiler.nodes = transpiled.nodes.remove(n);
         });
         transpiledNode = transpiler.parseUtils.createAsyncForEach();
         transpiledNode.addCollection(parsenode.expression.callee.object);
