@@ -12,7 +12,7 @@ var escodegen = require('../lib/escodegen.js');
 /* Stip - constructing pdg */
 
 
-var Exceptions = require('../exceptions.js');
+var Exceptions = require('../aux/exceptions.js');
 var Stip = require('../run.js');
 
 

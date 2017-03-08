@@ -1,14 +1,14 @@
-var node = require("./pdg/node.js");
+var node = require("../pdg/node.js");
 var EntryNode = node.EntryNode;
 var ObjectEntryNode = node.ObjectEntryNode;
 var FormalPNode = node.FormalPNode;
 var ActualPNode = node.ActualPNode;
 var DNODES = node.DNODES;
 
-var graph = require("./pdg/graph.js");
+var graph = require("../pdg/graph.js");
 var PDG = graph.PDG;
 
-var common = require("../jipda-pdg/common.js");
+var common = require("../../jipda-pdg/common.js");
 var HashMap = common.HashMap;
 var ArraySet = common.ArraySet;
 

@@ -27,7 +27,7 @@ var ExitNode        = node.ExitNode;
 var FunctionalityNode = node.FunctionalityNode;
 var DNODES          = node.DNODES;
 var DistributedNode = node.DistributedNode;
-var Aux             = require('../aux.js');
+var Aux             = require('../aux/aux.js');
 
 
 function PDG () {

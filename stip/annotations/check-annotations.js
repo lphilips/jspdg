@@ -1,4 +1,4 @@
-var Exceptions = require('./exceptions.js');
+var Exceptions = require('../aux/exceptions.js');
 
 var toreturn = {};
 

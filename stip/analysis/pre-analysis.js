@@ -4,16 +4,10 @@
 */
 var pre_analyse = function (ast, toGenerate) {
 
-    var Ast = require('../jipda-pdg/ast.js').Ast;
-    var Aux = require('./aux.js');
-    var node  = require('./pdg/node.js');
-    var Comments = require('./annotations.js');
-    var estraverse = require('./lib/estraverse.js');
-    var Handler = require('./handler.js').Handler;
 
-    var js_libs = require('./jslibs.js');
-    var DNODES  = node.DNODES;
+    var Handler = require('../error_handling/handler.js').Handler;
 
+    var js_libs = require('../aux/jslibs.js');
 
     var anonf_ct    = 0;
     var anonf_name  = 'anonf';

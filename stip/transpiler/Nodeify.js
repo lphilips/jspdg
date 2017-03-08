@@ -10,7 +10,7 @@
 
 var JSify = require('./JSify');
 
-var asyncs = require('../pre-analysis').asyncs;
+var asyncs = require('../analysis/pre-analysis').asyncs;
 var NodeParse = require('./Node_parse.js');
 var CPSTransform = require('./CPS_transform.js');
 

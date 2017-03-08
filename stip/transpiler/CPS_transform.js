@@ -15,7 +15,7 @@
 var cps_count = 0,
     toreturn = {};
 
-var InterferenceAnalysis = require('../InterferenceAnalysis.js');
+var InterferenceAnalysis = require('../analysis/InterferenceAnalysis.js');
 var arityEquals = require('../PDG/node.js').arityEquals;
 
 

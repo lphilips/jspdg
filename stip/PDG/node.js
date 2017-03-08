@@ -10,7 +10,7 @@
  *  - expression       (original expr of an esprima exp. node)   *
  *****************************************************************/
 
-var Aux = require('../aux.js');
+var Aux = require('../aux/aux.js');
 var pdg_edge = require('./edge.js');
 var EDGES = pdg_edge.EDGES;
 var PDG_Edge = pdg_edge.PDG_Edge;
