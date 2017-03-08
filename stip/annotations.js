@@ -333,7 +333,7 @@ var handleBlockingComment = function (comment, pdgNodes) {
         pdgNodes.map(function (pdgNode) {
             var callnodes;
             if (isBlockingAnnotated(comment)) {
-                if (!Aux.isCallExp(pdgNode.parsenode)) {
+                if (!Aux.isCallExp(pdgNode.parsenode) && !Aux.isIfStm(pdgNode.parsenode)) {
                     callnodes = pdgNode.findCallNodes();
                     /* Sort on original order */
                     callnodes.sort(function (n1, n2) {
@@ -359,7 +359,7 @@ var handleBlockingComment = function (comment, pdgNodes) {
         pdgNodes.map(function (pdgNode) {
             var callnodes;
             if (isBlockingAnnotated(comment)) {
-                if (!Aux.isCallExp(pdgNode.parsenode)) {
+                if (!Aux.isCallExp(pdgNode.parsenode) && !Aux.isIfStm(pdgNode.parsenode)) {
                     callnodes = pdgNode.findCallNodes();
                     callnodes.map(function (callNode) {
                         callNode.parsenode.leadingComment = comment;
