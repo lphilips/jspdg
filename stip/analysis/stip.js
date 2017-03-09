@@ -986,22 +986,10 @@ var handleCallExpression = function (graphs, node, upnode) {
                     else {
                         /* Search for object entry that is returned from function call:
                          From formal_out -> return statement -> object entry */
-                        upnodeform = formal_out.getInEdges(EDGES.DATA)
-                            .map(function (e) {
-                                return e.from
-                            })
-                            .filter(function (n) {
-                                return n.isStatementNode && Aux.isRetStm(n.parsenode)
-                            })
-                            .flatMap(function (n) {
-                                return n.getOutEdges(EDGES.DATA)
-                            })
-                            .map(function (e) {
-                                return e.to
-                            })
-                            .filter(function (n) {
-                                return n.isObjectEntry
-                            });
+                        upnodeform = formal_out.getInNodes(EDGES.DATA)
+                            .filter(function (n) {return n.isStatementNode && Aux.isRetStm(n.parsenode)})
+                            .flatMap(function (n) { return n.getOutNodes(EDGES.DATA) })
+                            .filter(function (n) {return n.isObjectEntry});
                         upnodeform.map(function (objectentry) {
                             addDataDep(upnode, objectentry);
                         })

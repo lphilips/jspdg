@@ -1,28 +1,46 @@
+/* represent the percentage for deciding about
+   giving advice about splitting up or moving certain parts of the code */
+var threshold = 10;
+
+
+function greaterThanThreshold (x, y) {
+    if (x == 0 && y == 0) {
+        return false;
+    }
+    return (Math.abs(x- y) / ((x + y) / 2)) * 100 >= threshold;
+}
 
 function advice(slice, pdg) {
     var tier = slice.tier;
     var callsRemote = [];
     var advice = {};
 
-    /* CALLS */
-    var callLocal = countRemoteDependencies(slice, tier, EDGES.REMOTEC, true, false, []) + slice.countEdgeType(EDGES.CALL, true);
-    var callRemote = countRemoteDependencies(slice, tier === DNODES.CLIENT ? DNODES.SERVER : DNODES.CLIENT, EDGES.REMOTEC, false, false, callsRemote);
-
-    advice.callRemote = callRemote;
-    advice.callLocal = callLocal;
-    advice.calls = callsRemote;
-
-
-    /* DATA */
     advice.constructorsInRemote = [];
     advice.dataInRemote = [];
+    advice.entriesOnlyClient = [];
+    advice.entriesOnlyServer = [];
+    advice.calls = [];
+    if (tier == DNODES.CLIENT || tier == DNODES.SERVER) {
+        /* CALLS */
+        var callLocal = countRemoteDependencies(slice, tier, EDGES.REMOTEC, true, false, []) + slice.countEdgeType(EDGES.CALL, true);
+        var callRemote = countRemoteDependencies(slice, tier === DNODES.CLIENT ? DNODES.SERVER : DNODES.CLIENT, EDGES.REMOTEC, false, false, callsRemote);
+
+        advice.callRemote = callRemote;
+        advice.callLocal = callLocal;
+        advice.calls = callsRemote;
+
+
+        /* DATA */
+
         if (slice.tier == DNODES.SERVER) {
             var nodes = slice.getNodes();
             var datanodes = slice.getOutNodes(EDGES.CONTROL)
-                .flatMap(function (entry) {return entry.getOutNodes(EDGES.CONTROL)})
+                .flatMap(function (entry) {
+                    return entry.getOutNodes(EDGES.CONTROL)
+                })
                 .filter(function (n) {
-                return n.isStatementNode && Aux.isVarDecl(n.parsenode)
-            });
+                    return n.isStatementNode && Aux.isVarDecl(n.parsenode)
+                });
             var constructornodes = nodes.filter(function (n) {
                 return n.isObjectEntry
             })
@@ -53,7 +71,7 @@ function advice(slice, pdg) {
                     }
                 })
 
-            })
+            });
 
             constructornodes.forEach(function (n) {
                 var callEntries = n.getInNodes(EDGES.CALL).concat(n.getInNodes(EDGES.REMOTEC))
@@ -69,7 +87,7 @@ function advice(slice, pdg) {
                 callEntries.forEach(function (entry) {
                     var remotes = entry.getInEdges(EDGES.REMOTEC).filter(function (n) {
                         return n.from.tier !== entry.tier
-                    })
+                    });
                     if (remotes.length > 0 && advice.constructorsInRemote.indexOf(n)) {
                         advice.constructorsInRemote.push(n)
                     }
@@ -77,24 +95,40 @@ function advice(slice, pdg) {
             })
         }
 
-    /* Give negative (slice should be moved or divided) or positive advice */
-    if (callRemote > callLocal || advice.constructorsInRemote.length > 0 ||
-    advice.dataInRemote.length > 0) {
-        advice.placement = false;
+        /* Give negative (slice should be moved or divided) or positive advice */
+        if (greaterThanThreshold(callRemote, callLocal) || advice.constructorsInRemote.length > 0 ||
+            advice.dataInRemote.length > 0) {
+            advice.placement = false;
+        }
+        else {
+            advice.placement = true;
+        }
     }
-     else {
-        advice.placement = true;
+    else if (tier == DNODES.SHARED) {
+        var entries = slice.getNodes().filter(function (n) {return n.isEntryNode && n.isCalled});
+        advice.entriesOnlyClient = entries.filter(function (e) {return e.clientCalls() > 0 && e.serverCalls() == 0});
+        advice.entriesOnlyServer = entries.filter(function (e) {return e.serverCalls() > 0 && e.clientCalls() == 0});
+        if (advice.entriesOnlyClient.length > 0 || advice.entriesOnlyServer.length > 0)
+            advice.placement = false;
+        else {
+            advice.placement = true;
+        }
     }
 
     return advice;
 }
 
-function countRemoteDependencies (fnode, tier, type, shared,  dir, store) {
+function countRemoteDependencies(fnode, tier, type, shared, dir, store) {
     return fnode.countEdgeTypeFilterNode(type, function (n) {
         var filter = (shared ? (n.tier === DNODES.SHARED || n.tier === tier) : n.tier === tier) &&
-            !( n.isStatementNode && n.parsenode.leadingComment &&
+            /* Not to shared declaration */
+            (!( n.isStatementNode && n.parsenode.leadingComment &&
             (Annotations.isReplicatedAnnotated(n.parsenode.leadingComment) ||
-            Annotations.isObservableAnnotated(n.parsenode.leadingComment)));
+            Annotations.isObservableAnnotated(n.parsenode.leadingComment))) &&
+                /* Not to share function constructors */
+                !(n.isEntryNode && n.parsenode && n.parsenode.leadingComment &&
+                (Annotations.isReplicatedAnnotated(n.parsenode.leadingComment) ||
+                Annotations.isObservableAnnotated(n.parsenode.leadingComment))));
         if (filter && store.indexOf(n) < 0)
             store.push(n);
         return filter;

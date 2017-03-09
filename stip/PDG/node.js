@@ -733,7 +733,7 @@ FunctionalityNode.prototype.countEdgeTypeFilterNode = function (edgeType, filter
     return count;
 }
 
-FunctionalityNode.prototype.getFNodes = function (edgeType, direction) {
+FunctionalityNode.prototype.getFNodes = function (edgeType, direction, filterEdge) {
     var controls = this.getOutEdges(EDGES.CONTROL);
     var visited = this.getOutNodes(EDGES.CONTROL);
     var fnodes = [];
@@ -742,17 +742,17 @@ FunctionalityNode.prototype.getFNodes = function (edgeType, direction) {
         var node = edge.to;
         var edgestype;
         if (direction) {
-            edgestype = node.getInNodes(edgeType);
+            edgestype = node.getInEdges(edgeType);
         } else {
-            edgestype = node.getOutNodes(edgeType);
+            edgestype = node.getOutEdges(edgeType);
         }
         visited.push(node);
-        edgestype.map(function (node) {
-            var fType = node.getFType();
-            if (fnodes.indexOf(fType) < 0) {
-                fnodes.push(fType);
+        edgestype.map(function (edge) {
+            var fNode = direction ? edge.from.getFunctionality() : edge.to.getFunctionality();
+            if (fnodes.indexOf(fNode) < 0 && (filterEdge ? filterEdge(edge) : true)) {
+                fnodes.push(fNode);
             }
-        })
+        });
         node.getOutEdges(EDGES.CONTROL).map(function (e) {
             if (visited.indexOf(e.to) < 0) {
                 controls.push(e);

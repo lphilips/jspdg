@@ -130,6 +130,20 @@ else {
             advice.dataInRemote.forEach(function (decl) {
                 console.log("\t - " + escodegen.generate(decl.parsenode));
             })
+            if (advice.entriesOnlyClient.length > 0) {
+                console.log("\tConsider moving following functions to new slice:");
+                console.log("\t[currently shared but only called by client tier]");
+                advice.entriesOnlyClient.forEach(function (entry) {
+                    console.log("\t - " + escodegen.generate(entry.parsenode.id));
+                })
+            }
+            if (advice.entriesOnlyServer.length > 0) {
+                console.log("\tConsider moving following functions to new slice:");
+                console.log("\t[currently shared but only called by server tier]");
+                advice.entriesOnlyServer.forEach(function (entry) {
+                    console.log("\t - " + escodegen.generate(entry.parsenode.id));
+                })
+            }
         }
 
     })
