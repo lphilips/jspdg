@@ -54,7 +54,7 @@ var shouldTransformFunc = function (options) {
 var shouldTransform = function (options) {
     return function (call) {
         var parsenode = Pdg.getCallExpression(call.parsenode);
-        if (call.primitive) {
+        if (call.primitive || Aux.isNewExp(parsenode)) {
             return false;
         }
         else if (Aux.isMemberExpression(parsenode.callee) &&
@@ -537,26 +537,14 @@ function nodeifyCallExp(transpiler) {
             return transpiler.transformCPS.transformPrimitive(transpiler);
         }
          else {
-            transpiler.transpiledNode = Aux.isExpStm(node.parsenode) ? node.parsenode : parent;
-            transpiler.transpiledNode.arguments = arguments;
+            transpiled = transpiler.transformCPS.transformCall(transpiler, false, parent);
+            transpiler.nodes = transpiled[0];
+            transpiler.transpiledNode = transpiled[1].parsenode;
+
             return transpiler;
         }
 
     }
-
-    /* No entryNode found : can happen with library functions.
-     Just return call in this case */
-    // if (!entryNode) {
-    //   if (Aux.isExpStm(parent) && Aux.isCallExp(parent.expression)) {
-    //     parent = Aux.clone(parent);
-    //    transpiler.transpiledNode = parent;
-    //}
-    //else {
-    //  transpiler.transpiledNode = node.parsenode;
-    //}
-    //return transpiler;
-    //}
-
 
     if (Analysis.isLocalCall(transpiler.options, node) ||
         (node.parsenode.leadingComment && Comments.isBlockingAnnotated(node.parsenode.leadingComment))) {

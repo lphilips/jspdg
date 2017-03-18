@@ -119,6 +119,10 @@ function transformCall(transpiler, upnode, esp_exp) {
         nodes = nodes.remove(upnode)
     }
 
+    if (!esp_exp && !upnode) {
+        esp_exp = callnode.parsenode;
+    }
+
     function addDependency (node) {
         var nodeEntry = getEntryNode(node);
         if (datadep.indexOf(node) < 0 && nodeEntry.equals(entry)) {
@@ -249,7 +253,7 @@ function transformCall(transpiler, upnode, esp_exp) {
                     transpiler.parseUtils.shouldTransform(callnode)) {
                     if (n.isEntryNode && n.parsenode.__transpiledNode)
                         callbackstms = callbackstms.concat(n.parsenode.__transpiledNode);
-                    else if (!n.isEntryNode) {
+                    else if (!n.isEntryNode && !Aux.isIfStm(n.parsenode)) {
                         transpiled = Transpiler.transpile(transpilerDataDep);
                         e_in = transpiled.node.getInNodes(EDGES.CONTROL).filter(function (n) {
                             return Aux.isTryStm(n.parsenode)
@@ -366,6 +370,7 @@ function transformCall(transpiler, upnode, esp_exp) {
             })
         }
 
+        transpiledNode.parsenode.cont(callnode);
         transpiledNode.parsenode._callnode = callnode;
         return [nodes, transpiledNode, esp_exp];
     }

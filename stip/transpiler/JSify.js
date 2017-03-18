@@ -15,7 +15,7 @@ function makeShouldTransform(cps) {
     return function (call) {
         var parsenode = Pdg.getCallExpression(call.parsenode);
         if (cps) {
-            if (call.primitive) {
+            if (call.primitive || Aux.isNewExp(parsenode)) {
                 return false;
             }
             else if (Aux.isMemberExpression(parsenode.callee) &&
@@ -420,8 +420,10 @@ function transformCallExp(transpiler) {
                 return transpiler.transformCPS.transformPrimitive(transpiler);
             }
             else {
-                transpiler.transpiledNode = Aux.isExpStm(node.parsenode) ? node.parsenode : parent;
-                transpiler.transpiledNode.arguments = arguments;
+                transpiled = transpiler.transformCPS.transformCall(transpiler, false, parent);
+                transpiler.nodes = transpiled[0];
+                transpiler.transpiledNode = transpiled[1].parsenode;
+
                 return transpiler;
             }
 
