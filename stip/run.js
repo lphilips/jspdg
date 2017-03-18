@@ -29,7 +29,7 @@ function generateGraphs(source, analysis, toGenerate) {
         return Aux.isBlockStm(node) &&
             (Comments.isClientorServerAnnotated(node) || Comments.isSliceAnnotated(node) ||
             (node.leadingComment && Comments.isBlockingAnnotated(node.leadingComment)));
-    });
+    })
 
     Handler.init();
     preanalysis = pre_analyse(ast, (toGenerate ? toGenerate : {methodCalls: [], identifiers: []}));
@@ -37,7 +37,7 @@ function generateGraphs(source, analysis, toGenerate) {
     shared = preanalysis.shared;
     graphs = new FlowGraph.Graphs(preanalysis.ast, source, preanalysis.primitives);
     FlowGraph.start(graphs, analysis);
-    graphs.PDG.distribute(DefaultPlacementStrategy);
+    graphs.placementinfo = graphs.PDG.distribute(DefaultPlacementStrategy);
     graphs.warnings = warnings.concat(CheckAnnotations.checkAnnotations(graphs.PDG, {analysis: analysis}));
     graphs.assumes = preanalysis.assumes;
     graphs.imports = preanalysis.imports;
@@ -84,9 +84,23 @@ function tiersplit(source, analysis) {
             nodes = CodeGenerator.prepareNodes(slicedc, sliceds, graphs, {analysis: analysis});
         clientprogram = splitCode(nodes[0], "client");
         serverprogram = splitCode(nodes[1], "server");
-        return [clientprogram, serverprogram, extract.html, graphs.warnings, graphs];
+        return {
+            clientprogram: clientprogram,
+            serverprogram: serverprogram,
+            html: extract.html,
+            placementinfo: graphs.placementinfo,
+            errors: graphs.warnings,
+            graphs: graphs
+        };
     } catch (e) {
-        return [false, false, false, [e], graphs];
+        return {
+            clientprogram: false,
+            serverprogram: false,
+            html: false,
+            placementinfo: false,
+            errors: [e],
+            graphs: false
+        };
     }
 }
 
@@ -140,6 +154,7 @@ function slice(source, sliceStm, analysis) {
 
     return program;
 }
+
 
 var Stip = {
     generateGraphs: generateGraphs,

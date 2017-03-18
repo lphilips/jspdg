@@ -570,7 +570,7 @@ var transformFunction = function (transpiler) {
             /* Make sure methods like equal, hashcode are defined on the node*/
             if (enclosingFun && !enclosingFun.equals)
                 Ast.augmentAst(enclosingFun);
-            if (Aux.isRetStm(node) && !node.__returnTransformed &&
+            if (Aux.isRetStm(node) && !node.__returnTransformed && node.__upnode && 
                 node.__upnode.equals(func.parsenode)) {
                 /* callnode property is added if return statement is already transformed to a cps call
                  No need to wrap it in a callback call again */

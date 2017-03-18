@@ -749,7 +749,7 @@ FunctionalityNode.prototype.getFNodes = function (edgeType, direction, filterEdg
         visited.push(node);
         edgestype.map(function (edge) {
             var fNode = direction ? edge.from.getFunctionality() : edge.to.getFunctionality();
-            if (fnodes.indexOf(fNode) < 0 && (filterEdge ? filterEdge(edge) : true)) {
+            if (fNode && fnodes.indexOf(fNode) < 0 && (filterEdge ? filterEdge(edge) : true)) {
                 fnodes.push(fNode);
             }
         });

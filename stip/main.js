@@ -31,10 +31,10 @@ try {
 // Run Stip tool
 var input = utils.readFile(inputFile);
 var result = stip.tierSplit(input, true);
-var client = result[0];
-var server = result[1];
-var html   = result[2];
-var warnings = result[3];
+var client = result.clientprogram;
+var server = result.serverprogram;
+var html   = result.html;
+var warnings = result.errors;
 
 if (warnings.length > 0) {
     console.log(error(">> ERRORS ENCOUNTERED: \n"));
@@ -46,7 +46,7 @@ if (warnings.length > 0) {
 else {
     console.log(green("No errors encountered \n"));
 
-    var PDG = result[4].PDG;
+    var PDG = result.graphs.PDG;
 
     // Output the result in files
 
@@ -108,6 +108,8 @@ else {
     chart += "\t" + chalk.bgMagenta(" ") + " = client\n";
     chart += "\t" + chalk.bgGreen(" ") + " = server\n";
     console.log(chart);
+
+    console.log("\tApplication level of offline availability: " +  chalk.blue(result.placementinfo * 100 + "%"));
 
     PDG.getFunctionalityNodes().forEach(function (n) {
         var advice = Advice.advice(n, PDG);

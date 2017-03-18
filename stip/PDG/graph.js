@@ -195,6 +195,7 @@ PDG.prototype.addServerStm = function (node) {
 
 PDG.prototype.distribute = function (strategy) {
   var self = this;
+  var unplaced = 0;
   this.getFunctionalityNodes().forEach(function (fnode) {
       var placement = self.placements[fnode.ftype];
       if (placement) {
@@ -205,8 +206,14 @@ PDG.prototype.distribute = function (strategy) {
               fnode.tier = DNODES.SERVER;
           }
       }
+      if (!fnode.tier){
+          unplaced++;
+      }
   });
-  strategy.addPlacementTags(self);
+  if (unplaced > 0)
+      return strategy.addPlacementTags(self);
+  else
+      return false;
 }
 
 

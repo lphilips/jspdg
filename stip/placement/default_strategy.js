@@ -1,164 +1,303 @@
 var ARITY = require('../PDG/node.js').ARITY;
-
+var Genetic = require('genetic-js');
 var toreturn = {};
-/* represent the percentage for deciding whether slice is placed on client / server / both */
-var threshold = 7;
 
 
-function greaterThanThreshold (x, y) {
-    if (x == 0 && y == 0) {
-        return false;
-    }
-    return (Math.abs(x - y) / ((x + y) / 2)) * 100 >= threshold;
-}
+/* This placement strategy uses a genetic search algorithm on the unplaced slices
+ and tries to maximize the offline availability of the application
+ */
 
-function addPlacementTag(fnode, pdg, stats) {
-    var depends = stats[fnode.ftype].depends,
-        supports = stats[fnode.ftype].supports,
-        clientDepends = depends.filter(function (s) {
-            return s.isClientNode();
-        }).length,
-        serverDepends = depends.filter(function (s) {
-            return s.isServerNode();
-        }).length,
-        clientSupports = supports.filter(function (s) {
-            return s.isClientNode();
-        }).length,
-        serverSupports = supports.filter(function (s) {
-            return s.isServerNode();
-        }).length;
 
-        if (clientSupports > 0 && serverSupports > 0) {
-            fnode.tier = DNODES.SHARED;
-        }
-        else if (greaterThanThreshold(clientDepends+clientSupports, serverDepends+serverSupports)) {
-            fnode.tier = DNODES.CLIENT;
-        }
-        else if (greaterThanThreshold(serverSupports+serverDepends, clientSupports+clientDepends)) {
-            fnode.tier = DNODES.SERVER;
-        }
-        else if (greaterThanThreshold(clientDepends, serverDepends)) {
-            fnode.tier = DNODES.CLIENT;
-        }
-        else if (greaterThanThreshold(serverDepends, clientDepends)) {
-            fnode.tier = DNODES.SERVER;
-        }
-        /* Try to maximize offline availability : put on client */
-        else {
-            fnode.tier = DNODES.CLIENT;
-        }
+/* Options for the genetic search */
+var genetic = Genetic.create();
+
+genetic.optimize = Genetic.Optimize.Maximize;
+genetic.select1 = Genetic.Select1.SelectSlices;
+genetic.select2 = Genetic.Select2.SelectSlices;
+var config = {
+    iterations: 400,
+    size: 150,
+    crossover: 0.6,
+    mutation: 0.6
 }
 
 
-function dependsOn(fnode) {
-    var remoteC = fnode.getFNodes(EDGES.REMOTEC, false, function (e) {
-            var n = e.to;
-            return !(n.isEntryNode && n.parsenode && n.parsenode.leadingComment &&
-            (Annotations.isReplicatedAnnotated(n.parsenode.leadingComment) ||
-            Annotations.isObservableAnnotated(n.parsenode.leadingComment)));
-        }),
-        remoteD = fnode.getFNodes(EDGES.REMOTED, true, function (e) {
-            var from = e.from;
-            var to = e.to;
-            return !( to.isStatementNode && to.parsenode.leadingComment &&
-            (Annotations.isReplicatedAnnotated(to.parsenode.leadingComment) ||
-            Annotations.isObservableAnnotated(to.parsenode.leadingComment))) &&
-                    !(to.isObjectEntry);
-        });
-    return union(remoteC.concat(remoteD));
-}
+var PDG;
+var score;
 
-function supports(fnode) {
-    var remoteC = fnode.getFNodes(EDGES.REMOTEC, true, function (e) {
-            var n = e.from;
-            var orig = n.getOutNodes(EDGES.REMOTEC);
-            var res = true;
-            orig.forEach(function (n) {
-                if (res)
-                    res = !(n.isEntryNode && n.parsenode && n.parsenode.leadingComment &&
-                        (Annotations.isReplicatedAnnotated(n.parsenode.leadingComment) ||
-                        Annotations.isObservableAnnotated(n.parsenode.leadingComment)))
-            })
-            return res;
-        }),
-        remoteD = fnode.getFNodes(EDGES.REMOTED, false, function (e) {
-            var n = e.to;
-            var orig = n.getInNodes(EDGES.REMOTED);
-            var res = true;
-            orig.forEach(function (n) {
-                if (res)
-                    res = !( n.isStatementNode && n.parsenode.leadingComment &&
-                    (Annotations.isReplicatedAnnotated(n.parsenode.leadingComment) ||
-                    Annotations.isObservableAnnotated(n.parsenode.leadingComment)));
-            })
-            return res;
-        });
-    return union(remoteC.concat(remoteD));
-}
-
-function addPlacementTags (graph) {
-    var statistics = {};
-    var shared = [];
-    graph.getFunctionalityNodes().forEach(function (node) {
-        statistics[node.ftype] = {
-            depends : dependsOn(node),
-            supports : supports(node),
-        }
-    });
-    /* Sort slice nodes */
-    var fnodes = graph.getFunctionalityNodes().sort(function (f1, f2) {
-        if (f1.tier)
-            return -1;
-        else if (f2.tier)
-            return 1;
-        else
-            return statistics[f1.ftype].depends.length - statistics[f2.ftype].depends.length
-    });
-
-    /* Add placement tag to every slice.
-        Slices that depend on nothing are placed shared
-     */
-    fnodes.forEach(function (fnode) {
-        var stats = statistics[fnode.ftype];
-        if( !fnode.tier) {
-            if (stats.depends.length == 0) {
-                fnode.tier = DNODES.SHARED;
-                shared.push(fnode);
+/* Main function, start the genetic search */
+function addPlacementTags(graph) {
+    PDG = graph;
+    var slices = graph.getFunctionalityNodes().map(function (slice) {
+        var obj = {
+            name: slice.ftype,
+            calls: {},
+            remotecalls: {},
+            supports: {}
+        };
+        if (slice.tier == DNODES.SHARED)
+            obj.tier = 0;
+        else if (slice.tier == DNODES.CLIENT)
+            obj.tier = 1;
+        else if (slice.tier == DNODES.SERVER)
+            obj.tier = 2;
+        slice.getFNodes(EDGES.CALL, false, function (edge) {
+            var toSlice = edge.to.getFunctionality();
+            if (toSlice && obj.calls[toSlice.ftype]) {
+                obj.calls[toSlice.ftype]++
+            } else if (toSlice) {
+                obj.calls[toSlice.ftype] = 1
             }
-            else
-                addPlacementTag(fnode, graph, statistics);
-        }
+        });
+        slice.getFNodes(EDGES.REMOTEC, false, function (edge) {
+            var to = edge.to;
+            var toSlice = to.getFunctionality();
+            if (!(to.parsenode && to.parsenode.leadingComment &&
+            (Comments.isReplicatedAnnotated(to.parsenode.leadingComment) ||
+            Comments.isObservableAnnotated(to.parsenode.leadingComment)))) {
+                if (toSlice && obj.remotecalls[toSlice.ftype]) {
+                    obj.remotecalls[toSlice.ftype]++
+                }
+                else if (toSlice) {
+                    obj.remotecalls[toSlice.ftype] = 1;
+                }
+            }
+        });
+        obj.supports = slice.getFNodes(EDGES.REMOTEC, true, function (edge) {
+            var from = edge.from;
+            return !(from.parsenode && from.parsenode.leadingComment &&
+                (Comments.isReplicatedAnnotated(from.parsenode.leadingComment) ||
+                Comments.isObservableAnnotated(from.parsenode.leadingComment)))
+        }).map(function (n) {
+            return n.ftype
+        });
+        console.log(obj);
+        return obj;
     })
-
-    /* After giving every slice a placement:
-        make sure the shared slices are put where they are needed.
-     */
-    shared.forEach(function (fnode) {
-        var stats = statistics[fnode.ftype];
-        var client = stats.supports.filter(function (s) {return s.isClientNode()}).length;
-        var server = stats.supports.filter(function (s) {return s.isServerNode()}).length;
-        if (client > 0 && server == 0) {
-            fnode.tier = DNODES.CLIENT;
-        }
-        else if (server > 0 && client == 0) {
-            fnode.tier == DNODES.SERVER;
-        }
-        /* else: keep it shared */
+    unplaced = slices.filter(function (slice) {
+        return !slice.tier
     })
-    
-    return statistics;
+    genetic.evolve(config,
+        {
+            slices: slices,
+            unplaced: unplaced,
+            placement: {
+                shared: 0,
+                client: 1,
+                server: 2
+            },
+        })
+    return score;
 }
 
-var union = function (array) {
-    var a = array.concat();
-    for (var i = 0; i < a.length; ++i) {
-        for(var j = i + 1; j < a.length; ++j) {
-            if(a[i].equals(a[j]))
-                a.splice(j--, 1);
+genetic.notification = function (pop, generation, stats, isFinished) {
+    if (isFinished) {
+        score = pop[0].fitness;
+        console.log("score " + score);
+        PDG.getFunctionalityNodes().forEach(function (slice) {
+            var place;
+            if (!slice.tier) {
+                place = pop[0].entity[slice.ftype];
+                if (place == 0)
+                    slice.tier = DNODES.SHARED;
+                else if (place == 1)
+                    slice.tier = DNODES.CLIENT;
+                else
+                    slice.tier = DNODES.SERVER;
+            }
+        })
+    }
+}
+
+genetic.generation = function (pop, generation, stats) {
+    return pop[0].fitness !== 1;
+}
+
+/* Generate a random solution:
+ place each unplaced slice on a random tier.
+ Solution data maps name of the slice -> tier.
+ */
+
+genetic.seed = function () {
+    var data = {};
+    var unplaced = this.userData.unplaced;
+    var slices = this.userData.slices;
+    var placement = this.userData.placement;
+    function place() {
+        for (var i = 0; i < unplaced.length; i++) {
+            var tier = Math.floor(Math.random() * 3);
+            data[unplaced[i].name] = tier;
         }
     }
-    return a
+    function getTier(slicename) {
+        if (data[slicename])
+            return data[slicename];
+        else {
+            return slices.filter(function (s) {return s.name == slicename})[0].tier;
+        }
+    }
+    function correct() {
+        var correct = true;
+        unplaced.forEach(function (slice) {
+            var tier = getTier(slice.name);
+            slice.supports.forEach(function (slicename) {
+                var depTier = getTier(slicename);
+                if (depTier == placement.server && tier == placement.client) {
+                    correct = false;
+                }
+            })
+        })
+        return correct;
+    }
+    place();
+    while(!correct()) {
+        place();
+    }
+    return data;
 }
+
+genetic.crossover = function (mother, father) {
+    var len = this.userData.unplaced.length;
+    var ca = Math.floor(Math.random()*len);
+    var cb = Math.floor(Math.random()* len);
+    var son = {};
+    var daughter = {};
+    if (ca > cb) {
+        var tmp = cb;
+        cb = ca;
+        ca = tmp;
+    }
+    var keys = Object.keys(father);
+    for(var i = 0; i < len; i++) {
+        var key = keys[i];
+        if (i < ca) {
+            daughter[key] = mother[key];
+            son[key] = father[key];
+        }
+        else if (i >= ca && i < cb - ca) {
+            daughter[key] = father[key];
+            son[key] = mother[key];
+        } else {
+            daughter[key] = mother[key];
+            son[key] = father[key];
+        }
+    }
+
+    return [son, daughter]
+}
+
+/* Return the fitness of a solution */
+genetic.fitness = function (entity) {
+    var slices = this.userData.slices;
+    var placement = this.userData.placement;
+    function getTier(slicename) {
+        if (entity[slicename] !== undefined)
+            return entity[slicename];
+        else {
+            return slices.filter(function (s) {
+                return s.name == slicename;
+            })[0].tier;
+        }
+    }
+
+    var fitness = 0;
+    var nrOfCalls = 0;
+
+    slices.forEach(function (slice) {
+        var clientC = 0;
+        var serverC = 0;
+        var sharedC = 0;
+        var tier = getTier(slice.name);
+
+        Object.keys(slice.remotecalls).forEach(function (slicename) {
+            var toTier = getTier(slicename);
+            var calls = slice.remotecalls[slicename];
+
+
+            if (toTier == placement.client)
+                clientC += calls;
+            else if (toTier == placement.server)
+                serverC += calls;
+            else if (toTier == placement.shared)
+                sharedC += calls;
+
+        });
+
+        Object.keys(slice.calls).forEach(function (slicename) {
+            var toTier = getTier(slicename);
+            var calls = slice.calls[slicename];
+
+            if (toTier == placement.client)
+                clientC += calls;
+            else if (toTier == placement.server)
+                serverC += calls;
+            else if (toTier == placement.shared)
+                sharedC += calls;
+        });
+
+        var offline = (clientC + sharedC) / (sharedC + clientC + serverC);
+        var totalCalls = clientC + serverC + sharedC;
+        
+        //console.log(slice.name, " ", clientC, sharedC, serverC, "= ", offline );
+
+        if (clientC + sharedC == 0)
+            fitness += 0;
+        else if (tier == placement.client || tier == placement.shared) {
+            fitness += offline * totalCalls;
+            nrOfCalls += totalCalls;
+        }
+    });
+    //console.log(fitness/nrOfCalls);
+    //console.log("___");
+    return fitness / nrOfCalls;
+}
+
+
+/* Mutate function: place a random unplaced slice on a random tier
+ * It is adviced to return a copy of the solution
+ * */
+genetic.mutate = function (entity) {
+
+    var data = {};
+    var keys = Object.keys(entity);
+    keys.forEach(function (key, index) {
+        data[key] = entity[key];
+    });
+    var random = Math.floor(Math.random() * keys.length);
+    var tier = Math.floor(Math.random() * 3);
+    var placement = self.userData.placement;
+    var slices = self.userData.slices;
+    function getTier(slicename) {
+        if (entity[slicename])
+            return entity[slicename];
+        else {
+           return slices.filter(function (s) {return s.name == slicename})[0].tier;
+        }
+    }
+    function correct() {
+        var correct = true;
+        unplaced.forEach(function (slice) {
+            var tier = getTier(slice.name);
+            slice.supports.forEach(function (slicename) {
+                var depTier = getTier(slicename);
+                if (depTier == placement.server && tier == placement.client) {
+                    correct = false;
+                }
+            })
+        })
+        return correct;
+    }
+    var tryNr = 0;
+    while(!correct() && tryNr < 100) {
+        random = Math.floor(Math.random() * keys.length);
+        tier = Math.floor(Math.random() * 3);
+        data[unplaced[random].name] = tier;
+        tryNr++;
+    }
+    return data;
+
+}
+
 
 toreturn.addPlacementTags = addPlacementTags;
 

@@ -1,297 +1,344 @@
 /*  @require [fs later]
-    @config data: server, setup: server, displayMeetings: client, displayTasks: client
-    @slice data
+	@config data: server, setup: server, displayMeetings: client, displayTasks: client, displaySchedule: client, displayCharts: client
+	@slice data
 */
 {
-    /* @replicated */
-    var meetings = [];
-    /* @replicated */
-    var tasks = [];
-    /* @replicated */
-    var courses = [];
+	/* @replicated */
+	var meetings = [];
+	/* @replicated */
+	var tasks = [];
+	/* @replicated */
+	var courses = [];
 
-    /* @replicated */
-    function Meeting(title, notes, time) {
-        this.title = title;
-        this.notes = notes;
-        this.start = new Date(time).getTime();
-        this.end = addMinute(new Date(time), 120);
-    }
+	/* @replicated */
+	function Meeting(title, notes, time) {
+		this.title = title;
+		this.notes = notes;
+		this.start = new Date(time).getTime();
+		this.end = addMinute(new Date(time), 120);
+	}
 
-    /* @replicated */
-    function Task(title, priority) {
-        this.title = title;
-        this.status = -1;
-        this.priority = priority;
-    }
+	/* @replicated */
+	function Task(title, priority) {
+		this.title = title;
+		this.status = -1;
+		this.priority = priority;
+	}
 
-    /* @observable */
-    function Course(title, duration, time) {
-        this.title = title;
-        this.duration = duration;
-        this.time = time;
-    }
+	/* @observable */
+	function Course(title, duration, time) {
+		this.title = title;
+		this.duration = duration;
+		this.time = time;
+	}
+}
+
+/* @slice getters+setters */
+{
+	function getMeetings() {
+		return meetings;
+	}
+	function getTasks()   {
+		return tasks;
+	}
+	function getCourses() {
+		return courses;
+	}
+	function addTask(title, priority) {
+		var task = new Task(title, priority);
+		tasks.push(task);
+	}
+	function addMeeting(title, notes, time) {
+		var meeting = new Meeting(title, notes, time);
+		meetings.push(meeting);
+	}
+	function addCourse(title, duration, time) {
+		var course = new Course(title, duration, time);
+		courses.push(course);
+	}
+
+}
+
+/* @slice sorting */
+{
+	function sortMeetings() {
+	    var meetings = getMeetings();
+		meetings.sort(function (m1, m2) {
+			var first = m1.start;
+			var second = m2.start;
+			return first - second;
+		});
+	}
+
+	function sortTasks () {
+	    var tasks = getTasks();
+		tasks.sort(function (t1, t2) {
+			if (t1.status == t2.status) {
+				return t1.priority - t2.priority;
+			} else {
+				return t1.status - t2.status;
+			}
+		})
+	}
 }
 
 /* @slice setup */
 {
 
-    tasks.push(new Task("Learn uni-corn!"));
+	addTask("Learn uni-corn!", 10);
 
-	var dataCourses = fs.readFile('data.json');
+	var dataCourses = fs.readFile("data.json");
 	var coursesJSON = JSON.parse(dataCourses);
 	coursesJSON.forEach(function (json) {
-	    if (!isValidTimeDescr(json.time))
-	        throw new Error('Wrong time description in course');
-		var course = new Course(json.title, json.duration, json.time);
-		courses.push(course);
+		if (!isValidTimeDescr(json.time)) {
+			throw new Error('Wrong time description in course');
+		}
+		addCourse(json.title, json.duration, json.time);
 	})
 }
 
 /* @slice time */
 {
-    later.date.localTime();
+	later.date.localTime();
 
-    function isValidTimeDescr (descr) {
-        var sched = later.parse.text(descr);
-        // no error => -1
-        return sched.error === -1;
-    }
+	function isValidTimeDescr (descr) {
+		var sched = later.parse.text(descr);
+		// no error => -1
+		return sched.error === -1;
+	}
 
-    function happenedInPast(date) {
-        var now = new Date().getTime();
-        return date < now;
-    }
+	function happenedInPast(date) {
+		var now = new Date().getTime();
+		return date < now;
+	}
 
-    function addMinutes(date, minutes) {
-        var ms = date.getTime();
-        return new Date(ms + minutes * 60000);
-    }
+	function addMinutes(date, minutes) {
+		var ms = date.getTime();
+		return new Date(ms + minutes * 60000);
+	}
 
-    function calculateNext(timeDescription) {
-        var parsed = later.parse.text(timeDescription);
-        var s = later.schedule(parsed);
-        var next = s.next(1);
-        return new Date(next);
-    }
+	function calculateNext(timeDescription) {
+		var parsed = later.parse.text(timeDescription);
+		var s = later.schedule(parsed);
+		var next = s.next(1);
+		return new Date(next);
+	}
 
-    function calculatePrevious(timeDescription) {
-        var parsed = later.parse.text(timeDescription);
-        var s = later.schedule(parsed);
-        var next = s.prev(1);
-        return new Date(next);
-    }
+	function calculatePrevious(timeDescription) {
+		var parsed = later.parse.text(timeDescription);
+		var s = later.schedule(parsed);
+		var next = s.prev(1);
+		return new Date(next);
+	}
 
-    function happenedToday(date1, date2) {
-        var year1 = date1.getFullYear();
-        var year2 = date2.getFullYear();
-        var month2 = date2.getMonth();
-        var month1 = date1.getMonth();
-        var day1 = date1.getDay();
-        var day2 = date2.getDay();
-        return year1 == year2 && month1 == month2 && day1 == day2;
-    }
+	function happenedToday(date1, date2) {
+		var year1 = date1.getFullYear();
+		var year2 = date2.getFullYear();
+		var month2 = date2.getMonth();
+		var month1 = date1.getMonth();
+		var day1 = date1.getDay();
+		var day2 = date2.getDay();
+		return year1 == year2 && month1 == month2 && day1 == day2;
+	}
 }
 
 
 /* @slice statistics */
 {
-    var activityToday = 0;
-    var latestUpdate = false;
+	var activityToday = 0;
+	var latestUpdate = false;
 
-    function updateActivity () {
-        var now = new Date();
-        if (latestUpdate) {
-            if (happenedToday(latestUpdate, now)) {
-                activityToday = activityToday + 1;
-                latestUpdate = now;
-            } else {
-                activityToday = 1;
-                latestUpdate = now;
-            }
-        } else {
-            latestUpdate = now;
-            activityToday = activityToday + 1;
-        }
-    }
+	function updateActivity () {
+		var now = new Date();
+		if (latestUpdate) {
+			if (happenedToday(latestUpdate, now)) {
+				activityToday = activityToday + 1;
+				latestUpdate = now;
+			} else {
+				activityToday = 1;
+				latestUpdate = now;
+			}
+		} else {
+			latestUpdate = now;
+			activityToday = activityToday + 1;
+		}
+	}
 
-    function processMeetingMonths () {
-        var currYear = new Date().getFullYear();
-        var months = [0,0,0,0,0,0,0,0,0,0,0,0];
-        meetings.forEach(function (meeting) {
-            var date = new Date(meeting.start);
-            var month = date.getMonth();
-            var year = date.getFullYear();
-            if (year == currYear)
-                months[month] = months[month] + 1;
-        });
-        return months;
-    }
+	function processMeetingMonths () {
+		var currYear = new Date().getFullYear();
+		var months = [0,0,0,0,0,0,0,0,0,0,0,0];
+		var meetings = getMeetings();
+		meetings.forEach(function (meeting) {
+			var date = new Date(meeting.start);
+			var month = date.getMonth();
+			var year = date.getFullYear();
+			if (year == currYear)
+				months[month] = months[month] + 1;
+		});
+		return months;
+	}
 
 
-    function processTasksStatus () {
-        var todo = 0;
-        var finished = 0;
-        var inprogress = 0;
-        tasks.forEach(function (task) {
-            if (task.status < 0) {
-                todo++;
-            }
-            else if (task.status > 0) {
-                finished++;
-            }
-            else {
-                inprogress++;
-            }
-        });
-        return [todo, finished, inprogress]
-    }
+	function processTasksStatus () {
+		var todo = 0;
+		var finished = 0;
+		var inprogress = 0;
+		var tasks = getTasks();
+		tasks.forEach(function (task) {
+			if (task.status < 0) {
+				todo++;
+			}
+			else if (task.status > 0) {
+				finished++;
+			}
+			else {
+				inprogress++;
+			}
+		});
+		return [todo, finished, inprogress]
+	}
 }
 
 /* @slice displayMeetings */
 {
-    var meetingTitle = "";
-    var meetingDate  = "";
-    var meetingNotes = "";
-    var currentlyEditingM = "";
+	var meetingTitle = "";
+	var meetingDate  = "";
+	var meetingNotes = "";
+	var currentlyEditingM = "";
 
 
-    function addMeeting() {
-        if (currentlyEditingM) {
-            currentlyEditingM.title = meetingTitle;
-            currentlyEditingM.start = meetingDate;
-            currentlyEditingM.notes = meetingNotes;
-            currentlyEditingM = false;
-        } else {
-            meetings.push(new Meeting(meetingTitle, meetingNotes, meetingDate));
-        }
-        meetings.sort(function (m1, m2) {
-            var first = m1.start;
-            var second = m2.start;
-            return first - second;
-        })
-        meetingTitle = "";
-        meetingDate = "";
-        meetingNotes = "";
-    }
+	function addMeetingUI() {
+		if (currentlyEditingM) {
+			currentlyEditingM.title = meetingTitle;
+			currentlyEditingM.start = meetingDate;
+			currentlyEditingM.notes = meetingNotes;
+			currentlyEditingM = false;
+		} else {
+			addMeeting(meetingTitle, meetingNotes, meetingDate);
+		}
+		sortMeetings();
+		meetingTitle = "";
+		meetingDate = "";
+		meetingNotes = "";
+	}
 
-    function editMeeting(ev) {
-        var idx = ev.index;
-        currentlyEditingM = meetings[idx];
-        var dateS = currentlyEditingM.start;
-        meetingTitle = currentlyEditingM.title;
-        meetingNotes = currentlyEditingM.notes;
-        meetingDate = new Date(dateS);
-    }
+	function editMeetingUI(ev) {
+		var idx = ev.index;
+		var meetings = getMeetings();
+		currentlyEditingM = meetings[idx];
+		var dateS = currentlyEditingM.start;
+		meetingTitle = currentlyEditingM.title;
+		meetingNotes = currentlyEditingM.notes;
+		meetingDate = new Date(dateS);
+		sortMeetings();
+	}
 
 }
 
 /* @slice displayTasks */
 {
-    var taskTitle = "";
-    var taskPriority = "";
+	var taskTitle = "";
+	var taskPriority = "";
 
 
-    function addTask() {
-        tasks.push(new Task(taskTitle, taskPriority));
-        tasks.sort(function (t1, t2) {
-            if (t1.status == t2.status) {
-                return t1.priority - t2.priority;
-            } else {
-                return t1.status - t2.status;
-            }
-        })
-        taskTitle = "";
-        taskPriority = "";
-    }
+	function addTaskUI() {
+		addTask(taskTitle, taskPriority);
+		sortTasks();
+		taskTitle = "";
+		taskPriority = "";
+	}
 
-    function nextStatusTask (ev) {
-        var idx = ev.index;
-        var task = tasks[idx];
-        var now = new Date();
-        if (task.status < 1) {
-            task.status = task.status + 1;
-            task.lastUpdate = now.getTime();
-        }
-        updateActivity();
-    }
+	function nextStatusTask (ev) {
+		var idx = ev.index;
+		var tasks = getTasks();
+		var task = tasks[idx];
+		var now = new Date();
+		if (task.status < 1) {
+			task.status = task.status + 1;
+			task.lastUpdate = now.getTime();
+		}
+		updateActivity();
+		sortTasks();
+	}
 }
 
 
 /* @slice displayCharts */
 {
-    function createTaskChart () {
-        var stats = processTasksStatus();
-        var todo = {name: 'to start', y: stats[0]};
-        var finished = {name: 'finished', y: stats[1]};
-        var inprogress = {name: 'in progress', y: stats[2]};
-        var chart = {
-            chart: {type: 'pie', options3d: {
-                enabled: true,
-                alpha: 45
-            }},
-            title: {text: 'Tasks'},
-            plotOptions: { pie: { innerSize: 100, depth: 45 }},
-            colors: ['#249AA7', '#ABD25E', '#F1594A', '#F8C830'],
-            series: [{
-                name: 'Tasks',
-                data: [finished, todo, inprogress]
-            }]
-        }
-        $("#chartscontainer").highcharts(chart);
-    }
+	function createTaskChart () {
+		var stats = processTasksStatus();
+		var todo = {name: 'to start', y: stats[0]};
+		var finished = {name: 'finished', y: stats[1]};
+		var inprogress = {name: 'in progress', y: stats[2]};
+		var chart = {
+			chart: {type: 'pie', options3d: {
+				enabled: true,
+				alpha: 45
+			}},
+			title: {text: 'Tasks'},
+			plotOptions: { pie: { innerSize: 100, depth: 45 }},
+			colors: ['#249AA7', '#ABD25E', '#F1594A', '#F8C830'],
+			series: [{
+				name: 'Tasks',
+				data: [finished, todo, inprogress]
+			}]
+		}
+		$("#chartscontainer").highcharts(chart);
+	}
 
-    function createMeetingChart() {
-        var options = Highcharts.getOptions();
-        var months = processMeetingMonths();
-        var chart =  {
-            chart: {type:'column', options3d: {enabled:true, alpha:10, beta:25, depth:70} },
-            title: {text: 'Meetings this year'},
-            colors: ['#249AA7', '#ABD25E', '#F1594A', '#F8C830'],
-            plotOptions: {column: {depth: 25}},
-            xAxis: {categories: options.lang.shortMonths},
-            yAxis: { title: { text: null}},
-            series: [{
-                name: 'Meetings',
-                data: months
-            }]
-        };
-        $("#chartmeetingcontainer").highcharts(chart);
-    }
+	function createMeetingChart() {
+		var options = Highcharts.getOptions();
+		var months = processMeetingMonths();
+		var chart =  {
+			chart: {type:'column', options3d: {enabled:true, alpha:10, beta:25, depth:70} },
+			title: {text: 'Meetings this year'},
+			colors: ['#249AA7', '#ABD25E', '#F1594A', '#F8C830'],
+			plotOptions: {column: {depth: 25}},
+			xAxis: {categories: options.lang.shortMonths},
+			yAxis: { title: { text: null}},
+			series: [{
+				name: 'Meetings',
+				data: months
+			}]
+		};
+		$("#chartmeetingcontainer").highcharts(chart);
+	}
 
-    function createCharts() {
-        createTaskChart();
-        createMeetingChart();
-    }
+	function createCharts() {
+		createTaskChart();
+		createMeetingChart();
+	}
 }
 
 /* @slice displaySchedule */
 {
 
 
-    function displaySchedule() {
-        var schedule = [];
-        meetings.forEach(function (appointment) {
-            appointment.class= "event-info";
-            schedule.push(appointment);
-        });
-        courses.forEach(function (course) {
-            var nextDate = calculateNext(course.time);
-            var prevDate = calculatePrevious(course.time);
-            var endNextDate = addMinutes(nextDate, course.duration);
-            var endPrevDate = addMinutes(prevDate, course.duration);
-            var next = {title: course.title, start: nextDate.getTime(), end: endNextDate.getTime(), class: "event-info"};
-            var prev = {title: course.title, start: prevDate.getTime(), end: endPrevDate.getTime(), class: "event-info"};
-            schedule.push(next);
-            schedule.push(prev);
-        });
-        var calendar = $("#calendar").calendar({
-            tmpl_path : "tmpls/",
-            view : "week",
-            events_source: schedule
-        });
-        calendar.view();
-    }
+	function displaySchedule() {
+		var schedule = [];
+		var meetings = getMeetings();
+		var courses = getCourses();
+		meetings.forEach(function (appointment) {
+			appointment.class= "event-info";
+			schedule.push(appointment);
+		});
+		courses.forEach(function (course) {
+			var nextDate = calculateNext(course.time);
+			var prevDate = calculatePrevious(course.time);
+			var endNextDate = addMinutes(nextDate, course.duration);
+			var endPrevDate = addMinutes(prevDate, course.duration);
+			var next = {title: course.title, start: nextDate.getTime(), end: endNextDate.getTime(), class: "event-info"};
+			var prev = {title: course.title, start: prevDate.getTime(), end: endPrevDate.getTime(), class: "event-info"};
+			schedule.push(next);
+			schedule.push(prev);
+		});
+		var calendar = $("#calendar").calendar({
+			tmpl_path : "tmpls/",
+			view : "week",
+			events_source: schedule
+		});
+		calendar.view();
+	}
 }
 
 /* @ui */
@@ -421,7 +468,7 @@ body
 									input[value={{taskPriority}}][class=form-control][placeholder=Priority (0-...)]
 							div[class=form-group]
 								div[class=col-sm-offset-2 col-sm-10]
-									button[@click=addTask][class=btn btn-success]#send
+									button[@click=addTaskUI][class=btn btn-success]#send
 										i[class=glyphicon glyphicon-floppy-disk]
 
 	div#meetings-modal[class=section-modal modal fade][tab-index=-1][role=dialog][aria-hidden=true]
@@ -452,7 +499,7 @@ body
 												small[class=text-muted] {{start.toLocaleString()}}
 										div[class=timeline-body]
 											p {{notes}}
-											button[@click=editMeeting][class=btn btn-info btn-sm]
+											button[@click=editMeetingUI][class=btn btn-info btn-sm]
 												i[class=glyphicon glyphicon-edit]
 
 
@@ -475,7 +522,7 @@ body
 									textarea#meeting-description[class=form-control][rows=3][value={{meetingNotes}}]
 							div[class=form-group]
 								div[class=col-sm-offset-2 col-sm-10]
-									button[@click=addMeeting][class=btn btn-success]#send
+									button[@click=addMeetingUI][class=btn btn-success]#send
 										i[class=glyphicon glyphicon-floppy-disk]
 
 	div#progress-modal[class=section-modal modal fade][tab-index=-1][role=dialog][aria-hidden=true]

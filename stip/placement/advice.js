@@ -7,19 +7,20 @@ function greaterThanThreshold (x, y) {
     if (x == 0 && y == 0) {
         return false;
     }
-    return (Math.abs(x- y) / ((x + y) / 2)) * 100 >= threshold;
+    return ((x - y) / ((x + y) / 2)) * 100 >= threshold;
 }
 
 function advice(slice, pdg) {
     var tier = slice.tier;
     var callsRemote = [];
     var advice = {};
-
+    var entries = pdg.nodes.filter(function (n) {return n.parsenode && n.isCalled;});
     advice.constructorsInRemote = [];
     advice.dataInRemote = [];
     advice.entriesOnlyClient = [];
     advice.entriesOnlyServer = [];
     advice.calls = [];
+    advice.duplicatedEntries = [];
     if (tier == DNODES.CLIENT || tier == DNODES.SERVER) {
         /* CALLS */
         var callLocal = countRemoteDependencies(slice, tier, EDGES.REMOTEC, true, false, []) + slice.countEdgeType(EDGES.CALL, true);
@@ -54,7 +55,14 @@ function advice(slice, pdg) {
             datanodes.forEach(function (decl) {
                 var usesEntries = decl.getOutNodes(EDGES.DATA).concat(decl.getOutNodes(EDGES.REMOTED))
                     .filter(function (n) {
-                        return n.equalsTier(decl)
+                        var uses = decl.getOutNodes(EDGES.DATA).concat(decl.getOutNodes(EDGES.REMOTED))
+                            .filter(function (n) {
+                                return n.equalsTier(decl) &&
+                                    n.isStatementNode && n.parsenode.leadingComment &&
+                                    (Comments.isReplicatedAnnotated(n.parsenode.leadingComment) ||
+                                    Comments.isObservableAnnotated(n.parsenode.leadingComment))
+                            })
+                        return n.equalsTier(decl) && uses.length <= 0
                     })
                     .map(function (n) {
                         return n.enclosingEntry()
@@ -114,6 +122,15 @@ function advice(slice, pdg) {
             advice.placement = true;
         }
     }
+
+    /* Functions that are present on both tiers? */
+    entries.forEach(function (e) {
+        var entries_ = entries.slice();
+        entries_.remove(e);
+        var entriesp = entries_.map(function (n) {return escodegen.generate(n.parsenode.body)});
+        if (entriesp.find(function (n) {n === escodegen.generate(e.parsenode.body)}))
+            advice.duplicatedEntries.push(e);
+    })
 
     return advice;
 }
