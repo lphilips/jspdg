@@ -109,7 +109,7 @@ else {
     chart += "\t" + chalk.bgGreen(" ") + " = server\n";
     console.log(chart);
 
-    console.log("\tApplication level of offline availability: " +  chalk.blue(result.placementinfo * 100 + "%"));
+    console.log("\tApplication level of offline availability: " +  chalk.blue(Math.floor(result.placementinfo.fitness * 100) + "%"));
 
     PDG.getFunctionalityNodes().forEach(function (n) {
         var advice = Advice.advice(n, PDG);

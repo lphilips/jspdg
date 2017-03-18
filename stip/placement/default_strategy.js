@@ -23,7 +23,7 @@ var config = {
 
 
 var PDG;
-var score;
+var placementinfo;
 
 /* Main function, start the genetic search */
 function addPlacementTags(graph) {
@@ -71,7 +71,6 @@ function addPlacementTags(graph) {
         }).map(function (n) {
             return n.ftype
         });
-        console.log(obj);
         return obj;
     })
     unplaced = slices.filter(function (slice) {
@@ -87,13 +86,15 @@ function addPlacementTags(graph) {
                 server: 2
             },
         })
-    return score;
+    return placementinfo;
 }
 
 genetic.notification = function (pop, generation, stats, isFinished) {
     if (isFinished) {
-        score = pop[0].fitness;
-        console.log("score " + score);
+        placementinfo = {};
+        placementinfo .fitness = pop[0].fitness;
+        placementinfo .stats = stats;
+        placementinfo .generation = generation;
         PDG.getFunctionalityNodes().forEach(function (slice) {
             var place;
             if (!slice.tier) {
@@ -237,9 +238,6 @@ genetic.fitness = function (entity) {
 
         var offline = (clientC + sharedC) / (sharedC + clientC + serverC);
         var totalCalls = clientC + serverC + sharedC;
-        
-        //console.log(slice.name, " ", clientC, sharedC, serverC, "= ", offline );
-
         if (clientC + sharedC == 0)
             fitness += 0;
         else if (tier == placement.client || tier == placement.shared) {
@@ -247,8 +245,6 @@ genetic.fitness = function (entity) {
             nrOfCalls += totalCalls;
         }
     });
-    //console.log(fitness/nrOfCalls);
-    //console.log("___");
     return fitness / nrOfCalls;
 }
 
@@ -257,7 +253,6 @@ genetic.fitness = function (entity) {
  * It is adviced to return a copy of the solution
  * */
 genetic.mutate = function (entity) {
-
     var data = {};
     var keys = Object.keys(entity);
     keys.forEach(function (key, index) {
@@ -265,42 +260,11 @@ genetic.mutate = function (entity) {
     });
     var random = Math.floor(Math.random() * keys.length);
     var tier = Math.floor(Math.random() * 3);
-    var placement = self.userData.placement;
-    var slices = self.userData.slices;
-    function getTier(slicename) {
-        if (entity[slicename])
-            return entity[slicename];
-        else {
-           return slices.filter(function (s) {return s.name == slicename})[0].tier;
-        }
-    }
-    function correct() {
-        var correct = true;
-        unplaced.forEach(function (slice) {
-            var tier = getTier(slice.name);
-            slice.supports.forEach(function (slicename) {
-                var depTier = getTier(slicename);
-                if (depTier == placement.server && tier == placement.client) {
-                    correct = false;
-                }
-            })
-        })
-        return correct;
-    }
-    var tryNr = 0;
-    while(!correct() && tryNr < 100) {
-        random = Math.floor(Math.random() * keys.length);
-        tier = Math.floor(Math.random() * 3);
-        data[unplaced[random].name] = tier;
-        tryNr++;
-    }
+    data[unplaced[random].name] = tier;
     return data;
-
 }
 
 
 toreturn.addPlacementTags = addPlacementTags;
-
-
 global.DefaultPlacementStrategy = toreturn;
 module.exports = toreturn;
