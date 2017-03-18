@@ -1,7 +1,7 @@
 /* Gets the ast and an array of strings, which represent names of functions
-   that are used as callback functions on the client side.
-   Calls for these functions are automatically added in the client side block.
-*/
+ that are used as callback functions on the client side.
+ Calls for these functions are automatically added in the client side block.
+ */
 var pre_analyse = function (ast, toGenerate) {
 
 
@@ -9,60 +9,61 @@ var pre_analyse = function (ast, toGenerate) {
 
     var js_libs = require('../aux/jslibs.js');
 
-    var anonf_ct    = 0;
-    var anonf_name  = 'anonf';
-    var primitives  = ["$", "console", "window", "Math"];
-    var asyncs      = ["https", "dns", "fs", "proxy"];
-    var arrayprims  = ["filter", "count", "push", "search", "length", "map", "append", "concat", "forEach", "slice", "find", "sort"];
-    var anonfSh     = [];
-    var callSh      = [];
-    var imports     = [];
-    var importsAdd  = {};
-    var fundefs     = [];
+    var anonf_ct = 0;
+    var anonf_name = 'anonf';
+    var primitives = ["$", "console", "window", "Math"];
+    var asyncs = ["https", "dns", "fs", "proxy"];
+    var arrayprims = ["filter", "count", "push", "search", "length", "map", "append", "concat", "forEach", "slice", "find", "sort"];
+    var anonfSh = [];
+    var callSh = [];
+    var imports = [];
+    var importsAdd = {};
+    var fundefs = [];
     var sharedblock;
     var generatedIdentifiers = {};
     var callbacksadded = false;
 
 
-    function function_args (callnode) {
+    function function_args(callnode) {
         return callnode.arguments.filter(function (arg) {
             return Aux.isFunExp(arg) ||
-                   (Aux.isIdentifier(arg) && fundefs[arg.name]);
+                (Aux.isIdentifier(arg) && fundefs[arg.name]);
         });
     }
 
-    function createIdentifier (id) {
-        var identifier = {type:'Identifier', name:id};
+    function createIdentifier(id) {
+        var identifier = {type: 'Identifier', name: id};
         Ast.augmentAst(identifier);
         return identifier;
     }
 
-    function createDeclaration  (id) {
-        return { type:'VariableDeclaration',
-                declarations: [{
-                    type:'VariableDeclarator',
-                    id: createIdentifier(id),
-                    init: null
-                }],
-                kind:'var'
-            };
+    function createDeclaration(id) {
+        return {
+            type: 'VariableDeclaration',
+            declarations: [{
+                type: 'VariableDeclarator',
+                id: createIdentifier(id),
+                init: null
+            }],
+            kind: 'var'
+        };
     }
 
-    function createAssignment  (id, value) {
+    function createAssignment(id, value) {
         return {
             type: 'ExpressionStatement',
-            expression : {
-                type : 'AssignmentExpression',
-                operator : '=',
-                left : id,
-                right : value
+            expression: {
+                type: 'AssignmentExpression',
+                operator: '=',
+                left: id,
+                right: value
             }
         };
     }
 
-    function createFunction  (arg, id) {
+    function createFunction(arg, id) {
         return {
-            type:"ExpressionStatement",
+            type: "ExpressionStatement",
             expression: {
                 type: "AssignmentExpression",
                 operator: "=",
@@ -72,58 +73,58 @@ var pre_analyse = function (ast, toGenerate) {
         };
     }
 
-    function createReturnValue  (type) {
+    function createReturnValue(type) {
         switch (type) {
             case "Num":
-                return  {
-                            type: "Literal",
-                            value: 0
-                        };
+                return {
+                    type: "Literal",
+                    value: 0
+                };
             case "String":
-                return  {
-                            type: "Literal",
-                            value: ""
-                        };
+                return {
+                    type: "Literal",
+                    value: ""
+                };
             case "Bool":
-                return  {
-                            type: "Literal",
-                            value: true
-                        };
+                return {
+                    type: "Literal",
+                    value: true
+                };
             case "Obj":
                 return {
-                            type: "ObjectExpression",
-                            properties: []
-                       };
+                    type: "ObjectExpression",
+                    properties: []
+                };
             default:
                 return null;
-            }
+        }
 
     }
 
-    function createFunExp  (args, returntype) {
-        var funexp =  {
-                    type: "FunctionExpression",
-                    id: null,
-                    params: args,
-                    defaults: [],
-                    body: {
-                        type: "BlockStatement",
-                        body: [
-                            {
-                                type: "ReturnStatement",
-                                argument: createReturnValue(returntype)
-                            }
-                        ]
-                    },
-                    generator: false,
-                    expression: false
-            };
+    function createFunExp(args, returntype) {
+        var funexp = {
+            type: "FunctionExpression",
+            id: null,
+            params: args,
+            defaults: [],
+            body: {
+                type: "BlockStatement",
+                body: [
+                    {
+                        type: "ReturnStatement",
+                        argument: createReturnValue(returntype)
+                    }
+                ]
+            },
+            generator: false,
+            expression: false
+        };
         Ast.augmentAst(funexp);
         return funexp;
     }
 
-    function createFunDecl (id, args, returntype) {
-        var fundecl =  {
+    function createFunDecl(id, args, returntype) {
+        var fundecl = {
             type: "FunctionDeclaration",
             id: {
                 type: "Identifier",
@@ -148,7 +149,7 @@ var pre_analyse = function (ast, toGenerate) {
         return fundecl;
     }
 
-    function createCall (id) {
+    function createCall(id) {
         var call = {
             type: "ExpressionStatement",
             expression: {
@@ -163,15 +164,15 @@ var pre_analyse = function (ast, toGenerate) {
     }
 
 
-
-
-    function createObjectArgument () {
+    function createObjectArgument() {
         var object = {type: "ObjectExpression", properties: []};
         Ast.augmentAst(object);
         return {
-            object : object,
-            addProperty : function (identifier, value) {
-                if (!object.properties.find(function (p) {return p.key.name === identifier.name}))
+            object: object,
+            addProperty: function (identifier, value) {
+                if (!object.properties.find(function (p) {
+                        return p.key.name === identifier.name
+                    }))
                     object.properties.push({
                         type: "Property",
                         key: identifier,
@@ -180,18 +181,18 @@ var pre_analyse = function (ast, toGenerate) {
                         kind: "init"
                     })
             },
-            hasProperties : function () {
+            hasProperties: function () {
                 return object.properties.length > 0;
             }
         }
     }
 
     /* Gets annotation of form '@require [library library]' */
-    function extractImports (string) {
+    function extractImports(string) {
         var regexp = /\[.*?\]/,
             assumesS, assumesA;
         if (string.search(regexp) >= 0) {
-            assumesS = string.match(regexp)[0].slice(1,-1);
+            assumesS = string.match(regexp)[0].slice(1, -1);
             assumesA = assumesS.split(" ");
             return assumesA;
         }
@@ -199,21 +200,22 @@ var pre_analyse = function (ast, toGenerate) {
 
 
     var comments;
-    function getComments (node) {
+
+    function getComments(node) {
         if (!comments) {
             var parent = node;
             while (!Aux.isProgram(parent)) {
                 parent = Ast.parent(parent, ast);
             }
-            comments =  parent.comments;
+            comments = parent.comments;
         }
         return comments;
     }
 
-    function isBlockAnnotated (node) {
-       var parent = node,
+    function isBlockAnnotated(node) {
+        var parent = node,
             annotation;
-        while(!Aux.isProgram(parent)) {
+        while (!Aux.isProgram(parent)) {
             if (Aux.isBlockStm(parent) && parent.leadingComment) {
                 break;
             }
@@ -225,9 +227,9 @@ var pre_analyse = function (ast, toGenerate) {
         return;
     }
 
-    function getCurrentBlock (node) {
+    function getCurrentBlock(node) {
         var parent = node;
-        while(!Aux.isProgram(parent)) {
+        while (!Aux.isProgram(parent)) {
             if (Aux.isBlockStm(parent)) {
                 break;
             }
@@ -245,7 +247,7 @@ var pre_analyse = function (ast, toGenerate) {
             var objectarg = createObjectArgument();
 
 
-            call.leadingComment = {type: "Block", value:"@generated", range: [0,16]};
+            call.leadingComment = {type: "Block", value: "@generated", range: [0, 16]};
             call.clientCalls = 1;
 
             if (func) {
@@ -257,9 +259,8 @@ var pre_analyse = function (ast, toGenerate) {
                                 Aux.isIdentifier(node.callee.object) && param.name == node.callee.object.name) {
                                 objectarg.addProperty(node.callee.property, createFunExp([], false));
                             }
-                            else if (Aux.isMemberExpression(node) && Aux.isIdentifier(node.property) &&
-                                !(Aux.isCallExp(parent) && parent.callee.equals(node))) {
-                                objectarg.addProperty(node.property, {type: "Literal",value: null});
+                            else if (Aux.isMemberExpression(node) && Aux.isIdentifier(node.property) && !(Aux.isCallExp(parent) && parent.callee.equals(node))) {
+                                objectarg.addProperty(node.property, {type: "Literal", value: null});
                             }
                         }
                     });
@@ -289,7 +290,7 @@ var pre_analyse = function (ast, toGenerate) {
         var identifiers = [];
         toGenerate.identifiers.map(function (name) {
             var id = createIdentifier(name);
-            id.leadingComment = {type: "Block", value:"@generated", range: [0,16]};
+            id.leadingComment = {type: "Block", value: "@generated", range: [0, 16]};
             Ast.augmentAst(id);
             generatedIdentifiers[name] = id;
             identifiers.push(id);
@@ -314,11 +315,11 @@ var pre_analyse = function (ast, toGenerate) {
 
         },
         leave: function (node, parent) {
-            
+
             if (Aux.isBlockStm(node) && Comments.isDefineHandlerAnnotated(node))
                 this.remove();
         }
-    });   
+    });
 
 
     Aux.walkAst(ast, {
@@ -326,16 +327,14 @@ var pre_analyse = function (ast, toGenerate) {
         pre: function (node) {
             /* Needs to be done upfront */
             if (Aux.isFunDecl(node)) {
-                var block = getCurrentBlock(node);
-                var comment = block.leadingComment;
-               // if (comment && Comments.isClientAnnotated(comment)) {
-                    fundefs[node.id.name] = node;
-                /*}
-                if (comment && Comments.isSliceAnnotated(block) &&
-                    Comments.getSliceName(comment) === DNODES.CLIENT ) {
-                    fundefs[node.id.name] = node;
-                }*/
-
+                fundefs[node.id.name] = node;
+            }
+            if (!node.original) {
+                node.original = {
+                    loc: node.loc,
+                    range: node.range,
+                    comment: node.leadingComment ? node.leadingComment : false
+                }
             }
         },
 
@@ -350,7 +349,7 @@ var pre_analyse = function (ast, toGenerate) {
             }
 
             /* If a block has updateFirst and/or updateLast property,
-               these statements should be added in the beginning / ending of the block */
+             these statements should be added in the beginning / ending of the block */
             if (Aux.isBlockStm(node) || Aux.isProgram(node)) {
                 var comment = node.leadingComment;
 
@@ -360,9 +359,9 @@ var pre_analyse = function (ast, toGenerate) {
                 }
 
                 if (node.updateFirst) {
-                    node.body = node.body.slice(0, node.latestHoistIndex-1)
-                                .concat(node.updateFirst)
-                                .concat(node.body.slice(node.latestHoistIndex-1));
+                    node.body = node.body.slice(0, node.latestHoistIndex - 1)
+                        .concat(node.updateFirst)
+                        .concat(node.body.slice(node.latestHoistIndex - 1));
                 }
                 if (node.updateLast) {
                     node.body = node.body.concat(node.updateLast);
@@ -376,19 +375,18 @@ var pre_analyse = function (ast, toGenerate) {
             }
 
             /* If a node is tagged as primitive, add it to the primitive definitions.
-               This causes later accesses to the primitive (such as element.jquerymethod())
-               to be added to e.g. the jquery primitive */
-           /* if (node.primitive) {
-                if (Aux.isVarDeclarator(node)) {
-                  primdefs[node.id.name] = node;
-                }
-                else if (Aux.isAssignmentExp(node)) {
-                  primdefs[node.left.name] = node;
-                }
-            }*/
+             This causes later accesses to the primitive (such as element.jquerymethod())
+             to be added to e.g. the jquery primitive */
+            /* if (node.primitive) {
+             if (Aux.isVarDeclarator(node)) {
+             primdefs[node.id.name] = node;
+             }
+             else if (Aux.isAssignmentExp(node)) {
+             primdefs[node.left.name] = node;
+             }
+             }*/
 
-            if (Aux.isMemberExpression(node) && !node.primitive &&
-              !Aux.isThisExpression(node.object)) {
+            if (Aux.isMemberExpression(node) && !node.primitive && !Aux.isThisExpression(node.object)) {
 
                 var objname;
                 name = node.property.name;
@@ -399,7 +397,7 @@ var pre_analyse = function (ast, toGenerate) {
                     objname = node.object.name;
                 }
                 if (imports[objname]) {
-                    importsAdd[objname] ? importsAdd[objname].push(name) : importsAdd[objname] = [name] ;
+                    importsAdd[objname] ? importsAdd[objname].push(name) : importsAdd[objname] = [name];
 
                 }
             }
@@ -407,11 +405,11 @@ var pre_analyse = function (ast, toGenerate) {
 
             if (Aux.isCallExp(node)) {
 
-                var name    = Aux.getCalledName(node);
-                var anonf   = function_args(node);
-                var obj     = Aux.isMemberExpression(node.callee) ? node.callee.object.name : false;
+                var name = Aux.getCalledName(node);
+                var anonf = function_args(node);
+                var obj = Aux.isMemberExpression(node.callee) ? node.callee.object.name : false;
 
-                if (primitives.indexOf(name) >= 0 ) {
+                if (primitives.indexOf(name) >= 0) {
                     node.primitive = true;
                     node._parent = Ast.parent(node, ast);
                     if (Aux.isExpStm(node._parent) || Aux.isVarDecl(node._parent) ||
@@ -421,9 +419,9 @@ var pre_analyse = function (ast, toGenerate) {
 
                 }
                 if (anonf.length > 0) {
-                    var enclBlock  = getCurrentBlock(node);
-                    var bodyFirst  = [];
-                    var bodyLast   = [];
+                    var enclBlock = getCurrentBlock(node);
+                    var bodyFirst = [];
+                    var bodyLast = [];
                     comment = isBlockAnnotated(node);
                     node.arguments = node.arguments.map(function (arg) {
                         comment = isBlockAnnotated(arg);
@@ -436,7 +434,7 @@ var pre_analyse = function (ast, toGenerate) {
                             func.generated = true;
                             func._generatedFor = node;
 
-                            call.leadingComment = {type: "Block", value:"@generated", range: [0,16]};
+                            call.leadingComment = {type: "Block", value: "@generated", range: [0, 16]};
                             if (comment && Comments.isClientAnnotated(comment)) {
                                 call.clientCalls = 1;
                             }
@@ -446,7 +444,7 @@ var pre_analyse = function (ast, toGenerate) {
                             func.body = arg.body;
                             func.params.map(function (param) {
                                 /* Are parameters used in body as object? 
-                                   Call it with an object literal that has those properties */
+                                 Call it with an object literal that has those properties */
                                 Aux.walkAst(func.body, {
                                     pre: function (node) {
                                         var parent = Ast.parent(node, ast);
@@ -454,9 +452,8 @@ var pre_analyse = function (ast, toGenerate) {
                                             Aux.isIdentifier(node.callee.object) && param.name == node.callee.object.name) {
                                             objectarg.addProperty(node.callee.property, createFunExp([], false));
                                         }
-                                        else if (Aux.isMemberExpression(node) && Aux.isIdentifier(node.property) &&
-                                            !(Aux.isCallExp(parent) && parent.callee.equals(node))) {
-                                            objectarg.addProperty(node.property, {type: "Literal",value: null});
+                                        else if (Aux.isMemberExpression(node) && Aux.isIdentifier(node.property) && !(Aux.isCallExp(parent) && parent.callee.equals(node))) {
+                                            objectarg.addProperty(node.property, {type: "Literal", value: null});
                                         }
                                     }
                                 });
@@ -475,8 +472,8 @@ var pre_analyse = function (ast, toGenerate) {
 
                             Ast.augmentAst(func);
                             bodyFirst.push(func);
-                           // if (arrayprims.indexOf(Aux.getCalledName(node)) < 0)
-                                bodyLast.push(call);
+                            // if (arrayprims.indexOf(Aux.getCalledName(node)) < 0)
+                            bodyLast.push(call);
                             return createIdentifier(name);
                         }
                         else if (Aux.isIdentifier(arg) && fundefs[arg.name]) {
@@ -490,9 +487,8 @@ var pre_analyse = function (ast, toGenerate) {
                                             Aux.isIdentifier(node.callee.object) && arg.name == node.callee.object.name) {
                                             objectarg.addProperty(node.callee.property, createFunExp([], false));
                                         }
-                                        else if (Aux.isMemberExpression(node) && Aux.isIdentifier(node.property) &&
-                                            !(Aux.isCallExp(parent) && parent.callee.equals(node))) {
-                                            objectarg.addProperty(node.property, {type: "Literal",value: null});
+                                        else if (Aux.isMemberExpression(node) && Aux.isIdentifier(node.property) && !(Aux.isCallExp(parent) && parent.callee.equals(node))) {
+                                            objectarg.addProperty(node.property, {type: "Literal", value: null});
                                         }
                                     }
                                 });
@@ -508,7 +504,7 @@ var pre_analyse = function (ast, toGenerate) {
                                 });
                             }
 
-                            call.leadingComment = {type: "Block", value:"@generated"};
+                            call.leadingComment = {type: "Block", value: "@generated"};
                             if (comment && Comments.isClientAnnotated(comment)) {
                                 call.clientCalls = 1;
                             }
@@ -516,7 +512,7 @@ var pre_analyse = function (ast, toGenerate) {
                                 call.serverCalls = 1;
                             }
                             if (arrayprims.indexOf(Aux.getCalledName(node)) < 0);
-                                bodyLast = bodyLast.concat(call);
+                            bodyLast = bodyLast.concat(call);
                             return arg;
                         }
                         else {
@@ -541,25 +537,25 @@ var pre_analyse = function (ast, toGenerate) {
         var slice = {type: "BlockStatement", body: []};
         slice.body = slice.body.concat(generateCallbackCalls());
         slice.body = slice.body.concat(generateIdentifiers());
-        slice.leadingComment = {type: "Block", value:"@slice generated"};
+        slice.leadingComment = {type: "Block", value: "@slice generated"};
         Ast.augmentAst(slice);
         ast.body.push(slice);
     }
 
 
-    return  {
-        ast         : ast,
-        assumes     : js_libs.getLibraries(),
-        shared      : sharedblock,
-        imports     : imports,
-        primitives  : primitives,
-        asyncs      :  asyncs,
-        identifiers : generatedIdentifiers
+    return {
+        ast: ast,
+        assumes: js_libs.getLibraries(),
+        shared: sharedblock,
+        imports: imports,
+        primitives: primitives,
+        asyncs: asyncs,
+        identifiers: generatedIdentifiers
     };
 };
 
 
 exports.pre_analyse = pre_analyse;
-exports.asyncs      = ["https", "dns", "fs", "proxy"];
+exports.asyncs = ["https", "dns", "fs", "proxy"];
 global.pre_analyse = pre_analyse;
 global.asyncs = ["https", "dns", "fs", "proxy"];

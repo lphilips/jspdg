@@ -9,16 +9,9 @@ function walk(ast, callback) {
 
 
     if (callback.pre) callback.pre(ast);
-    //
-    // Store them, they may try to reorder
-    //
     var children = [], child;
-    //Object.keys(ast).forEach(function (key) {
     for (key in ast) {
         child = ast[key];
-        //if (key.substr(0,2) === 'x-') {
-        // return;
-        //}
         if (child instanceof Array) {
             for (j = 0, len = child.length; j < len; j += 1) {
                 children.push(child[j]);
@@ -26,9 +19,7 @@ function walk(ast, callback) {
         } else if (child != void 0 && typeof child.type === 'string') {
             children.push(child);
         }
-        //children.push(ast[key]);
     }
-    ;
     children.forEach(function (node) {
         walk(node, callback);
     });
@@ -36,7 +27,7 @@ function walk(ast, callback) {
 }
 
 
-var createVarDecl = function (name) {
+var createVarDecl = function (name, declNode) {
     var decl = {
         type: "VariableDeclaration",
         declarations: [{
@@ -50,12 +41,17 @@ var createVarDecl = function (name) {
         kind: "var",
         hoist: true,
         hoisted: true,
+        original: {
+            loc : declNode.loc,
+            range: declNode.range,
+            comment: declNode.leadingComment ? declNode.leadingComment : false
+        }
     };
     Ast.augmentAst(decl);
     return decl;
 };
 
-var createAssignment = function (name, value) {
+var createAssignment = function (name, value, declNode) {
     var ass = {
         type: "AssignmentExpression",
         operator: "=",
@@ -65,6 +61,11 @@ var createAssignment = function (name, value) {
         },
         right: value,
         hoisted: true,
+        original: {
+            loc : declNode.loc,
+            range: declNode.range,
+            comment: declNode.leadingComment ? declNode.leadingComment : false
+        }
     };
     Ast.augmentAst(ass);
     return ass;
@@ -144,7 +145,7 @@ var hoist = function (ast, tohoist) {
                         }
 
                         else if (Aux.isVarDeclarator(declnode)) {
-                            astnode = createVarDecl(name);
+                            astnode = createVarDecl(name, declnode);
                             astnode.leadingComment = comment;
                             added.push(astnode);
                         }
@@ -184,13 +185,13 @@ var hoist = function (ast, tohoist) {
                      then add it to current block. Otherwise skip it. */
 
                     else if (enclosingB.equals(node) && Aux.isVarDeclarator(declnode)) {
-                        astnode = createVarDecl(name);
+                        astnode = createVarDecl(name, declnode);
                         astnode.leadingComment = comment;
                         added.push(astnode);
                     }
                     else if (!enclosingB.equals(node) && !tohoist(enclosingB) &&
                         Aux.isVarDeclarator(declnode)) {
-                        astnode = createVarDecl(name);
+                        astnode = createVarDecl(name, declnode);
                         astnode.leadingComment = comment;
                         added.push(astnode);
                     }
@@ -218,7 +219,7 @@ var hoist = function (ast, tohoist) {
                         if (hoisted[parent.tag] && hoisted[parent.tag].indexOf(decl.id.name) >= 0 && decl.init) {
                             var exp = {
                                 type: "ExpressionStatement",
-                                expression: createAssignment(decl.id.name, decl.init),
+                                expression: createAssignment(decl.id.name, decl.init, decl),
                                 hoisted: true
                             };
                             Ast.augmentAst(exp);

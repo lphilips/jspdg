@@ -24,7 +24,7 @@ function transformCall(transpiler, upnode, esp_exp) {
         asyncCall = transpiler.parseUtils.createRPC(callnode)(callnode, callnode.name, []),
         parsenode = Pdg.getCallExpression(callnode.parsenode),
         trystm = Aux.inTryStatement(transpiler.ast, parsenode),
-        callback = transpiler.parseUtils.createCallback(cps_count, Aux.isTryStm(trystm) ? trystm : null),
+        callback = transpiler.parseUtils.createCallback(cps_count, Aux.isTryStm(trystm) ? trystm : null, parsenode),
         nodes = transpiler.nodes,
         actual_ins = callnode.getActualIn(),
         parent = Ast.parent(callnode.parsenode, transpiler.ast),
@@ -554,9 +554,9 @@ var transformArguments = function (callargs, transpiledNode, nodes, transpiler, 
 }
 
 var transformFunction = function (transpiler) {
-    var method = transpiler.parseUtils.createAsyncFunction(),
-        func = transpiler.node,
+    var func = transpiler.node,
         parsenode = func.parsenode,
+        method = transpiler.parseUtils.createAsyncFunction(parsenode),
         /* Take parent, because falafel can't handle an anonymous function */
         parent = Ast.parent(parsenode, transpiler.ast),
         /* If parsenode is func decl (function foo() {}), then we don't need the parent.
@@ -580,7 +580,7 @@ var transformFunction = function (transpiler) {
                 /* callnode property is added if return statement is already transformed to a cps call
                  No need to wrap it in a callback call again */
                 if (node.argument && !node._callnode) {
-                    node.argument = transpiler.parseUtils.createCbCall('callback', errorArg, node.argument);
+                    node.argument = transpiler.parseUtils.createCbCall('callback', errorArg, node.argument, node);
                 }
                 /* callnode property is added if return statement is already transformed to a cps call
                  No need to wrap it in a callback call again */
@@ -588,12 +588,12 @@ var transformFunction = function (transpiler) {
                     node.argument = transpiler.parseUtils.createCbCall('callback', {
                         type: 'Literal',
                         value: null
-                    }, node.argument);
+                    }, node.argument, node);
                 }
             }
             if (Aux.isThrowStm(node)) {
                 node.type = "ReturnStatement";
-                node.argument = transpiler.parseUtils.createCbCall('callback', node.argument);
+                node.argument = transpiler.parseUtils.createCbCall('callback', node.argument, false, node);
             }
         }
     })
@@ -767,7 +767,7 @@ var transformReplyCall = function (callnode, nodes, transpiler) {
     if (entry && entry.isServerNode() && Analysis.isRemoteCall(transpiler.options, callnode)) {
         arity = callnode.arity;
         if (arity && arityEquals(arity, ARITY.ONE)) {
-            transformCall = transpiler.parseUtils.createAsyncReplyCall();
+            transformCall = transpiler.parseUtils.createAsyncReplyCall(parsenode);
             transformCall.setName(callnode.name);
 
             transformCall.addArgs(parsenode.arguments);
@@ -792,7 +792,7 @@ var transformReplyCall = function (callnode, nodes, transpiler) {
 var transformPrimitive = function (transpiler) {
     var node = transpiler.node,
         parsenode = node.parsenode,
-        cb = transpiler.parseUtils.createCallback(cps_count),
+        cb = transpiler.parseUtils.createCallback(cps_count, false, parsenode),
         name = node.name,
         transpiledNode;
     if (name == "forEach") {
@@ -802,7 +802,7 @@ var transformPrimitive = function (transpiler) {
             cb.addBodyStm(transpiled.transpiledNode);
             transpiler.nodes = transpiled.nodes.remove(n);
         });
-        transpiledNode = transpiler.parseUtils.createAsyncForEach();
+        transpiledNode = transpiler.parseUtils.createAsyncForEach(parsenode);
         transpiledNode.addCollection(parsenode.expression.callee.object);
         transpiledNode.addLoopFunction(parsenode.expression.arguments[0]);
         transpiledNode.addFinishFunction(cb.parsenode);
@@ -822,7 +822,7 @@ var transformGeneratedFunction = function (transpiler) {
                 /* callnode property is added if return statement is already transformed to a cps call
                  No need to wrap it in a callback call again */
                 if (node.argument && !node._callnode) {
-                    node.argument = transpiler.parseUtils.createCbCall('callback', errorArg);
+                    node.argument = transpiler.parseUtils.createCbCall('callback', errorArg, node);
                 }
                 /* callnode property is added if return statement is already transformed to a cps call
                  No need to wrap it in a callback call again */
@@ -830,13 +830,13 @@ var transformGeneratedFunction = function (transpiler) {
                     node.argument = transpiler.parseUtils.createCbCall('callback', {
                         type: 'Literal',
                         value: null
-                    });
+                    }), node;
                 }
                 cbCalled = true;
             }
             if (Aux.isThrowStm(node)) {
                 node.type = "ReturnStatement";
-                node.argument = transpiler.parseUtils.createCbCall('callback', node.argument);
+                node.argument = transpiler.parseUtils.createCbCall('callback', node.argument, node);
                 cbCalled = true;
             }
         }
@@ -850,7 +850,7 @@ var transformGeneratedFunction = function (transpiler) {
                     expression: transpiler.parseUtils.createCbCall('callback', {
                         type: 'Literal',
                         value: null
-                    })
+                    }, false, false)
                 }
             })
         } else {
@@ -859,7 +859,7 @@ var transformGeneratedFunction = function (transpiler) {
                 expression: transpiler.parseUtils.createCbCall('callback', {
                     type: 'Literal',
                     value: null
-                })
+                }, false, false)
             });
         }
     }
@@ -904,7 +904,7 @@ var transformExp = function (transpiler) {
                     /* If already transformed (for example binary exp c1 + c2)
                      Then do not make a nested callback call of it */
                     if (!Aux.isCallExp(transpiled[2]))
-                        transpiled[2] = transpiler.parseUtils.createCbCall('callback', error);
+                        transpiled[2] = transpiler.parseUtils.createCbCall('callback', error, false, false);
                     transpiled[1] = transpiler.parseUtils.createRPCReturn(transpiled[1]);
                     transpiled[1].__upnode = getEnclosingFunction(node.parsenode, transpiler.ast);
                     transpiled[1].__transformed = true;
@@ -951,7 +951,7 @@ var transformExp = function (transpiler) {
             if (resp[i])
                 replaceCall(returnstm.argument, calls[i], resp[i]);
         }
-        parsenode.argument = transpiler.parseUtils.createCbCall('callback', outercps.callback.getErrPar(), returnstm.argument);
+        parsenode.argument = transpiler.parseUtils.createCbCall('callback', outercps.callback.getErrPar(), returnstm.argument, returnstm);
         returnstm.argument = outercps.parsenode.expression;
         returnstm.__returnTransformed = true;
         parsenode.__returnTransformed = true;

@@ -71,8 +71,6 @@ else {
     /* Placement strategy report */
     var clientfs = [];
     var serverfs = [];
-    var clientperc = 0;
-    var serverperc = 0;
     PDG.getFunctionalityNodes().map(function (f) {
         if (f.tier === DNODES.SERVER)
             serverfs.push(f.ftype);

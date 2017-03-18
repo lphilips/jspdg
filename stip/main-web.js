@@ -69,11 +69,11 @@ function split(src, editor) {
         var split;
         editor.setValue("");
         split = Stip.tierSplit(src, true);
-        clientprogram = split[0];
-        serverprogram = split[1];
+        clientprogram = split.clientprogram;
+        serverprogram = split.serverprogram;
         printCode([clientprogram, serverprogram], editor);
-        global.cy = createComponentGraph(split[4].PDG);
-        createOfflineReport(split[4]);
+        global.cy = createComponentGraph(split.graphs.PDG);
+        createOfflineReport(split.graphs);
     } catch (err) {
         console.log(err.stack);
     }

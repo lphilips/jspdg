@@ -18,6 +18,7 @@ var createVarDecl = function (declarator) {
         type: 'VariableDeclaration',
         declarations: [declarator],
         leadingComment: declarator.leadingComment,
+        original: declarator.original,
         kind: 'var'
     };
 };
@@ -26,75 +27,79 @@ var createVarDecl = function (declarator) {
 var createLiteral = function (name) {
     return {
         type: 'Literal',
-        value: name
+        value: name,
+        original: false
     }
 }
 
 var createIdentifier = function (id) {
     return {
         type: 'Identifier',
-        name: id
+        name: id,
+        original: false
     }
 }
 
 var createExp = function (exp) {
     return {
         type: 'ExpressionStatement',
-        expression: exp
+        expression: exp,
+        original: exp.original
     };
 };
 
-var createReturnStm = function (arg) {
+var createReturnStm = function (arg, orig) {
     return {
         type: "ReturnStatement",
-        argument: arg
+        argument: arg,
+        original: orig.original
     };
 };
 
 
-var createNewExpression = function (fname, args) {
+var createNewExpression = function (fname, args, orig) {
     return {
         type: "NewExpression",
         callee: {
             type: "Identifier",
             name: fname
         },
-        arguments: args
+        arguments: args,
+        original: orig.original
     }
 }
 
 /*  Representation of a callback function :
  *    callback(errx, resx) {}
  */
-var callback = function (cnt, syncHandler) {
+var callback = function (cnt, syncHandler, orig) {
     var body = [];
     if (syncHandler) {
         body = [{
-            "type": "TryStatement",
-            "block": {
-                "type": "BlockStatement",
-                "body": [
+            type: "TryStatement",
+            block: {
+                type: "BlockStatement",
+                body: [
                     {
-                        "type": "IfStatement",
-                        "test": {
-                            "type": "Identifier",
-                            "name": "err" + cnt
+                        type: "IfStatement",
+                        test: {
+                            type: "Identifier",
+                            name: "err" + cnt
                         },
-                        "consequent": {
-                            "type": "ThrowStatement",
-                            "argument": {
-                                "type": "Identifier",
-                                "name": "err" + cnt
+                        consequent: {
+                            type: "ThrowStatement",
+                            argument: {
+                                type: "Identifier",
+                                name: "err" + cnt
                             }
                         },
-                        "alternate": null
+                        alternate: null
                     }
                 ]
             },
-            "guardedHandlers": [],
-            "handlers": syncHandler.handlers.slice(),
-            //"handler": syncHandler.handlers,
-            "finalizer": syncHandler.finalizer
+            guardedHandlers: [],
+            handlers: syncHandler.handlers.slice(),
+            finalizer: syncHandler.finalizer
         }];
     }
 
@@ -124,7 +129,8 @@ var callback = function (cnt, syncHandler) {
             },
             rest: null,
             generator: false,
-            expression: false
+            expression: false,
+            original: orig.original
         },
         addBodyStm: function (stm, upfront) {
             if (!upfront) {
@@ -201,7 +207,7 @@ var RPC = function (call, fname, args) {
                         type: "Identifier",
                         name: "client"
                     },
-                    "property": {
+                    property: {
                         "type": "Identifier",
                         "name": "rpc"
                     }
@@ -210,8 +216,10 @@ var RPC = function (call, fname, args) {
                     {
                         type: "Literal",
                         value: fname
-                    }].concat(args ? args : [])
+                    }].concat(args ? args : []),
+                original: call.parsenode.original
             },
+            original: call.parsenode.original,
             __transformed: true
         },
         isRPC: true,
@@ -266,7 +274,8 @@ var RPCReturn = function (RPC) {
             type: "ReturnStatement",
             argument: RPC.parsenode.expression,
             cont: RPC.parsenode.cont,
-            __transformed: true
+            __transformed: true,
+            original: RPC.parsenode.original
         },
         isRPC: true,
         addArg: function (arg) {
@@ -296,9 +305,8 @@ var RPCReturn = function (RPC) {
  *
  */
 
-var asyncFun = function () {
+var asyncFun = function (orig) {
     return {
-
         parsenode: {
             type: "Property",
             key: {
@@ -319,7 +327,8 @@ var asyncFun = function () {
                 generator: false,
                 expression: false
             },
-            kind: "init"
+            kind: "init",
+            original: orig.original
         },
 
 
@@ -340,7 +349,7 @@ var asyncFun = function () {
     };
 };
 
-var asyncForEach = function () {
+var asyncForEach = function (orig) {
     return {
         parsenode: {
             type: "ExpressionStatement",
@@ -357,8 +366,10 @@ var asyncForEach = function () {
                             name: "each"
                     }
                 },
-                arguments: []
-            }
+                arguments: [],
+                original: orig.original
+            },
+            orig: orig.original
         },
         addCollection : function (coll) {
             this.parsenode.expression.arguments.push(coll);
@@ -373,7 +384,7 @@ var asyncForEach = function () {
 }
 
 
-var asyncReplyC = function () {
+var asyncReplyC = function (orig) {
     return {
         parsenode: {
             type: "ExpressionStatement",
@@ -394,8 +405,10 @@ var asyncReplyC = function () {
                     {
                         type: "Literal",
                         value: ""
-                    }]
+                    }],
+                original: orig.original
             },
+            original: orig.original,
             __transformed: true
         },
 
@@ -414,7 +427,7 @@ var asyncReplyC = function () {
 };
 
 
-var broadcast = function () {
+var broadcast = function (orig) {
     return {
         parsenode: {
             type: "ExpressionStatement",
@@ -441,8 +454,11 @@ var broadcast = function () {
                         type: "ArrayExpression",
                         elements: []
                     }
-                ]
-            }
+                ],
+                original: orig.original
+            },
+            original: orig.original
+
         },
 
         addArgs: function (args) {
@@ -498,9 +514,8 @@ var transformCPStoReturn = function (cps) {
 }
 
 
-var createCallCb = function (name, err, res) {
+var createCallCb = function (name, err, res, orig) {
     return {
-
         type: "CallExpression",
         callee: {
             type: "Identifier",
@@ -509,15 +524,19 @@ var createCallCb = function (name, err, res) {
         arguments: res ? [
             err,
             res
-        ] : [err]
+        ] : [err],
+        original: orig ? orig.original : false
     };
 };
 
 var createObservableObject = function (name, object, server) {
+    var newparsenode;
     if (server)
-        return esprima.parse('server.makeObservableObject(' + name + ', ' + object + ')').body[0].expression;
+        newparsenode = esprima.parse('server.makeObservableObject(' + name + ', ' + object + ')').body[0].expression;
     else
-        return esprima.parse('client.makeObservableObject(' + name + ', ' + object + ')').body[0].expression;
+        newparsenode =  esprima.parse('client.makeObservableObject(' + name + ', ' + object + ')').body[0].expression;
+    newparsenode.original = object.original;
+    return newparsenode;
 }
 
 var createAnonymousObservableObject = function (object, server) {
@@ -525,10 +544,13 @@ var createAnonymousObservableObject = function (object, server) {
 }
 
 var createReplicatedObject = function (name, object, server) {
+    var newparsenode;
     if (server)
-        return esprima.parse('server.makeReplicatedObject(' + name + ', ' + object + ')').body[0].expression;
+        newparsenode =  esprima.parse('server.makeReplicatedObject(' + name + ', ' + object + ')').body[0].expression;
     else
-        return esprima.parse('client.makeReplicatedObject(' + name + ', ' + object + ')').body[0].expression;
+        newparsenode = esprima.parse('client.makeReplicatedObject(' + name + ', ' + object + ')').body[0].expression;
+    newparsenode.original = object.original;
+    return newparsenode;
 }
 
 var createAnonymousReplicatedObject = function (object, server) {

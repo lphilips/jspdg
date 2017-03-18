@@ -462,12 +462,12 @@ function nodeifyFunConstructor(transpiler) {
 
     if (comment && (Comments.isReplicatedAnnotated(comment) || Comments.isObservableAnnotated(comment))) {
         var newExp, obj;
-        newExp = escodegen.generate(NodeParse.createNewExp(name, params));
+        newExp = escodegen.generate(NodeParse.createNewExp(name, params, parsenode));
         if (Comments.isReplicatedAnnotated(comment))
             obj = NodeParse.createReplicatedObject('id', newExp, server);
         if (Comments.isObservableAnnotated(comment))
             obj = NodeParse.createObservableObject('id', newExp, server);
-        var returnStm = NodeParse.createReturnStm(obj);
+        var returnStm = NodeParse.createReturnStm(obj, parsenode);
         var clone = Aux.clone(node.parsenode);
         clone.params = [NodeParse.createIdentifier('id')].concat(params);
         clone.body.body = [node.parsenode];
@@ -568,7 +568,7 @@ function nodeifyCallExp(transpiler) {
                 transpiled = transpiler.transformCPS.transformReplyCall(node, transpiler.nodes, transpiler);
                 NodeParse.transformCPSToReply(transpiled[1]);
                 transpiler.transpiledNode = transpiled[1].parsenode;
-                transpiled = NodeParse.createBroadcast();
+                transpiled = NodeParse.createBroadcast(node.parsenode);
                 transpiled.setName('"' + node.name + '"');
                 transpiled.addArgs(Pdg.getCallExpression(node.parsenode).arguments)
                 transpiler.localTranspiledNode = transpiled.parsenode;
@@ -576,7 +576,7 @@ function nodeifyCallExp(transpiler) {
                 return transpiler;
             }
             else {
-                transpiled = NodeParse.createBroadcast();
+                transpiled = NodeParse.createBroadcast(node.parsenode);
                 transpiled.setName('"' + node.name + '"');
                 transpiled.addArgs(Pdg.getCallExpression(node.parsenode).arguments);
             }

@@ -67,7 +67,7 @@ var build_js = function build_js(chunks) {
         output += chunks.comments.server;
 
         if (chunks.server.length > 0) {
-            output += chunks.server.join("\n") + "\n";
+            output += chunks.server.join("\n");
         } else {
             output += "{}";
         }
