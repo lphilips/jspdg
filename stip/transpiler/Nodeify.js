@@ -150,7 +150,8 @@ function nodeifyVarDecl(transpiler) {
         });
         if (call.length > 0) {
             call.map(function (call) {
-                transpiler.nodes = transpiler.nodes.remove(call);
+                transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, call));
+                transpiler.nodes = transpiled.nodes.remove(call);
             })
         }
 

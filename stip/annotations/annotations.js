@@ -378,18 +378,25 @@ var handleBlockingComment = function (comment, pdgNodes) {
  node.comments = list of comments of whole program.
  Check if first comment is config comment block */
 function handleProgramNode(pdgNode, pdg) {
-    var comments = pdgNode.parsenode.comments;
+    pdg.placements = getPlacements(pdgNode.parsenode);
+}
+
+function getPlacements (parsenode) {
+    var comments = parsenode.comments;
     var firstComment, placements, index;
+    var placementsObj = {};
     if (comments.length > 0) {
         firstComment = comments[0];
         if (isConfigAnnotated(firstComment)) {
             placements = getConfigPlacements(firstComment);
             Object.keys(placements).forEach(function (value) {
-                pdg.placements[value] = placements[value];
+                placementsObj[value] = placements[value];
             });
         }
     }
+    return placementsObj;
 }
+
 
 /* Aux function: inserts a node in between two nodes (based on control edges) */
 function insertNode(from, to, insert, reconnect) {
@@ -442,7 +449,7 @@ toreturn.isTierOnlyAnnotated = isTierOnlyAnnotated;
 toreturn.isImportAnnotated = isImportAnnotated;
 toreturn.configHasClient = configHasClient;
 toreturn.configHasServer = configHasServer;
-
+toreturn.configGetPlacements = getPlacements;
 
 global.Annotations = toreturn;
 module.exports = toreturn;

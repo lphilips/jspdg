@@ -346,22 +346,6 @@ var prepareNodes = function (clientnodes, servernodes, graphs, options) {
                 addControlDepRec(node);
             }
 
-
-            // if (declarationcomment && (Comments.isCopyAnnotated(declarationcomment) ||
-            //     Comments.isObservableAnnotated(declarationcomment) || Comments.isReplicatedAnnotated(declarationcomment))) {
-            //     copydeclarations.push(node);
-            // }
-            // if (Aux.isExpStm(parsenode) && callsTo.length > 0) {
-            //     /* Push declaration node as well */
-            //     var decl = node.getInNodes(EDGES.DATA).filter(function (n) {
-            //         return n.isStatementNode && n.parsenode &&
-            //             Aux.isVarDeclarator(n.parsenode)
-            //     })[0];
-            //     if (decl)
-            //         copydeclarations.push(decl);
-            //     copydeclarations.push(node);
-            // }
-
         }
 
         if (node.isEntryNode && node.parsenode && node.parsenode.leadingComment &&

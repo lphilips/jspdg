@@ -46,6 +46,166 @@ function generateGraphs(source, analysis, toGenerate) {
     return graphs;
 }
 
+function evalPlacement(source, analysis, nr) {
+    var extract = RedStone.generate(source);
+    var toGenerate = extract.context.toGenerate;
+    var storeDeclNode = extract.storeDeclNode;
+    var runs = 0;
+    var warnings = [];
+    var placements, originalAst, ast, preanalysis;
+    ast = Ast.createAst(extract.inputJS, {loc: true, owningComments: true, comment: true});
+
+    var body = [];
+    var idx = 0;
+    function createSlice(stm) {
+        idx++;
+        var node = {
+            type: "BlockStatement",
+            body : [stm],
+            leadingComment: {
+                value: "@slice s"+idx,
+                type: "Block"
+            }
+        };
+        Ast.augmentAst(node);
+        return node;
+    }
+
+    function adapt(ast, datadecl, fundecl) {
+        function search(coll, node) {
+            var found = false;
+            var i = 0;
+            while (!found && i < coll.length) {
+               if (Aux.isVarDecl(node) && Aux.isVarDecl(coll[i]))
+                    found = (node.declarations[0].id.name === coll[i].declarations[0].id.name);
+               if (Aux.isFunDecl(node) && Aux.isFunDecl(coll[i]))
+                   found = (node.id.name === coll[i].id.name);
+                i++;
+            }
+            return found;
+        }
+        Aux.walkAst(ast, {
+            post: function (node) {
+                var parent = Aux.parent(node, ast);
+                if (parent.leadingComment && Comments.isSliceAnnotated(parent)) {
+                    if (search(datadecl , node))  {
+                        node.leadingComment = {
+                            value: "@replicated",
+                            type: "Block"
+                        }
+                    }
+                    else if (search(fundecl, node)) {
+                        ast.body.push(createSlice(node));
+                        parent.body = parent.body.remove(node);
+                    }
+                }
+            }
+        });
+        originalAst = Aux.clone(ast);
+        return ast;
+    }
+
+    function generatePDG () {
+        ast = Hoist.hoist(ast, function (node) {
+            return Aux.isBlockStm(node) &&
+                (Comments.isClientorServerAnnotated(node) || Comments.isSliceAnnotated(node) ||
+                (node.leadingComment && Comments.isBlockingAnnotated(node.leadingComment)));
+        });
+        Handler.init();
+        preanalysis = pre_analyse(ast, (toGenerate ? toGenerate : {methodCalls: [], identifiers: []}));
+        graphs = new FlowGraph.Graphs(preanalysis.ast, extract.inputJS, preanalysis.primitives);
+        FlowGraph.start(graphs, analysis);
+        graphs.placementinfo = graphs.PDG.distribute(DefaultPlacementStrategy);
+        graphs.warnings = warnings.concat(CheckAnnotations.checkAnnotations(graphs.PDG, {analysis: analysis}));
+        graphs.assumes = preanalysis.assumes;
+        graphs.imports = preanalysis.imports;
+        graphs.genAST = preanalysis.ast;
+        graphs.identifiers = preanalysis.identifiers;
+        extract.context.stip.generatedAST = graphs.genAST;
+        extract.context.stip.generatedIdentifiers = graphs.identifiers;
+        // Find declaration nodes for the reactive variables
+        for (var varname in graphs.identifiers) {
+            if (graphs.identifiers.hasOwnProperty(varname)) {
+                if (storeDeclNode !== undefined) {
+                    var declNode = Pdg.declarationOf(graphs.identifiers[varname], graphs.genAST);
+                    storeDeclNode(varname, declNode);
+                }
+            }
+        }
+        var slicedc = graphs.PDG.sliceTier(DNODES.CLIENT),
+            sliceds = graphs.PDG.sliceTier(DNODES.SERVER),
+            splitCode = function (nodes, option) {
+                var target = extract.hasUI ? "redstone" : "node.js",
+                    asyncomm = "callbacks",
+                    program = CodeGenerator.transpile(nodes, {
+                        target: target,
+                        tier: option,
+                        asynccomm: asyncomm,
+                        imports: graphs.imports,
+                        analysis: analysis,
+                    }, graphs.AST);
+                return program;
+            };
+         var nodes = CodeGenerator.prepareNodes(slicedc, sliceds, graphs, {analysis: analysis});
+        clientprogram = splitCode(nodes[0], "client");
+        serverprogram = splitCode(nodes[1], "server");
+    }
+
+    originalAst = Aux.clone(ast);
+
+    while (runs < nr) {
+        generatePDG();
+        var unplaced = graphs.PDG.getFunctionalityNodes().filter(function (slice) {
+            var placement = graphs.PDG.placements[slice.ftype];
+            return !slice.tier && !placement
+        });
+        var nrSlices = graphs.PDG.getFunctionalityNodes().length;
+        runs++;
+        unplaced.forEach(function (slice) {
+            slice.tier = false;
+        })
+        var placementinfo = graphs.PDG.distribute(DefaultPlacementStrategy);
+        var serverplaced = 0;
+        var clientplaced = 0;
+        var bothplaced = 0;
+
+        var dataAdvice = 0;
+        var functionAdvice = 0;
+        var datadecls = [];
+        var fundecls = [];
+
+        function addToCollection (coll, pdgnodes) {
+            pdgnodes.forEach(function (pdgnode) {
+                if (coll.indexOf(pdgnode) < 0)
+                    coll.push(pdgnode);
+            })
+        }
+
+        graphs.PDG.getFunctionalityNodes().forEach(function (slice) {
+            var advice = Advice.advice(slice, graphs.PDG);
+
+            addToCollection(datadecls, advice.constructorsInRemote);
+            addToCollection(datadecls, advice.dataInRemote);
+            addToCollection(fundecls, advice.calls);
+            addToCollection(fundecls, advice.entriesOnlyClient);
+            addToCollection(fundecls, advice.entriesOnlyServer);
+
+
+            if (slice.tier == DNODES.SHARED)
+                bothplaced++;
+            if (slice.tier == DNODES.CLIENT)
+                clientplaced++;
+            if (slice.tier == DNODES.SERVER)
+                serverplaced++;
+        });
+        var output = runs + ", " + nrSlices + ", " + (placementinfo.generation+1) + ", " + placementinfo.fitness;
+        output+= ", " +bothplaced + ", "+ clientplaced + ", " + serverplaced;
+        output+= ", " + datadecls.length+ ", " + fundecls.length;
+        console.log(output);
+        ast = adapt(originalAst, datadecls.map(function (n) {return n.parsenode}), fundecls.map(function (n) {return n.parsenode}));
+    }
+}
+
 function tiersplit(source, analysis) {
     try {
         var extract = RedStone.generate(source);
@@ -65,7 +225,6 @@ function tiersplit(source, analysis) {
                 }
             }
         }
-
 
         var slicedc = PDG.sliceTier(DNODES.CLIENT),
             sliceds = PDG.sliceTier(DNODES.SERVER),
@@ -161,7 +320,8 @@ var Stip = {
     tierSplit: tiersplit,
     cpsTransform: cpsTransform,
     generateJavaScript: generateJavaScript,
-    slice: slice
+    slice: slice,
+    evalPlacement: evalPlacement
 }
 
 module.exports = Stip;

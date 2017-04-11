@@ -133,6 +133,10 @@
 		return date1 < now;
 	}
 
+    function addMinutes(date, minutes) {
+        var ms = date.getTime();
+        return new Date(ms + minutes * 60000);
+    }
 
 	function editMeeting(ev) {
 		var idx = ev.index;

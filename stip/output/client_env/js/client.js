@@ -27,8 +27,8 @@ function Meeting(id, title, notes, time) {
     function Meeting(title, notes, time) {
         this.title = title;
         this.notes = notes;
-        this.start = new Date(time).getTime();
-        this.end = new Date(this.start + 2 * 60 * 60 * 1000);
+        this.start = new Date().getTime();
+        this.end = addMinutes(new Date(time), 120);
     }
     return client.makeReplicatedObject(id, new Meeting(title, notes, time));
 }
@@ -46,7 +46,55 @@ function Course(id, title, duration, time) {
         this.duration = duration;
         this.time = time;
     }
-    return client.makeReplicatedObject(id, new Course(title, duration, time));
+    return client.makeObservableObject(id, new Course(title, duration, time));
+}
+function getMeetings() {
+    return meetings;
+}
+function getTasks() {
+    return tasks;
+}
+function getCourses() {
+    return courses;
+}
+function addTask(title, priority) {
+    var task;
+    task = new Task('task', title, priority);
+    tasks.push(task);
+}
+function addMeeting(title, notes, time) {
+    var meeting;
+    meeting = new Meeting('meeting', title, notes, time);
+    meetings.push(meeting);
+}
+function addCourse(title, duration, time) {
+    var course;
+    course = new Course('course', title, duration, time);
+    courses.push(course);
+}
+function sortMeetings() {
+    function anonf1(m1, m2) {
+        var first;
+        var second;
+        first = m1.start;
+        second = m2.start;
+        return first - second;
+    }
+    var meetings;
+    meetings = getMeetings();
+    meetings.sort(anonf1);
+}
+function sortTasks() {
+    function anonf2(t1, t2) {
+        if (t1.status == t2.status) {
+            return t1.priority - t2.priority;
+        } else {
+            return t1.status - t2.status;
+        }
+    }
+    var tasks;
+    tasks = getTasks();
+    tasks.sort(anonf2);
 }
 function isValidTimeDescr(descr) {
     var sched;
@@ -61,7 +109,7 @@ function happenedInPast(date) {
 function addMinutes(date, minutes) {
     var ms;
     ms = date.getTime();
-    return ms + minutes * 60000;
+    return new Date(ms + minutes * 60000);
 }
 function calculateNext(timeDescription) {
     var parsed;
@@ -127,7 +175,9 @@ function updateActivity() {
 function processMeetingMonths() {
     var currYear;
     var months;
-    function anonf2(meeting) {
+    var meetings;
+    currYear = new Date().getFullYear();
+    function anonf4(meeting) {
         var date;
         var month;
         var year;
@@ -137,7 +187,6 @@ function processMeetingMonths() {
         if (year == currYear)
             months[month] = months[month] + 1;
     }
-    currYear = new Date().getFullYear();
     months = [
         0,
         0,
@@ -152,15 +201,18 @@ function processMeetingMonths() {
         0,
         0
     ];
-    meetings.forEach(anonf2);
+    meetings = getMeetings();
+    meetings.forEach(anonf4);
     return months;
 }
 function processTasksStatus() {
     var todo;
     var finished;
     var inprogress;
+    var tasks;
     todo = 0;
-    function anonf3(task) {
+    finished = 0;
+    function anonf5(task) {
         if (task.status < 0) {
             todo++;
         } else if (task.status > 0) {
@@ -169,9 +221,9 @@ function processTasksStatus() {
             inprogress++;
         }
     }
-    finished = 0;
     inprogress = 0;
-    tasks.forEach(anonf3);
+    tasks = getTasks();
+    tasks.forEach(anonf5);
     return [
         todo,
         finished,
@@ -187,23 +239,16 @@ var meetingTitle;
 var meetingDate;
 var meetingNotes;
 var currentlyEditingM;
-function addMeeting() {
-    function anonf4(m1, m2) {
-        var first;
-        var second;
-        first = m1.start;
-        second = m2.start;
-        return first - second;
-    }
+function addMeetingUI() {
     if (currentlyEditingM) {
         currentlyEditingM.title = meetingTitle;
         currentlyEditingM.start = meetingDate;
         currentlyEditingM.notes = meetingNotes;
         currentlyEditingM = false;
     } else {
-        meetings.push(new Meeting(false, meetingTitle, meetingNotes, meetingDate));
+        addMeeting(meetingTitle, meetingNotes, meetingDate);
     }
-    meetings.sort(anonf4);
+    sortMeetings();
     (function () {
         meetingTitle = '';
         REDSTONE.updateVariable('meetingTitle', meetingTitle);
@@ -217,10 +262,12 @@ function addMeeting() {
         REDSTONE.updateVariable('meetingNotes', meetingNotes);
     }());
 }
-function editMeeting(ev) {
+function editMeetingUI(ev) {
     var idx;
+    var meetings;
     var dateS;
     idx = ev.index;
+    meetings = getMeetings();
     currentlyEditingM = meetings[idx];
     dateS = currentlyEditingM.start;
     (function () {
@@ -235,6 +282,7 @@ function editMeeting(ev) {
         meetingDate = new Date(dateS);
         REDSTONE.updateVariable('meetingDate', meetingDate);
     }());
+    sortMeetings();
 }
 (function () {
     meetingTitle = '';
@@ -251,16 +299,9 @@ function editMeeting(ev) {
 currentlyEditingM = '';
 var taskTitle;
 var taskPriority;
-function addTask() {
-    function anonf5(t1, t2) {
-        if (t1.status == t2.status) {
-            return t1.priority - t2.priority;
-        } else {
-            return t1.status - t2.status;
-        }
-    }
-    tasks.push(new Task(false, taskTitle, taskPriority));
-    tasks.sort(anonf5);
+function addTaskUI() {
+    addTask(taskTitle, taskPriority);
+    sortTasks();
     (function () {
         taskTitle = '';
         REDSTONE.updateVariable('taskTitle', taskTitle);
@@ -272,9 +313,11 @@ function addTask() {
 }
 function nextStatusTask(ev) {
     var idx;
+    var tasks;
     var task;
     var now;
     idx = ev.index;
+    tasks = getTasks();
     task = tasks[idx];
     now = new Date();
     if (task.status < 1) {
@@ -282,6 +325,7 @@ function nextStatusTask(ev) {
         task.lastUpdate = now.getTime();
     }
     updateActivity();
+    sortTasks();
 }
 (function () {
     taskTitle = '';
@@ -381,8 +425,12 @@ function createCharts() {
 }
 function displaySchedule() {
     var schedule;
+    var meetings;
+    var courses;
     var calendar;
     schedule = [];
+    meetings = getMeetings();
+    courses = getCourses();
     meetings.forEach(anonf6);
     function anonf6(appointment) {
         appointment.class = 'event-info';
@@ -402,13 +450,13 @@ function displaySchedule() {
         next = {
             title: course.title,
             start: nextDate.getTime(),
-            end: endNextDate,
+            end: endNextDate.getTime(),
             class: 'event-info'
         };
         prev = {
             title: course.title,
             start: prevDate.getTime(),
-            end: endPrevDate,
+            end: endPrevDate.getTime(),
             class: 'event-info'
         };
         schedule.push(next);
@@ -422,3 +470,4 @@ function displaySchedule() {
     });
     calendar.view();
 }
+client.expose({});

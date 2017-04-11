@@ -1509,9 +1509,7 @@ var makePDGNode = function (graphs, node, upnode) {
 
     if (pdgnode && node.leadingComment && parsetype !== 'BlockStatement') {
         Comments.handleAfterComment(node.leadingComment, pdgnode, upnode)
-
     }
-
     return pdgnode;
 }
 

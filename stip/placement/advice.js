@@ -1,9 +1,9 @@
 /* represent the percentage for deciding about
-   giving advice about splitting up or moving certain parts of the code */
+ giving advice about splitting up or moving certain parts of the code */
 var threshold = 10;
 
 
-function greaterThanThreshold (x, y) {
+function greaterThanThreshold(x, y) {
     if (x == 0 && y == 0) {
         return false;
     }
@@ -11,10 +11,12 @@ function greaterThanThreshold (x, y) {
 }
 
 function advice(slice, pdg) {
-    var tier = slice.tier;
+    var tier = slice.getTier();
     var callsRemote = [];
     var advice = {};
-    var entries = pdg.nodes.filter(function (n) {return n.parsenode && n.isCalled;});
+    var entries = pdg.nodes.filter(function (n) {
+        return n.parsenode && n.isCalled;
+    });
     advice.constructorsInRemote = [];
     advice.dataInRemote = [];
     advice.entriesOnlyClient = [];
@@ -30,10 +32,8 @@ function advice(slice, pdg) {
         advice.callLocal = callLocal;
         advice.calls = callsRemote;
 
-
         /* DATA */
-
-        if (slice.tier == DNODES.SERVER) {
+        if (slice.getTier() == DNODES.SERVER) {
             var nodes = slice.getNodes();
             var datanodes = slice.getOutNodes(EDGES.CONTROL)
                 .flatMap(function (entry) {
@@ -43,13 +43,16 @@ function advice(slice, pdg) {
                     return n.isStatementNode && Aux.isVarDecl(n.parsenode)
                 });
             var constructornodes = nodes.filter(function (n) {
-                return n.isObjectEntry
-            })
+                    return n.isObjectEntry
+                })
                 .flatMap(function (n) {
                     return n.getOutNodes(EDGES.OBJMEMBER)
                 })
                 .filter(function (n) {
-                    return n.isEntryNode && n.isConstructor
+                    return n.isEntryNode && n.isConstructor &&
+                            !(n.parsenode.leadingComment &&
+                            (Comments.isReplicatedAnnotated(n.parsenode.leadingComment) ||
+                            Comments.isObservableAnnotated(n.parsenode.leadingComment)))
                 });
 
             datanodes.forEach(function (decl) {
@@ -72,7 +75,7 @@ function advice(slice, pdg) {
                     });
                 usesEntries.map(function (entry) {
                     var remotes = entry.getInEdges(EDGES.REMOTEC).filter(function (n) {
-                        return n.from.tier !== entry.tier
+                        return n.from.getTier() !== entry.getTier()
                     });
                     if (remotes.length > 0 && advice.dataInRemote.indexOf(decl) < 0) {
                         advice.dataInRemote.push(decl)
@@ -94,7 +97,7 @@ function advice(slice, pdg) {
                     });
                 callEntries.forEach(function (entry) {
                     var remotes = entry.getInEdges(EDGES.REMOTEC).filter(function (n) {
-                        return n.from.tier !== entry.tier
+                        return n.from.getTier() !== entry.getTier()
                     });
                     if (remotes.length > 0 && advice.constructorsInRemote.indexOf(n)) {
                         advice.constructorsInRemote.push(n)
@@ -108,27 +111,33 @@ function advice(slice, pdg) {
             advice.dataInRemote.length > 0) {
             advice.placement = false;
         }
-        else {
-            advice.placement = true;
-        }
     }
-    else if (tier == DNODES.SHARED) {
-        var entries = slice.getNodes().filter(function (n) {return n.isEntryNode && n.isCalled});
-        advice.entriesOnlyClient = entries.filter(function (e) {return e.clientCalls() > 0 && e.serverCalls() == 0});
-        advice.entriesOnlyServer = entries.filter(function (e) {return e.serverCalls() > 0 && e.clientCalls() == 0});
-        if (advice.entriesOnlyClient.length > 0 || advice.entriesOnlyServer.length > 0)
-            advice.placement = false;
-        else {
-            advice.placement = true;
-        }
-    }
+
+    var entries = slice.getNodes().filter(function (n) {
+        return n.isEntryNode && n.isCalled
+    });
+    if (tier == DNODES.SERVER)
+        advice.entriesOnlyClient = entries.filter(function (e) {
+            return e.clientCalls() > 0 && e.serverCalls() == 0
+        });
+    else if (tier == DNODES.CLIENT)
+        advice.entriesOnlyServer = entries.filter(function (e) {
+            return e.serverCalls() > 0 && e.clientCalls() == 0
+        });
+    if (advice.entriesOnlyClient.length > 0 || advice.entriesOnlyServer.length > 0)
+        advice.placement = false;
+
 
     /* Functions that are present on both tiers? */
     entries.forEach(function (e) {
         var entries_ = entries.slice();
         entries_.remove(e);
-        var entriesp = entries_.map(function (n) {return escodegen.generate(n.parsenode.body)});
-        if (entriesp.find(function (n) {n === escodegen.generate(e.parsenode.body)}))
+        var entriesp = entries_.map(function (n) {
+            return escodegen.generate(n.parsenode.body)
+        });
+        if (entriesp.find(function (n) {
+                n === escodegen.generate(e.parsenode.body)
+            }))
             advice.duplicatedEntries.push(e);
     })
 
@@ -137,15 +146,14 @@ function advice(slice, pdg) {
 
 function countRemoteDependencies(fnode, tier, type, shared, dir, store) {
     return fnode.countEdgeTypeFilterNode(type, function (n) {
-        var filter = (shared ? (n.tier === DNODES.SHARED || n.tier === tier) : n.tier === tier) &&
+        var filter = (shared ? (n.getTier() === DNODES.SHARED || n.getTier() === tier) : n.getTier() === tier) &&
             /* Not to shared declaration */
             (!( n.isStatementNode && n.parsenode.leadingComment &&
             (Annotations.isReplicatedAnnotated(n.parsenode.leadingComment) ||
             Annotations.isObservableAnnotated(n.parsenode.leadingComment))) &&
-                /* Not to share function constructors */
-                !(n.isEntryNode && n.parsenode && n.parsenode.leadingComment &&
-                (Annotations.isReplicatedAnnotated(n.parsenode.leadingComment) ||
-                Annotations.isObservableAnnotated(n.parsenode.leadingComment))));
+            /* Not to share function constructors */ !(n.isEntryNode && n.parsenode && n.parsenode.leadingComment &&
+            (Annotations.isReplicatedAnnotated(n.parsenode.leadingComment) ||
+            Annotations.isObservableAnnotated(n.parsenode.leadingComment))));
         if (filter && store.indexOf(n) < 0)
             store.push(n);
         return filter;

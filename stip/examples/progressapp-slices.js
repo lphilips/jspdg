@@ -15,7 +15,7 @@
 		this.title = title;
 		this.notes = notes;
 		this.start = new Date(time).getTime();
-		this.end = addMinute(new Date(time), 120);
+		this.end = addMinutes(new Date(time), 120);
 	}
 
 	/* @replicated */

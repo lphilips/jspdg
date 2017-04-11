@@ -223,7 +223,7 @@ REDSTONE.DUMMYCLIENT = function() {
 
 		// Clean up old value
 		var oldValue = variableInfo[variableName].value;
-		if (typeof oldValue == 'object') {
+		if (typeof oldValue == 'object' && oldValue.watchers) {
 			OBJSPY.untrack(oldValue, variableName);
 		}
 
