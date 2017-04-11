@@ -2,6 +2,8 @@ var Stip = require('./run.js');
 var graphs;
 var shared;
 var warnings;
+var splitResult;
+
 
 function analyse(src) {
     try {
@@ -24,8 +26,7 @@ function analyse(src) {
 
 function printCode(sources, editor) {
     var concatCode = function (code) {
-        editor.setValue(slicededitor.getValue() +
-            code + "\n")
+        editor.setValue(slicededitor.getValue() + code + "\n")
     };
     var clientprogram = sources[0];
     var serverprogram = sources[1];
@@ -66,14 +67,13 @@ function split(src, editor) {
     try {
         var clientprogram;
         var serverprogram;
-        var split;
         editor.setValue("");
-        split = Stip.tierSplit(src, true);
-        clientprogram = split.clientprogram;
-        serverprogram = split.serverprogram;
+        splitResult = Stip.tierSplit(src, true);
+        clientprogram = splitResult.clientprogram;
+        serverprogram = splitResult.serverprogram;
         printCode([clientprogram, serverprogram], editor);
-        global.cy = createComponentGraph(split.graphs.PDG);
-        createOfflineReport(split.graphs);
+        global.cy = createComponentGraph(splitResult.graphs.PDG);
+        createOfflineReport();
     } catch (err) {
         console.log(err.stack);
     }
@@ -92,94 +92,66 @@ function cpstransform(src, editor) {
 }
 
 
-function createOfflineReport(graphs) {
-    var PDG = graphs.PDG;
-    var clientfs = [];
-    var serverfs = [];
-    var clientperc = 0;
-    var serverperc = 0;
-    PDG.getFunctionalityNodes().map(function (f) {
-        if (f.tier === DNODES.SERVER)
-            serverfs.push(f.ftype)
-        if (f.tier === DNODES.CLIENT)
-            clientfs.push(f.ftype)
-    });
-    console.log("CLIENT FUNCTIONALITIES");
-    clientfs.map(function (r) {
-        console.log(r)
-    });
-    console.log("SERVER FUNCTIONALITIES");
-    serverfs.map(function (r) {
-        console.log(r)
-    });
-    clientperc = clientfs.length / (clientfs.length + serverfs.length);
-    serverperc = serverfs.length / (clientfs.length + serverfs.length);
+function createOfflineReport() {
+    if (splitResult) {
+        var PDG = splitResult.graphs.PDG;
 
-    $("#clientbar").width(clientperc * 100 + '%');
-    $("#serverbar").width(serverperc * 100 + '%');
-    $("#functionalities").empty();
-    graphs.PDG.getFunctionalityNodes().map(function (functionality) {
-        createFunctionality(functionality);
-    })
-
-
-    function createFunctionality(funcNode) {
-        var dataCntC = funcNode.countEdgeTypeFilterFunc(EDGES.REMOTED, function (f) {
-            return f.tier == DNODES.CLIENT
-        }, -1);
-        var dataCntS = funcNode.countEdgeTypeFilterFunc(EDGES.REMOTED, function (f) {
-            return f.tier == DNODES.SERVER
-        }, -1);
-        var callCntC = funcNode.countEdgeTypeFilterFunc(EDGES.REMOTEC, function (f) {
-            return f.tier == DNODES.CLIENT
-        });
-        var callCntS = funcNode.countEdgeTypeFilterFunc(EDGES.REMOTEC, function (f) {
-            return f.tier == DNODES.SERVER
-        });
-        var item = $("<a class='row' style='text-align:center;margin:0;'></a>").addClass("list-group-item");
-        var label = (funcNode.tier == DNODES.CLIENT) ? " <span class='label label-info'>client</span>" : " <span class='label label-warning'>server</span>";
-        item.append("<h4 class='list-group-item-heading'>" + funcNode.ftype + label + " </h4");
-        var divGraphD = $("<div class='col-sm-4' style='height: 130px; width: 140px;' ></div");
-        var divGraphC = $("<div class='col-sm-4' style='height: 130px; width: 140px;' ></div");
-        var divText = $("<div class='col-sm-5'></div>");
-        var divData = $("<div  'style='text-align:left; padding: 5px;'><h6>DATA DEPENDENCIES</h6></div>");
-        var divCall = $("<div  'style='text-align:left; padding: 5px;'><h6>CALL DEPENDENCIES</h6></div>");
-        divData.append('<p> > Client: ' + dataCntC + ', > Server: ' + dataCntS + '</p>');
-        divCall.append('<p> > Client: ' + callCntC + ', > Server: ' + callCntS + '</p>');
-
-        divText.append(divData).append(divCall);
-        var gaugeNr = 0;
-        if (funcNode.tier == DNODES.CLIENT) {
-            if (dataCntS + dataCntC > 0)
-                gaugeNr = dataCntC / (dataCntC + dataCntS);
-            else if (dataCntS === 0 && dataCntC === 0)
-                gaugeNr = 1;
-
-            createGauge(gaugeNr * 100, 'Data', divGraphD);
-            gaugeNr = 0;
-            if (callCntS + callCntC > 0) {
-                gaugeNr = callCntC / (callCntS + callCntC);
+        /* Placement strategy report */
+        var clientfs = [];
+        var serverfs = [];
+        PDG.getFunctionalityNodes().map(function (f) {
+            if (f.tier === DNODES.SERVER)
+                serverfs.push(f.ftype);
+            if (f.tier === DNODES.CLIENT)
+                clientfs.push(f.ftype);
+            if (f.tier === DNODES.SHARED) {
+                clientfs.push(f.ftype);
+                serverfs.push(f.ftype);
             }
-            else if (callCntS === 0 && callCntC === 0)
-                gaugeNr = 1;
-            createGauge(gaugeNr * 100, 'Call', divGraphC);
-            item.append(divText).append(divGraphD).append(divGraphC);
-        }
 
-        $("#functionalities").append(item);
+        });
+
+        var clientperc = (clientfs.length / (clientfs.length + serverfs.length)) * 100;
+        var serverperc = (serverfs.length / (clientfs.length + serverfs.length)) * 100;
+        var offlineperc = Math.floor(splitResult.placementinfo.fitness * 100)
+        var divGraphD = $("#offlinelevel");
+        createGauge(offlineperc, "Offline score", divGraphD);
+
+
+        $("#clientbar").width(clientperc + '%');
+        $("#serverbar").width(serverperc + '%');
+
+        var divGraphC = $("<div class='col-sm-6'><h5>Client slices</h5></div");
+        var divGraphS = $("<div class='col-sm-6'' ><h5>Server slices</h5></div");
+        var ulClientS = $("<ul class='list-group'></ul>");
+        var ulServerS = $("<ul class='list-group'></ul>");
+
+        clientfs.forEach(function (s) {
+            ulClientS.append($("<li class='list-group-item'>" + s + "</li>"));
+        })
+        serverfs.forEach(function (s) {
+            ulServerS.append($("<li class='list-group-item'>" + s + "</li>"));
+        })
+        $("#functionalities").empty();
+        divGraphC.append(ulClientS);
+        divGraphS.append(ulServerS);
+
+
+        $("#functionalities").append(divGraphC);
+        $("#functionalities").append(divGraphS);
+
+
         $(window).trigger('resize');
         window.dispatchEvent(new Event('resize'));
     }
 
+
     function createGauge(percentage, title, div) {
         var gaugeOptions = {
-
             chart: {
                 type: 'solidgauge'
             },
-
             title: null,
-
             pane: {
                 center: ['50%', '55%'],
                 size: '80%',
@@ -192,11 +164,9 @@ function createOfflineReport(graphs) {
                     shape: 'arc'
                 }
             },
-
             tooltip: {
                 enabled: false
             },
-
             // the value axis
             yAxis: {
                 stops: [
@@ -215,7 +185,6 @@ function createOfflineReport(graphs) {
                     y: 15
                 }
             },
-
             plotOptions: {
                 solidgauge: {
                     dataLabels: {
@@ -240,7 +209,6 @@ function createOfflineReport(graphs) {
             credits: {
                 enabled: false
             },
-
             series: [{
                 name: title,
                 data: [Math.round(percentage)],
@@ -248,11 +216,8 @@ function createOfflineReport(graphs) {
                     format: '<div style="text-align:center"><span style="font-size:18px;color:' +
                     ((Highcharts.theme && Highcharts.theme.contrastTextColor) || 'black') + '">{y}</span><br/></div>'
                 },
-
             }]
-
         }));
-
     }
 }
 

@@ -17,7 +17,7 @@ genetic.select1 =  function (pop) {
     var a = pop[Math.floor(Math.random()*n)];
     var b = pop[Math.floor(Math.random()*n)];
 
-    while(!self.userData.correct(a.entity) && !self.userData.correct(b.entity)) {
+    while(!this.userData.correct(a.entity) && !this.userData.correct(b.entity)) {
         a.fitness = 0;
         b.fitness = 0;
         a = pop[Math.floor(Math.random()*n)];
@@ -29,7 +29,7 @@ genetic.select2 = function (pop) {
     function randomSlice () {
         var idx = Math.floor(Math.random() * pop.length);
         var entity = pop[idx];
-        while (!self.userData.correct(entity.entity)) {
+        while (!this.userData.correct(entity.entity)) {
             idx = Math.floor(Math.random() * pop.length);
             entity.fitness = 0;
             entity = pop[idx];
@@ -43,7 +43,8 @@ var config = {
     iterations: 300,
     size: 30,
     crossover: 0.6,
-    mutation: 0.6
+    mutation: 0.6,
+    webWorkers: false // strange behavior if true
 }
 
 
@@ -278,15 +279,24 @@ genetic.fitness = function (entity) {
                 sharedC += calls;
         });
 
-        var offline = (clientC + sharedC) / (sharedC + clientC + serverC);
+
         var totalCalls = clientC + serverC + sharedC;
-        if (clientC + sharedC == 0)
+        var offline = (clientC + sharedC) / totalCalls;
+        if (clientC + sharedC == 0) {
             fitness += 0;
+            nrOfCalls += totalCalls;
+        }
         else if (tier == placement.client || tier == placement.shared) {
             fitness += offline * totalCalls;
             nrOfCalls += totalCalls;
         }
     });
+    if (nrOfCalls == 0) {
+        return 1;
+    }
+    else if (fitness == 0) {
+        return 0;
+    }
     return fitness / nrOfCalls;
 }
 

@@ -112,12 +112,12 @@ function nodeifyVarDecl(transpiler) {
         entry = entry[0];
         /* always 1, if assigned later on, the new one would be attached to assignment node */
         transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, entry));
+        transpiler.nodes = transpiled.nodes.remove(entry);
         if (Analysis.isRemoteFunction(transpiler.options, entry)) {
             /* set the name of the method */
             transpiled.method.setName(node.name);
             transpiler.methods.push(transpiled.method.parsenode);
             transpiled.method = false;
-            transpiler.nodes = transpiled.nodes.remove(entry);
             transpiler.transpiledNode = undefined;
             return transpiler;
         }
