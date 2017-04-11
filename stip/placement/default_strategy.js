@@ -12,8 +12,32 @@ var toreturn = {};
 var genetic = Genetic.create();
 
 genetic.optimize = Genetic.Optimize.Maximize;
-genetic.select1 = Genetic.Select1.SelectSlices;
-genetic.select2 = Genetic.Select2.SelectSlices;
+genetic.select1 =  function (pop) {
+    var n = pop.length;
+    var a = pop[Math.floor(Math.random()*n)];
+    var b = pop[Math.floor(Math.random()*n)];
+
+    while(!self.userData.correct(a.entity) && !self.userData.correct(b.entity)) {
+        a.fitness = 0;
+        b.fitness = 0;
+        a = pop[Math.floor(Math.random()*n)];
+        b = pop[Math.floor(Math.random()*n)];
+    }
+    return this.optimize(a.fitness, b.fitness) ? a.entity : b.entity;
+}
+genetic.select2 = function (pop) {
+    function randomSlice () {
+        var idx = Math.floor(Math.random() * pop.length);
+        var entity = pop[idx];
+        while (!self.userData.correct(entity.entity)) {
+            idx = Math.floor(Math.random() * pop.length);
+            entity.fitness = 0;
+            entity = pop[idx];
+        }
+        return entity.entity;
+    }
+    return [genetic.select1.call(this, pop), randomSlice.call(this, pop)];
+}
 
 var config = {
     iterations: 300,
