@@ -40,7 +40,7 @@ function makeTransformer(transpiler) {
         createCallback: JSParse.callback,
         shouldTransform: makeShouldTransform(transpiler.options.cps),
         createAsyncFunction: JSParse.asyncFun,
-        createAsyncForEach : NodeParse.createAsyncForEach,
+        createAsyncForEach: NodeParse.createAsyncForEach,
         createCbCall: JSParse.createCallCb,
         createRPCReturn: JSParse.createReturnStm,
     };
@@ -178,7 +178,6 @@ function transformVariableDecl(transpiler) {
 }
 transformer.transformVariableDecl = transformVariableDecl;
 transformer.transformAssignmentExp = transformVariableDecl;
-
 
 
 /* Unary expression */
@@ -675,6 +674,10 @@ function transformIfStm(transpiler) {
             .map(function (e) {
                 return e.to
             }),
+        testcalls = test.length > 0 ? test[0].getOutNodes(EDGES.CONTROL)
+            .filter(function (n) {
+                return n.isCallNode;
+            }) : [],
         conseq = node.getOutEdges(EDGES.CONTROL)
             .filter(function (e) {
                 return e.label === true;
@@ -689,27 +692,39 @@ function transformIfStm(transpiler) {
             .map(function (e) {
                 return e.to;
             }),
-        transpiled;
+        transpiled, cpsTest;
 
     test.map(function (testnode) {
-        transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, testnode));
-        transpiler.nodes = transpiled.nodes.remove(testnode);
-        parsenode.test = transpiled.transpiledNode;
+        if (testcalls.length > 0) {
+            makeTransformer(transpiler);
+            transpiled = CPSTransform.transformIfStm(transpiler);
+            transpiler.nodes = transpiled.nodes.remove(node);
+            transpiler.nodes = transpiler.nodes.remove(testnode);
+            transpiler.transpiledNode = transpiled.transpiledNode;
+            cpsTest = transpiler;
+        } else {
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, testnode));
+            transpiler.nodes = transpiled.nodes.remove(testnode);
+            parsenode.test = transpiled.transpiledNode;
+        }
     });
 
-    conseq.map(function (consnode) {
-        transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, consnode));
-        transpiler.nodes = transpiled.nodes.remove(consnode);
-        parsenode.consequent = transpiled.transpiledNode;
-    });
+    if (!cpsTest) {
+        conseq.map(function (consnode) {
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, consnode));
+            transpiler.nodes = transpiled.nodes.remove(consnode);
+            parsenode.consequent = transpiled.transpiledNode;
+        });
 
-    altern.map(function (altnode) {
-        transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, altnode));
-        transpiler.nodes = transpiled.nodes.remove(altnode);
-        parsenode.alternate = transpiled.transpiledNode;
-    });
-    transpiler.nodes = transpiler.nodes.remove(node);
-    transpiler.transpiledNode = parsenode;
+        altern.map(function (altnode) {
+            transpiled = Transpiler.transpile(Transpiler.copyTranspileObject(transpiler, altnode));
+            transpiler.nodes = transpiled.nodes.remove(altnode);
+            parsenode.alternate = transpiled.transpiledNode;
+        });
+
+        transpiler.nodes = transpiler.nodes.remove(node);
+        transpiler.transpiledNode = parsenode;
+    }
 
     return transpiler;
 }

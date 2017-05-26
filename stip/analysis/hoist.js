@@ -210,6 +210,8 @@ var hoist = function (ast, tohoist) {
 
                     if (Aux.isFunDecl(parent) || Aux.isFunExp(parent))
                         body = parent.body.body;
+                    else if (Aux.isIfStm(astpp))
+                        body = astparent.body;
                     else if (Aux.isTryStm(astpp))
                         body = astpp.block.body;
                     else
@@ -235,6 +237,7 @@ var hoist = function (ast, tohoist) {
                     astparent.latestHoistIndex = index;
 
                     if (Aux.isTryStm(astparent) || Aux.isCatchStm(astparent) ||
+                        Aux.isBlockStm(astparent) && Aux.isIfStm(Ast.parent(astparent, ast)) ||
                         Aux.isBlockStm(astparent) && Aux.isTryStm(Ast.parent(astparent, ast)) ||
                         Aux.isBlockStm(astparent) && Aux.isCatchStm(Ast.parent(astparent, ast))) {
                         astparent.body = astparent.body.remove(node);

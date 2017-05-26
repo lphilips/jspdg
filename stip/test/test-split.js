@@ -662,9 +662,16 @@ suite('CPS transform', function () {
     });
 
     test('anon function as call arg', function () {
-        var ast = cpsTransform('function id(x) {return x}; function foo() {var a= https.get(id("foo"));  a.on("ev", function (d) {console.log(d)})} foo();', true);
+        var ast = cpsTransform('function id(x) {return x} function foo() {var a= https.get(id("foo"));  a.on("ev", function (d) {console.log(d)})} foo();', true);
         compareAst(escodegen.generate(ast.nosetup),
             'function id(x, callback) {return callback(null, x);}function foo(callback) {function anonf1(d) {console.log(d);}var a;id("foo", function (_v1_, _v2_) {https.get(_v2_, function (_v3_, _v4_) {a = _v4_;a.on("ev", anonf1, function (_v5_, _v6_) {});});});}foo(function (_v7_, _v8_) {});',
+            {varPattern: /_v\d_/})
+    });
+
+    test('if statement', function () {
+        var ast = cpsTransform('function id(x) {return x} if (id(2) > 3) {var a = id(3); var b = a + 1;} else {console.log(2)}')
+        compareAst(escodegen.generate(ast.nosetup),
+            'function id(x, callback) {return callback(null, x);}var a; var b; id(2, function (_v1_, _v2_) {if(_v2_ > 3) {id(3, function (_v3_, _v4_) {a = _v4_; b = a +1});} else {console.log(2);}})',
             {varPattern: /_v\d_/})
     });
 

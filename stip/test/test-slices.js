@@ -238,6 +238,8 @@ suite('Data sharing', function () {
         var res = tierSplit(config+' @slice second */ {/* @observable */ function Point(x,y) {this.x = x; this.y = y;} /* @observable */ var coll = [];} /* @slice first */ {coll.push( new Point(1,2))}');
         var ast0 = res.clientprogram.nosetup;
         var ast1 = res.serverprogram.nosetup;
+        console.log(escodegen.generate(ast0));
+        console.log(escodegen.generate(ast1));
 
         /* no warnings */
         assert.equal(0, res.errors.length);
