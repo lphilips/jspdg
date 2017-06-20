@@ -187,17 +187,6 @@ var pre_analyse = function (ast, toGenerate) {
         }
     }
 
-    /* Gets annotation of form '@require [library library]' */
-    function extractImports(string) {
-        var regexp = /\[.*?\]/,
-            assumesS, assumesA;
-        if (string.search(regexp) >= 0) {
-            assumesS = string.match(regexp)[0].slice(1, -1);
-            assumesA = assumesS.split(" ");
-            return assumesA;
-        }
-    };
-
 
     var comments;
 
@@ -345,7 +334,7 @@ var pre_analyse = function (ast, toGenerate) {
 
             /* @import annotation */
             if (node.leadingComment && Comments.isImportAnnotated(node.leadingComment)) {
-                imports = extractImports(node.leadingComment.value);
+                imports = Comments.getImports(node.leadingComment);
             }
 
             /* If a block has updateFirst and/or updateLast property,
@@ -556,6 +545,6 @@ var pre_analyse = function (ast, toGenerate) {
 
 
 exports.pre_analyse = pre_analyse;
-exports.asyncs = ["https", "dns", "fs", "proxy"];
+exports.asyncs = ["https","http", "dns", "fs", "proxy"];
 global.pre_analyse = pre_analyse;
 global.asyncs = ["https", "dns", "fs", "proxy"];

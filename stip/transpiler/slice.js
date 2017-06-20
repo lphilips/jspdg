@@ -50,7 +50,8 @@ var addSetUp = function (option, transpiled) {
             }
 
     }
-    if (option.asynccomm === 'callbacks' && option.target === 'node.js') {
+    if (option.asynccomm === 'callbacks' &&
+        (option.target === 'node.js' || option.target === 'redstone')) {
         var handlers = [],
             proxies = [],
             totalRpcCount = 0,

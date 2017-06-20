@@ -204,6 +204,9 @@ PDG.prototype.distribute = function (strategy) {
           else if (placement == DNODES.SERVER) {
               fnode.tier = DNODES.SERVER;
           }
+          else if (placement == DNODES.SHARED) {
+              fnode.tier = DNODES.SHARED;
+          }
       }
   });
   return strategy.addPlacementTags(self);

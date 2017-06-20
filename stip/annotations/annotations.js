@@ -75,6 +75,16 @@ var isImportAnnotated = function (comment) {
     return comment.value.indexOf(import_annotation) != -1;
 }
 
+function getImports (comment) {
+    var index = comment.value.indexOf(import_annotation);
+    var sliced = comment.value.slice(index + import_annotation.length).trim();
+    var end = sliced.indexOf('@') > -1 ? sliced.indexOf('@') : sliced.length;
+    var imports = sliced.slice(0, end).split(/,/);
+    return imports.map(function (imp) {
+        return imp.trim();
+    })
+}
+
 var isRemoteFunctionAnnotated = function (node) {
     return node.leadingComment &&
         node.leadingComment.value.indexOf(remotefunction_annotation) != -1;
@@ -161,7 +171,6 @@ var isCopyAnnotated = function (comment) {
 
 var getTierName = function (comment) {
     var annotation = placement_annotation + " ";
-    var length = annotation.length;
     var idx = comment.value.indexOf(annotation);
     var tier = comment.value.slice(idx + placement_annotation.length);
     tier = tier.replace(/\s+/g, '');
@@ -184,6 +193,9 @@ var getFunctionalityName = function (comment) {
     else {
         tag = comment.value.slice(idxC + component_annotation.length);
     }
+    if (tag.indexOf(' @')> -1) {
+        tag = tag.slice(0, tag.indexOf(' @'));
+    }
     tag = tag.replace(/\s+/g, '');
     return tag;
 };
@@ -195,7 +207,8 @@ var isConfigAnnotated = function (comment) {
 var getConfigPlacements = function (comment) {
     var index = comment.value.indexOf(config_annotation);
     var sliced = comment.value.slice(index + config_annotation.length).trim();
-    var placements = sliced.slice(0, sliced.indexOf("@")).split(/,/);
+    var end = sliced.indexOf('@') > -1 ? sliced.indexOf('@') : sliced.length;
+    var placements = sliced.slice(0, end).split(/,/);
     var config = {};
     placements.forEach(function (placement) {
         var nametier = placement.split(/:/).map(function (s) {
@@ -447,6 +460,7 @@ toreturn.isCopyAnnotated = isCopyAnnotated;
 toreturn.isReplicatedAnnotated = isReplicatedAnnotated;
 toreturn.isTierOnlyAnnotated = isTierOnlyAnnotated;
 toreturn.isImportAnnotated = isImportAnnotated;
+toreturn.getImports = getImports;
 toreturn.configHasClient = configHasClient;
 toreturn.configHasServer = configHasServer;
 toreturn.configGetPlacements = getPlacements;

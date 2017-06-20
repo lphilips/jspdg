@@ -976,7 +976,7 @@ PDG_Node.prototype.getTier = function () {
 var DNODES = {
     CLIENT: "client",
     SERVER: "server",
-    SHARED: "shared"
+    SHARED: "both"
 }
 
 var ARITY = {

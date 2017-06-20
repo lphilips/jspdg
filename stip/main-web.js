@@ -69,11 +69,18 @@ function split(src, editor) {
         var serverprogram;
         editor.setValue("");
         splitResult = Stip.tierSplit(src, true);
-        clientprogram = splitResult.clientprogram;
-        serverprogram = splitResult.serverprogram;
-        printCode([clientprogram, serverprogram], editor);
-        global.cy = createComponentGraph(splitResult.graphs.PDG);
-        createOfflineReport();
+        if (splitResult.errors.length > 0) {
+            splitResult.errors.forEach(function (err) {
+                editor.setValue(err.name + " : " + err.message)
+            })
+        }
+        else {
+            clientprogram = splitResult.clientprogram;
+            serverprogram = splitResult.serverprogram;
+            printCode([clientprogram, serverprogram], editor);
+            global.cy = createComponentGraph(splitResult.graphs.PDG);
+            createOfflineReport();
+        }
     } catch (err) {
         console.log(err.stack);
     }
